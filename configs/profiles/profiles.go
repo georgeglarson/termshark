@@ -6,7 +6,6 @@ package profiles
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -259,13 +258,22 @@ func AllNonDefaultNames() []string {
 		return matches
 	}
 
-	files, err := ioutil.ReadDir(profPath)
+	entries, err := os.ReadDir(profPath)
 	if err == nil {
-		for _, file := range files {
-			if file.Name() != "default" {
-				if _, err := os.Stat(filepath.Join(profPath, file.Name(), "termshark.toml")); err == nil {
-					matches = append(matches, file.Name())
-				}
+		for _, entry := range entries {
+			if entry.Name() == "default" {
+				continue
+			}
+			// Skip symlinks to prevent symlink-based attacks
+			if entry.Type()&os.ModeSymlink != 0 {
+				continue
+			}
+			// Only consider directories
+			if !entry.IsDir() {
+				continue
+			}
+			if _, err := os.Stat(filepath.Join(profPath, entry.Name(), "termshark.toml")); err == nil {
+				matches = append(matches, entry.Name())
 			}
 		}
 	}
@@ -279,6 +287,16 @@ func Delete(name string) error {
 		return err
 	}
 	dir = filepath.Join(dir, name)
+
+	// Use Lstat to check the entry without following symlinks
+	fi, err := os.Lstat(dir)
+	if err != nil {
+		return fmt.Errorf("Profile dir %s not found: %v", dir, err)
+	}
+	// Refuse to delete symlinks to prevent symlink-based attacks
+	if fi.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("Refusing to delete symlink at %s", dir)
+	}
 
 	err = os.RemoveAll(dir)
 	if err != nil {
