@@ -16,7 +16,7 @@
 | Code Complexity | PARTIAL | 1260-line cmain(), 80+ UI globals | ~145 lines extracted |
 | Modernization | COMPLETE | strings.Replace, error wrapping, slices pkg, sort -> slices, go vet clean | All |
 | Bug Fixes | COMPLETE | iota misuse (8 files), WriteGob error handling, redundant code | All |
-| Test Coverage | Pending | ~30% coverage, 0% for UI | 0 |
+| Test Coverage | IN PROGRESS | ~30% coverage, 0% for UI | 2 files added |
 | Type Safety | Pending | interface{} callbacks | 0 |
 
 **Overall Assessment:** Significant modernization and bug fixes completed; testing and type safety remain
@@ -128,13 +128,13 @@ Note: `pkg/errors` remains as an indirect dependency via `gowid`.
 | `widgets/hexdumper` | **20.5%** | 2 | ~600 | Medium |
 | `pkg/format` | **20.0%** | 1 | ~100 | Low |
 | `pkg/streams` | **19.0%** | 4 | ~1200 | Medium |
-| `utils.go` (termshark/v2) | **13.5%** | 10 | ~1300 | High |
+| `utils.go` (termshark/v2) | **15.7%** | 13 | ~1300 | High |
 | `pkg/fields` | **13.3%** | 1 | ~200 | Low |
 | `pkg/shark` | **7.8%** | 1 | ~400 | Medium |
 | `pkg/pdmltree` | **7.4%** | 1 | ~200 | Low |
 | `ui/` | **0.7%** | 1 | ~4400 | Critical |
 | `pkg/pcap` | **0%** | 4* | ~2400 | Critical |
-| `configs/profiles` | **0%** | 0 | ~350 | High |
+| `configs/profiles` | **25.7%** | 1 | ~350 | Medium |
 | `cmd/termshark` | **0%** | 0 | ~1400 | High |
 
 *Note: `pkg/pcap` tests require `-tags tshark` build flag (integration tests)
@@ -244,7 +244,7 @@ var packetListViewHolder *holder.Widget
 
 | Feature | Current Pattern | Modern Pattern | Status |
 |---------|-----------------|----------------|--------|
-| Range over integers | `for i := 0; i < len(s); i++` | `for i := range len(s)` | PARTIAL |
+| Range over integers | `for i := 0; i < len(s); i++` | `for i := range len(s)` | DONE |
 | Error wrapping | `pkg/errors.WithStack()` | `fmt.Errorf("%w", err)` | DONE |
 | strings.Replace | `strings.Replace(s, o, n, -1)` | `strings.ReplaceAll(s, o, n)` | DONE |
 | slices.Contains | Custom `StringInSlice()` | `slices.Contains()` | DONE |
@@ -381,3 +381,51 @@ type HandlerList[T any] []T
 | Long Functions (>500 LOC) | 7 | 0 |
 | Package Globals (UI) | 80+ | <20 |
 | golangci-lint Config | Added | Passing |
+
+---
+
+## Latest Session Updates (2026-01-28)
+
+### Resource Leak Fixes
+- **pkg/shark/wiresharkcfg/cfg.go**: Fixed file never being closed after `os.Open()`
+- **widgets/wormhole/wormhole.go**: Fixed file leak in `Close()` method
+
+### Error Handling
+- **utils.go**: Replaced string comparison `err.Error() == "os: process already finished"` with proper `errors.Is(err, os.ErrProcessDone)`
+
+### Loop Modernization (Go 1.22+)
+Converted `for i := 0; i < len(x); i++` to `for i := range len(x)` in:
+- pkg/pdmltree/pdmltree.go
+- pkg/format/printable.go
+- pkg/fields/fields.go
+- pkg/pcap/loader_tshark_test.go
+- ui/dialog.go, ui/psmlcolsmodel.go, ui/ui.go
+- widgets/hexdumper2/hexdumper2.go
+- widgets/streamwidget/streamwidget.go
+- widgets/withscrollbar/withscrollbar_test.go
+- utils.go
+
+### Standard Library Migration
+- **StringInSlice removal**: Replaced all usages of custom `StringInSlice()` with `slices.Contains()` in:
+  - cmd/termshark/termshark.go
+  - ui/convsui.go, ui/lastline.go, ui/newprofile.go
+- Removed the deprecated function from utils.go
+
+### Test Improvements
+- Added `configs/profiles/profiles_test.go` with tests for:
+  - `ConfStringFrom`, `ConfKeyExistsIn`, `ConfInt`, `ConfBool`
+  - `ConfStringSliceFrom`, `SetConfIn`
+- Extended `utils_test.go` with:
+  - `TestReverseStringSlice`, `TestIsCommandInPath`
+  - `TestTSharkVersionFromOutputInvalid`
+- Coverage improvements: configs/profiles 0% → 25.7%, utils 13.5% → 15.7%
+
+### Additional Commits
+| Commit | Description |
+|--------|-------------|
+| `7f4cc47` | Fix file resource leaks |
+| `030f45b` | Add tests for configs/profiles and extend utils tests |
+| `fe879f7` | Use errors.Is with os.ErrProcessDone instead of string comparison |
+| `ea3fc4d` | Use Go 1.22 range-over-int syntax for index loops |
+| `03d3702` | Continue converting loops to Go 1.22 range-over-int syntax |
+| `b4212fc` | Replace deprecated StringInSlice with slices.Contains |
