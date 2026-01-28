@@ -96,6 +96,15 @@ func GetStartUIChan() chan struct{} {
 	return StartUIChan // fallback to old global during transition
 }
 
+// SetStartUIChan sets the start UI channel (used for nil assignment after triggering).
+// Deprecated: Access UI.Channels.StartUIChan directly when migration is complete.
+func SetStartUIChan(ch chan struct{}) {
+	if UI != nil && UI.Channels != nil {
+		UI.Channels.StartUIChan = ch
+	}
+	StartUIChan = ch // keep old global in sync during transition
+}
+
 // GetFilterWidget returns the filter widget.
 // Deprecated: Access UI.Filter.FilterWidget directly when migration is complete.
 func GetFilterWidget() *filter.Widget {

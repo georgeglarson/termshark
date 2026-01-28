@@ -283,7 +283,7 @@ func cmain() int {
 		state.waitingForPackets = true
 	} else {
 		// Start UI right away, reading from a file
-		close(ui.StartUIChan)
+		close(ui.GetStartUIChan())
 	}
 
 	// Configure base16 color handling before creating the tcell screen
@@ -445,7 +445,7 @@ Loop:
 
 		// On change of state - check for new pdml requests
 		if ui.GetLoader().PdmlLoader.IsLoading() != state.wasLoadingPdmlLastTime {
-			ui.CacheRequestsChan <- struct{}{}
+			ui.GetCacheRequestsChan() <- struct{}{}
 		}
 
 		// This should really be moved to a handler...
@@ -584,7 +584,7 @@ Loop:
 			ui.Fin.Advance()
 			state.app.Redraw()
 
-		case <-ui.StartUIChan:
+		case <-ui.GetStartUIChan():
 			log.Infof("Launching termshark UI")
 
 			// Go to termshark UI view
@@ -612,7 +612,7 @@ Loop:
 			ui.SetRunning(true)
 			state.startedSuccessfully = true
 
-			ui.StartUIChan = nil // make sure it's not triggered again
+			ui.SetStartUIChan(nil) // make sure it's not triggered again
 
 			if runtime.GOOS != "windows" {
 				if state.app.GetColorMode() == gowid.Mode8Colors {
@@ -729,7 +729,7 @@ Loop:
 				ui.RequestQuit()
 			}
 
-		case <-ui.CacheRequestsChan:
+		case <-ui.GetCacheRequestsChan():
 			ui.CacheRequests = pcap.ProcessPdmlRequests(ui.CacheRequests,
 				ui.GetLoader().ParentLoader, ui.GetLoader().PdmlLoader, ui.SetStructWidgets{Ld: ui.GetLoader()}, state.app)
 
