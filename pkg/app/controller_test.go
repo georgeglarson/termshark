@@ -259,6 +259,19 @@ func TestController_DeleteMark(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestController_DeleteMark_InvalidChar(t *testing.T) {
+	c := NewController()
+
+	var errors []ErrorEvent
+	c.SetOnError(func(e ErrorEvent) {
+		errors = append(errors, e)
+	})
+
+	err := c.DeleteMark('!')
+	assert.Error(t, err)
+	assert.Len(t, errors, 1)
+}
+
 func TestController_AutoScroll(t *testing.T) {
 	c := NewController()
 

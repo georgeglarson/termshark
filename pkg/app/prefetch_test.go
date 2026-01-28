@@ -164,6 +164,8 @@ func TestBatchIndexForRow(t *testing.T) {
 		{2000, 1000, 2},
 		{5, 10, 0},
 		{15, 10, 1},
+		{100, 0, 0},  // pktsPerLoad=0 edge case
+		{100, -1, 0}, // pktsPerLoad<0 edge case
 	}
 
 	for _, tt := range tests {
@@ -183,6 +185,8 @@ func TestPositionInBatch(t *testing.T) {
 		{999, 1000, 999},
 		{1000, 1000, 0},
 		{1500, 1000, 500},
+		{100, 0, 0},  // pktsPerLoad=0 edge case
+		{100, -1, 0}, // pktsPerLoad<0 edge case
 	}
 
 	for _, tt := range tests {
