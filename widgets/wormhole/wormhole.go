@@ -297,6 +297,10 @@ func (w *Widget) Close() error {
 	defer w.progLock.Unlock()
 	w.cancelled = true
 	w.cancel()
+	if w.file != nil {
+		w.file.Close()
+		w.file = nil
+	}
 	return nil
 }
 
