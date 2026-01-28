@@ -92,12 +92,12 @@ Note: `pkg/errors` remains as an indirect dependency via `gowid`.
 
 **Remaining work:**
 - Add context awareness to long-running goroutines
-- Remove package-level Goroutinewg variables (once all packages migrated)
 - Consider deprecating `TrackedGo()` function
 
 **Commits:**
 - `f4cceb5` - Add lifecycle package for centralized goroutine management
-- (pending) - Migrate TrackedGo calls to termshark.Go()
+- `e028f99` - Migrate TrackedGo calls to termshark.Go()
+- (pending) - Remove unused Goroutinewg package variables
 
 ---
 
@@ -219,8 +219,8 @@ type HandlerList[T any] []T
 8. ~~Refactor goroutine lifecycle to use context/errgroup~~ MOSTLY COMPLETE
    - ~~Create lifecycle.Tracker~~ DONE
    - ~~Migrate all TrackedGo() calls to termshark.Go()~~ DONE
+   - ~~Remove package-level Goroutinewg variables~~ DONE
    - Add context awareness to long-running goroutines (pending)
-   - Remove package-level Goroutinewg variables (pending)
 9. Extract `cmain()` into smaller functions
 10. Create `AppState` struct for UI globals
 
