@@ -226,7 +226,7 @@ func TestHandleUnpack_WithUnpackable(t *testing.T) {
 	list := HandlerList{h1}
 	called := false
 
-	result := HandleUnpack(PsmlCode, list, func(code HandlerCode, app gowid.IApp, cb interface{}) bool {
+	result := HandleUnpack(PsmlCode, list, func(code HandlerCode, app gowid.IApp, cb any) bool {
 		called = true
 		return true
 	}, nil)
@@ -239,7 +239,7 @@ func TestHandleUnpack_WithNonUnpackable(t *testing.T) {
 	handler := &mockBeforeBegin{}
 	called := false
 
-	result := HandleUnpack(PsmlCode, handler, func(code HandlerCode, app gowid.IApp, cb interface{}) bool {
+	result := HandleUnpack(PsmlCode, handler, func(code HandlerCode, app gowid.IApp, cb any) bool {
 		called = true
 		return true
 	}, nil)

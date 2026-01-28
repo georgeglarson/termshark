@@ -121,7 +121,7 @@ type IPcapCommand interface {
 type ILoaderCmds interface {
 	Iface(ifaces []string, captureFilter string, tmpfile string) IBasicCommand
 	Tail(tmpfile string) ITailCommand
-	Psml(pcap interface{}, displayFilter string) IPcapCommand
+	Psml(pcap any, displayFilter string) IPcapCommand // pcap can be string (file) or IPacketSource (fifo)
 	Pcap(pcap string, displayFilter string) IPcapCommand
 	Pdml(pcap string, displayFilter string) IPcapCommand
 }
@@ -188,7 +188,7 @@ type InterfaceLoader struct {
 type PsmlLoader struct {
 	state LoaderState // which pieces are currently loading
 
-	PcapPsml interface{} // Pcap file source for the psml reader - fifo if iface+!stopped; tmpfile if iface+stopped; pcap otherwise
+	PcapPsml any // Pcap file source for the psml reader - fifo if iface+!stopped; tmpfile if iface+stopped; pcap otherwise
 
 	psmlStoppedDeliberately_ bool // true if loader is in a transient state due to a user operation e.g. stop, reload, etc
 
@@ -433,7 +433,7 @@ func (c *ParentLoader) CloseMain() {
 	}
 }
 
-func (c *ParentLoader) StopLoadPsmlAndIface(cb interface{}) {
+func (c *ParentLoader) StopLoadPsmlAndIface(cb Callback) {
 	log.Infof("Requested stop psml + iface")
 
 	c.psmlStoppedDeliberately_ = true
@@ -446,7 +446,7 @@ func (c *ParentLoader) StopLoadPsmlAndIface(cb interface{}) {
 
 //======================================================================
 
-func (c *PacketLoader) Reload(filter string, cb interface{}, app gowid.IApp) {
+func (c *PacketLoader) Reload(filter string, cb Callback, app gowid.IApp) {
 	c.stopTail()
 	c.stopLoadPsml()
 	c.stopLoadPdml()
@@ -469,7 +469,7 @@ func (c *PacketLoader) Reload(filter string, cb interface{}, app gowid.IApp) {
 	})
 }
 
-func (c *PacketLoader) LoadPcap(pcap string, displayFilter string, cb interface{}, app gowid.IApp) {
+func (c *PacketLoader) LoadPcap(pcap string, displayFilter string, cb Callback, app gowid.IApp) {
 	log.Infof("Requested pcap file load for '%v'", pcap)
 
 	curDisplayFilter := displayFilter
@@ -514,7 +514,7 @@ func (c *PacketLoader) LoadPcap(pcap string, displayFilter string, cb interface{
 // the loader is currently reading from a file, the loading *stops*.
 
 // Intended to restart iface loader - since a clear will discard all data up to here.
-func (c *PacketLoader) ClearPcap(cb interface{}) {
+func (c *PacketLoader) ClearPcap(cb Callback) {
 	startIfaceAgain := false
 
 	if c.InterfaceLoader != nil {
@@ -567,13 +567,13 @@ func (c *PacketLoader) ClearPcap(cb interface{}) {
 // Always called from app goroutine context - so don't need to protect for race on cancelfn
 // Assumes gstate is ready
 // iface can be a number, or a fifo, or a pipe...
-func (c *PacketLoader) LoadInterfaces(psrcs []IPacketSource, captureFilter string, displayFilter string, tmpfile string, cb interface{}, app gowid.IApp) error {
+func (c *PacketLoader) LoadInterfaces(psrcs []IPacketSource, captureFilter string, displayFilter string, tmpfile string, cb Callback, app gowid.IApp) error {
 	c.RenewIfaceLoader()
 
 	return c.loadInterfaces(psrcs, captureFilter, displayFilter, tmpfile, cb, app)
 }
 
-func (c *ParentLoader) loadPsmlForInterfaces(psrcs []IPacketSource, captureFilter string, displayFilter string, tmpfile string, cb interface{}, app gowid.IApp) error {
+func (c *ParentLoader) loadPsmlForInterfaces(psrcs []IPacketSource, captureFilter string, displayFilter string, tmpfile string, cb Callback, app gowid.IApp) error {
 	// It's a temporary unique file, and no processes are started yet, so either
 	// (a) it doesn't exist, OR
 	// (b) it does exist in which case this load is a result of a restart.
@@ -603,7 +603,7 @@ func (c *ParentLoader) loadPsmlForInterfaces(psrcs []IPacketSource, captureFilte
 }
 
 // intended for internal use
-func (c *ParentLoader) loadInterfaces(psrcs []IPacketSource, captureFilter string, displayFilter string, tmpfile string, cb interface{}, app gowid.IApp) error {
+func (c *ParentLoader) loadInterfaces(psrcs []IPacketSource, captureFilter string, displayFilter string, tmpfile string, cb Callback, app gowid.IApp) error {
 
 	if err := c.loadPsmlForInterfaces(psrcs, captureFilter, displayFilter, tmpfile, cb, app); err != nil {
 		return err
@@ -692,7 +692,7 @@ type tailReadTracker struct {
 	tailReader io.Reader
 	loader     *InterfaceLoader
 	tail       iTailCommand
-	callback   interface{}
+	callback   Callback
 	app        gowid.IApp
 }
 
@@ -744,7 +744,7 @@ type iPdmlLoaderEnv interface {
 	DoWithPsmlData(func([][]string))
 }
 
-func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb interface{}, app gowid.IApp) {
+func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb Callback, app gowid.IApp) {
 
 	// Used to cancel the tickers below which update list widgets with the latest data and
 	// update the progress meter. Note that if ctx is cancelled, then this context is cancelled
@@ -1409,7 +1409,7 @@ OuterLoop:
 //
 // Goroutines are started to track the process lifetimes of both processes.
 //
-func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb interface{}, app gowid.IApp) {
+func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb Callback, app gowid.IApp) {
 	// Used to cancel the tickers below which update list widgets with the latest data and
 	// update the progress meter. Note that if ctx is cancelled, then this context is cancelled
 	// too. When the 2/3 data loading processes are done, a goroutine will then run uiCtxCancel()
@@ -2083,7 +2083,7 @@ type iIfaceLoaderEnv interface {
 
 // dumpcap -i eth0 -w /tmp/foo.pcap
 // dumpcap -i /dev/fd/3 -w /tmp/foo.pcap
-func (i *InterfaceLoader) loadIfacesSync(e iIfaceLoaderEnv, cb interface{}, app gowid.IApp) {
+func (i *InterfaceLoader) loadIfacesSync(e iIfaceLoaderEnv, cb Callback, app gowid.IApp) {
 	i.totalFifoBytesWritten = gwutil.NoneInt64()
 
 	i.ifaceCtx, i.ifaceCancelFn = context.WithCancel(e.Context())
@@ -2240,7 +2240,7 @@ func (i *InterfaceLoader) loadIfacesSync(e iIfaceLoaderEnv, cb interface{}, app 
 // missed. In that case, the tail process is killed and its stdout closed,
 // which will trigger the psml reading process to shut down, and termshark
 // will turn off its loading UI.
-func (i *InterfaceLoader) checkAllBytesRead(e iTailCommand, cb interface{}, app gowid.IApp) {
+func (i *InterfaceLoader) checkAllBytesRead(e iTailCommand, cb Callback, app gowid.IApp) {
 	cancel := false
 	if !i.totalFifoBytesWritten.IsNone() && !i.totalFifoBytesRead.IsNone() {
 		if i.totalFifoBytesRead.Val() == i.totalFifoBytesWritten.Val() {
@@ -2309,7 +2309,7 @@ func (m LoadPcapSlice) String() string {
 //======================================================================
 
 func ProcessPdmlRequests(requests []LoadPcapSlice, mloader *ParentLoader,
-	loader *PdmlLoader, cb interface{}, app gowid.IApp) []LoadPcapSlice {
+	loader *PdmlLoader, cb Callback, app gowid.IApp) []LoadPcapSlice {
 Loop:
 	for {
 		if len(requests) == 0 {

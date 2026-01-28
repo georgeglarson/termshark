@@ -22,6 +22,7 @@ const (
 )
 
 // Handler interfaces - callbacks can implement any combination of these.
+// See the Callback type alias for documentation.
 
 type IClear interface {
 	OnClear(code HandlerCode, app gowid.IApp)
@@ -46,6 +47,21 @@ type IAfterEnd interface {
 type IPsmlHeader interface {
 	OnPsmlHeader(code HandlerCode, app gowid.IApp)
 }
+
+// Callback is the type for handler callbacks throughout the pcap package.
+// A callback can implement any combination of the following interfaces:
+//   - IClear: called when the pcap data is cleared
+//   - INewSource: called when a new packet source is loaded
+//   - IOnError: called when an error occurs during loading
+//   - IBeforeBegin: called before a loading operation begins
+//   - IAfterEnd: called after a loading operation ends
+//   - IPsmlHeader: called when PSML headers are available
+//   - IUnpack: allows a callback to contain multiple handlers
+//
+// At runtime, the callback is checked for each interface it implements,
+// and the corresponding methods are called. This allows flexible composition
+// of handlers without requiring a single composite interface.
+type Callback = any
 
 // IUnpack allows a callback to contain multiple handlers.
 type IUnpack interface {

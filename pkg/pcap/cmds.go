@@ -165,7 +165,7 @@ func (c Commands) Tail(tmpfile string) ITailCommand {
 	return &Command{Cmd: exec.Command(args[0], args[1:]...)}
 }
 
-func (c Commands) Psml(pcap interface{}, displayFilter string) IPcapCommand {
+func (c Commands) Psml(pcap any, displayFilter string) IPcapCommand {
 	fifo := true
 	switch pcap.(type) {
 	case string:

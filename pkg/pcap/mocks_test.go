@@ -191,7 +191,7 @@ type MockLoaderCmds struct {
 }
 
 type mockPsmlCall struct {
-	Pcap          interface{}
+	Pcap          any
 	DisplayFilter string
 }
 
@@ -255,7 +255,7 @@ func (m *MockLoaderCmds) Tail(tmpfile string) ITailCommand {
 	return cmd
 }
 
-func (m *MockLoaderCmds) Psml(pcap interface{}, displayFilter string) IPcapCommand {
+func (m *MockLoaderCmds) Psml(pcap any, displayFilter string) IPcapCommand {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.PsmlCalls = append(m.PsmlCalls, mockPsmlCall{

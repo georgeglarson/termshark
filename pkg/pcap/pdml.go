@@ -98,7 +98,7 @@ func SnappyPdmlPacket(p PdmlPacket) IPdmlPacket {
 
 // SnappyMe compresses the object within interface p to the
 // writer w.
-func SnappyMe(p interface{}, w io.Writer) {
+func SnappyMe(p any, w io.Writer) {
 	gwriter := snappystream.NewBufferedWriter(w)
 	encoder := gob.NewEncoder(gwriter)
 	if err := encoder.Encode(p); err != nil {
@@ -110,7 +110,7 @@ func SnappyMe(p interface{}, w io.Writer) {
 // UnsnappyMe decompresses from reader r into res. Afterwards,
 // res will be an interface whose type is a pointer to whatever
 // was serialized in the first place.
-func UnsnappyMe(res interface{}, r io.Reader) {
+func UnsnappyMe(res any, r io.Reader) {
 	greader := snappystream.NewReader(r, false)
 	decoder := gob.NewDecoder(greader)
 	if err := decoder.Decode(res); err != nil {
