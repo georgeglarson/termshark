@@ -124,7 +124,7 @@ Loop:
 		}
 
 		if packetIndex >= len(Loader.PsmlData()) {
-			panic(nil)
+			panic(fmt.Sprintf("packet index %d out of range (len=%d)", packetIndex, len(Loader.PsmlData())))
 		}
 		Loader.PsmlLoader.Unlock()
 

@@ -256,7 +256,7 @@ func (f *fakeIfaceCmd) Signal(s os.Signal) error {
 }
 
 func (f *fakeIfaceCmd) StdoutPipe() (io.ReadCloser, error) {
-	panic(nil)
+	panic("StdoutPipe not implemented in fakeIfaceCmd")
 }
 
 func (f *fakeIfaceCmd) Stdout() io.Writer {

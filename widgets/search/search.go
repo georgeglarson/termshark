@@ -131,14 +131,14 @@ func hexToByte(b byte) int {
 	case r >= '0' && r <= '9':
 		return int(r - '0')
 	default:
-		panic(nil)
+		panic(fmt.Sprintf("invalid hex character: %c", b))
 	}
 }
 
 func hexTermToBytes(s string) []byte {
 	res := make([]byte, 0, 16)
 	if (len(s)/2)*2 != len(s) {
-		panic(nil)
+		panic(fmt.Sprintf("hex string has odd length: %d", len(s)))
 	}
 	for i := 0; i < len(s); i += 2 {
 		res = append(res, byte(hexToByte(s[i])<<4+hexToByte(s[i+1])))
@@ -327,7 +327,7 @@ func getValidator() filter.IValidator {
 	case "regex":
 		validator = &RegexSearchValidator{}
 	default:
-		panic(nil)
+		panic(fmt.Sprintf("unknown search type: %s", s2))
 	}
 	return validator
 }
@@ -528,7 +528,7 @@ func (w *Widget) invokeSearch(app gowid.IApp) {
 			return
 		}
 	default:
-		panic(nil)
+		panic(fmt.Sprintf("unknown validator type: %T", w.validator))
 	}
 
 	w.findBtn.Disable()
@@ -747,7 +747,7 @@ func (w *Widget) updateSearchTargetFromConf(app gowid.IApp) {
 	case "filter":
 		w.currentAlg = w.filtAlg
 	default:
-		panic(nil)
+		panic(fmt.Sprintf("unknown search type: %s", sAlg))
 	}
 }
 

@@ -60,7 +60,7 @@ func (p Protocol) String() string {
 	case UDP:
 		return "UDP"
 	default:
-		panic(nil)
+		panic(fmt.Sprintf("unknown Protocol value: %d", p))
 	}
 }
 
