@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/gcla/gowid"
@@ -835,11 +836,11 @@ func (w *ConvsUiWidget) OnData(data string, app gowid.IApp) {
 			datas = make([][]string, 0)
 			cur = next
 
-			ports = termshark.StringInSlice(cur, []string{"UDP", "TCP"})
+			ports = slices.Contains([]string{"UDP", "TCP"}, cur)
 			ipv6 := (cur == "IPv6")
 
 			var addrComp table.ICompare = termshark.IPCompare{}
-			if termshark.StringInSlice(cur, []string{"Ethernet"}) {
+			if slices.Contains([]string{"Ethernet"}, cur) {
 				addrComp = termshark.MACCompare{}
 			}
 

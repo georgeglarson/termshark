@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -212,7 +213,7 @@ func cmain() int {
 
 		args := []string{}
 		for _, arg := range os.Args[1:] {
-			if !termshark.StringInSlice(arg, cli.TermsharkOnly) && !termshark.StringIsArgPrefixOf(arg, cli.TermsharkOnly) {
+			if !slices.Contains(cli.TermsharkOnly, arg) && !termshark.StringIsArgPrefixOf(arg, cli.TermsharkOnly) {
 				args = append(args, arg)
 			}
 		}
@@ -1254,7 +1255,7 @@ func validateTsharkBinary() (string, error) {
 
 	valids := profiles.ConfStrings("main.validated-tsharks")
 
-	if !termshark.StringInSlice(tsharkBin, valids) {
+	if !slices.Contains(valids, tsharkBin) {
 		tver, err := termshark.TSharkVersion(tsharkBin)
 		if err != nil {
 			return "", fmt.Errorf("could not determine tshark version: %w", err)
@@ -1285,7 +1286,7 @@ func validateTsharkBinary() (string, error) {
 func checkTsharkColorSupport(tsharkBin string) bool {
 	colorTsharks := profiles.ConfStrings("main.color-tsharks")
 
-	if termshark.StringInSlice(tsharkBin, colorTsharks) {
+	if slices.Contains(colorTsharks, tsharkBin) {
 		return true
 	}
 

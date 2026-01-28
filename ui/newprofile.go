@@ -6,6 +6,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/flytam/filenamify"
 	"github.com/gcla/gowid"
@@ -39,7 +40,7 @@ func validProfileName(name string) error {
 		return fmt.Errorf("No profile name provided.")
 	}
 
-	if termshark.StringInSlice(name, profiles.AllNames()) {
+	if slices.Contains(profiles.AllNames(), name) {
 		return fmt.Errorf("Profile %s already exists.", name)
 	}
 

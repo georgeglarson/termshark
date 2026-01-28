@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -298,7 +299,7 @@ func (s themeArg) Completions() []string {
 
 					if strings.HasSuffix(file.Name(), suff) {
 						m := strings.TrimSuffix(file.Name(), suff)
-						if !termshark.StringInSlice(m, matches) {
+						if !slices.Contains(matches, m) {
 							if strings.Contains(m, s.substr) {
 								matches = append(matches, m)
 							}
@@ -650,7 +651,7 @@ func (d profileCommand) Run(app gowid.IApp, args ...string) error {
 	case 3:
 		switch args[1] {
 		case "use":
-			if !termshark.StringInSlice(args[2], append(d.termsharkProfiles, "default")) {
+			if !slices.Contains(append(d.termsharkProfiles, "default"), args[2]) {
 				err = fmt.Errorf("%s is not a valid termshark profile", args[2])
 				break
 			}
@@ -665,7 +666,7 @@ func (d profileCommand) Run(app gowid.IApp, args ...string) error {
 			}
 		case "link":
 			// gcla later todo - need to validate it is in list!
-			if !termshark.StringInSlice(args[2], d.wiresharkProfiles) {
+			if !slices.Contains(d.wiresharkProfiles, args[2]) {
 				err = fmt.Errorf("%s is not a valid Wireshark profile", args[2])
 				break
 			}
@@ -675,7 +676,7 @@ func (d profileCommand) Run(app gowid.IApp, args ...string) error {
 				RequestReload(app)
 			}
 		case "delete":
-			if !termshark.StringInSlice(args[2], d.termsharkProfiles) {
+			if !slices.Contains(d.termsharkProfiles, args[2]) {
 				err = fmt.Errorf("%s is not a valid termshark profile", args[2])
 				break
 			}

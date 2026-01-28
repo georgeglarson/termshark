@@ -507,12 +507,6 @@ func WriteGob(filePath string, object interface{}) error {
 	return gzipper.Close()
 }
 
-// StringInSlice checks if a string exists in a slice.
-// Deprecated: Use slices.Contains directly instead.
-func StringInSlice(a string, list []string) bool {
-	return slices.Contains(list, a)
-}
-
 // Must succeed - use on internal templates
 func TemplateToString(tmpl *template.Template, name string, data interface{}) string {
 	var res bytes.Buffer
