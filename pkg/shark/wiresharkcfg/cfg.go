@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/shibukawa/configdir"
 )
 
@@ -27,12 +26,15 @@ type Config struct {
 func NewDefault() (*Config, error) {
 	// See https://www.wireshark.org/docs/wsug_html_chunked/ChAppFilesConfigurationSection.html
 	// Wireshark had a ~/.wireshark directory before adopting XDG
+	var cpath string
 	tryXDG := true
-	cpath, err := homedir.Expand("~/.wireshark/preferences")
+	home, err := os.UserHomeDir()
 	if err == nil {
-		_, err = os.Stat(cpath)
+		oldPath := filepath.Join(home, ".wireshark", "preferences")
+		_, err = os.Stat(oldPath)
 		if err == nil {
 			tryXDG = false
+			cpath = oldPath
 		}
 	}
 	if tryXDG {

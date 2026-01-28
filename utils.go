@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"text/template"
 	"time"
@@ -47,7 +48,6 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/shibukawa/configdir"
 	log "github.com/sirupsen/logrus"
-	"github.com/tevino/abool"
 )
 
 //======================================================================
@@ -980,11 +980,7 @@ func PrunePcapCache() error {
 
 //======================================================================
 
-var cpuProfileRunning *abool.AtomicBool
-
-func init() {
-	cpuProfileRunning = abool.New()
-}
+var cpuProfileRunning atomic.Bool
 
 // Down to the second for profiling, etc
 func DateStringForFilename() string {
@@ -992,7 +988,7 @@ func DateStringForFilename() string {
 }
 
 func ProfileCPUFor(secs int) bool {
-	if !cpuProfileRunning.SetToIf(false, true) {
+	if !cpuProfileRunning.CompareAndSwap(false, true) {
 		log.Infof("CPU profile already running.")
 		return false
 	}
@@ -1003,7 +999,7 @@ func ProfileCPUFor(secs int) bool {
 		time.Sleep(time.Duration(secs) * time.Second)
 		log.Infof("Stopping CPU profile")
 		gwutil.StopProfilingCPU()
-		cpuProfileRunning.UnSet()
+		cpuProfileRunning.Store(false)
 	}()
 
 	return true

@@ -17,7 +17,6 @@ require (
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/mattn/go-isatty v0.0.20
-	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mreiferson/go-snappystream v0.2.3
 	github.com/psanford/wormhole-william v1.0.6-0.20210402190004-049df45b8d5a
 	github.com/rakyll/statik v0.1.7
@@ -25,7 +24,6 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0
-	github.com/tevino/abool v1.2.0
 	gitlab.com/jonas.jasas/condchan v0.0.0-20190210165812-36637ad2b5bc
 	golang.org/x/sys v0.28.0
 )
