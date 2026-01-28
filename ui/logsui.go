@@ -75,7 +75,7 @@ func openFileUi(file string, delete bool, opt fileviewer.Options, app gowid.IApp
 				} else {
 					closeFileUi(app)
 				}
-				if delete && false {
+				if delete {
 					err := os.Remove(file)
 					if err != nil {
 						log.Warnf("Problem deleting %s: %v", file, err)
