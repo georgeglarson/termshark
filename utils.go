@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/binary"
 	"encoding/gob"
 	"encoding/json"
@@ -527,7 +528,7 @@ func StringIsArgPrefixOf(a string, list []string) bool {
 }
 
 func RunOnDoubleTicker(ch <-chan struct{}, fn func(), dur1 time.Duration, dur2 time.Duration, loops int) {
-
+	ctx := Context()
 	ticker := time.NewTicker(dur1)
 	counter := 0
 Loop:
@@ -541,6 +542,9 @@ Loop:
 				ticker = time.NewTicker(dur2)
 			}
 		case <-ch:
+			ticker.Stop()
+			break Loop
+		case <-ctx.Done():
 			ticker.Stop()
 			break Loop
 		}
@@ -585,6 +589,26 @@ func Go(fn func()) {
 		// Fallback if tracker not set (shouldn't happen in normal operation)
 		go fn()
 	}
+}
+
+// GoWithContext starts a tracked goroutine and provides the tracker's context.
+// The function should monitor ctx.Done() for shutdown signals.
+func GoWithContext(fn func(ctx context.Context)) {
+	if globalTracker != nil {
+		globalTracker.GoWithContext(fn)
+	} else {
+		// Fallback if tracker not set
+		go fn(context.Background())
+	}
+}
+
+// Context returns the global tracker's context, or a background context if
+// the tracker is not set. Useful for goroutines that need to detect shutdown.
+func Context() context.Context {
+	if globalTracker != nil {
+		return globalTracker.Context()
+	}
+	return context.Background()
 }
 
 type IProcess interface {

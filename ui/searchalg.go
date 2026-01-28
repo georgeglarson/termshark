@@ -6,6 +6,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -76,7 +77,7 @@ func (w *PacketSearcher) SearchPackets(term search.INeedle, cbs search.ICallback
 	// This goroutine exists so that at a regular interval, I can update progress. I want
 	// the main searching goroutine to be doing the computation and not having to cooperate
 	// with a timer interrupt
-	termshark.Go(func() {
+	termshark.GoWithContext(func(ctx context.Context) {
 
 		res := search.Result{}
 
@@ -119,6 +120,9 @@ func (w *PacketSearcher) SearchPackets(term search.INeedle, cbs search.ICallback
 						CacheRequestsChan <- struct{}{}
 					}))
 				}
+
+			case <-ctx.Done():
+				break Loop
 			}
 		}
 	})

@@ -5,12 +5,13 @@
 package confwatcher
 
 import (
+	"context"
 	"os"
 	"sync"
 
 	"github.com/gcla/termshark/v2"
-	log "github.com/sirupsen/logrus"
 	"github.com/fsnotify/fsnotify"
+	log "github.com/sirupsen/logrus"
 )
 
 //======================================================================
@@ -38,7 +39,7 @@ func New() (*ConfigWatcher, error) {
 
 	res.closeWait.Add(1)
 
-	termshark.Go(func() {
+	termshark.GoWithContext(func(ctx context.Context) {
 		defer func() {
 			res.watcher.Close()
 			close(change)
@@ -54,6 +55,10 @@ func New() (*ConfigWatcher, error) {
 				log.Debugf("Error from config watcher: %v", err)
 
 			case <-closech:
+				break Loop
+
+			case <-ctx.Done():
+				// Application is shutting down
 				break Loop
 			}
 		}

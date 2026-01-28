@@ -283,7 +283,7 @@ func New(name string, opt Options) *Widget {
 	validator.SetEmpty(emptycb)
 
 	// Save up filter changes, send latest over when process is ready, discard ones in between
-	termshark.Go(func() {
+	termshark.GoWithContext(func(ctx context.Context) {
 		send := false
 		var latest *filtStruct
 	CL2:
@@ -305,13 +305,15 @@ func New(name string, opt Options) *Widget {
 				// We're ready to run a new one, so kill any process that is in progress. Take care
 				// because it might not have actually started yet!
 				validator.Kill()
+			case <-ctx.Done():
+				break CL2
 			}
 		}
 	})
 
 	// Every time it gets an event, it means run the process. Another goroutine takes care of consolidating
 	// events. Stops when channel is closed
-	termshark.Go(func() {
+	termshark.GoWithContext(func(ctx context.Context) {
 	CL:
 		for {
 			// Tell other goroutine we are ready for more - each time round the loop. This makes sure
@@ -320,6 +322,8 @@ func New(name string, opt Options) *Widget {
 			select {
 			case res.readytorunchan <- struct{}{}:
 			case <-res.quitchan:
+				break CL
+			case <-ctx.Done():
 				break CL
 			}
 
@@ -332,6 +336,8 @@ func New(name string, opt Options) *Widget {
 				killedcb.App = fs.app
 				emptycb.App = fs.app
 				validator.Validate(fs.txt)
+			case <-ctx.Done():
+				break CL
 			}
 		}
 	})

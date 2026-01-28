@@ -6,6 +6,7 @@
 package ui
 
 import (
+	"context"
 	"os"
 	"strings"
 	"time"
@@ -82,7 +83,7 @@ func (t *capinfoParseHandler) BeforeBegin(code pcap.HandlerCode, app gowid.IApp)
 	t.tick = time.NewTicker(time.Duration(200) * time.Millisecond)
 	t.stop = make(chan struct{})
 
-	termshark.Go(func() {
+	termshark.GoWithContext(func(ctx context.Context) {
 	Loop:
 		for {
 			select {
@@ -91,6 +92,8 @@ func (t *capinfoParseHandler) BeforeBegin(code pcap.HandlerCode, app gowid.IApp)
 					pleaseWaitSpinner.Update()
 				}))
 			case <-t.stop:
+				break Loop
+			case <-ctx.Done():
 				break Loop
 			}
 		}

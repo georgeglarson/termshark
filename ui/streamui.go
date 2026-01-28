@@ -6,6 +6,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -257,7 +258,7 @@ func (t *streamParseHandler) BeforeBegin(code pcap.HandlerCode, app gowid.IApp) 
 			10)
 	})
 
-	termshark.Go(func() {
+	termshark.GoWithContext(func(ctx context.Context) {
 	Loop:
 		for {
 			select {
@@ -266,6 +267,8 @@ func (t *streamParseHandler) BeforeBegin(code pcap.HandlerCode, app gowid.IApp) 
 					pleaseWaitSpinner.Update()
 				}))
 			case <-t.stopChunks:
+				break Loop
+			case <-ctx.Done():
 				break Loop
 			}
 		}

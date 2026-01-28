@@ -6,6 +6,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -128,7 +129,7 @@ func IsTerminalLegible(app gowid.IApp) {
 
 	message := holder.New(tw(secs))
 
-	termshark.Go(func() {
+	termshark.GoWithContext(func(ctx context.Context) {
 	Loop:
 		for {
 			select {
@@ -149,6 +150,9 @@ func IsTerminalLegible(app gowid.IApp) {
 					}))
 				}
 			case <-stopC:
+				break Loop
+			case <-ctx.Done():
+				tick.Stop()
 				break Loop
 			}
 		}
