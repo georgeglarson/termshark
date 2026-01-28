@@ -206,6 +206,9 @@ var packetListViewHolder *holder.Widget
 | slices.Equal | `reflect.DeepEqual` for slices | `slices.Equal()` | DONE |
 | sort.Strings | `sort.Strings(s)` | `slices.Sort(s)` | DONE |
 | sort.Slice | `sort.Slice(s, less)` | `slices.SortFunc(s, cmp)` | DONE |
+| slices.Insert | `append(s[:i], append([]T{v}, s[i:]...)...)` | `slices.Insert(s, i, v)` | DONE |
+| slices.Delete | `append(s[:i], s[i+1:]...)` | `slices.Delete(s, i, i+1)` | DONE |
+| clear() | `for k := range m { delete(m, k) }` | `clear(m)` | DONE |
 
 ### 7.2 Generics (Go 1.18+)
 

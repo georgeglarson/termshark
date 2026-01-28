@@ -7,6 +7,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/gcla/gowid"
 	"github.com/gcla/gowid/gwutil"
@@ -306,8 +307,8 @@ func (m *psmlColumnsModel) deleteRow(trow table.RowId, app gowid.IApp) {
 		log.Warnf("Unexpected response when closing filter: %v", err)
 	}
 
-	m.spec = append(m.spec[:row], m.spec[row+1:]...)
-	m.widgets = append(m.widgets[:row], m.widgets[row+1:]...)
+	m.spec = slices.Delete(m.spec, row, row+1)
+	m.widgets = slices.Delete(m.widgets, row, row+1)
 
 	m.cacheHaveCustom()
 

@@ -64,9 +64,7 @@ func (w *Widget) RemoveMapping(from vim.KeyPress, app gowid.IApp) {
 // though in case I decide in the future it's useful to let clients have direct access to
 // the map (and so maybe store it somewhere).
 func (w *Widget) ClearMappings(app gowid.IApp) {
-	for k := range w.kmap {
-		delete(w.kmap, k)
-	}
+	clear(w.kmap)
 }
 
 //======================================================================

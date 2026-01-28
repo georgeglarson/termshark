@@ -347,7 +347,7 @@ func (w *Widget) getPartialsCompletions(checkOffer bool, app gowid.IApp) []parti
 				// fake match - this is so the correct completion is displayed in the following situation:
 				// "set   dark-mode"
 				// "    ^          "
-				wordMatchesS = append(wordMatchesS[0:wordIdx], append([][]string{{"", "", ""}}, wordMatchesS[wordIdx:len(wordMatchesS)]...)...)
+				wordMatchesS = slices.Insert(wordMatchesS, wordIdx, []string{"", "", ""})
 				wordStart = cp
 				wordEnd = cp
 			}

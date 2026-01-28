@@ -238,9 +238,7 @@ var _ pcap.IClear = checkGlobalJumpAfterPsml{}
 var _ pcap.INewSource = checkGlobalJumpAfterPsml{}
 
 func clearMarks() {
-	for k := range marksMap {
-		delete(marksMap, k)
-	}
+	clear(marksMap)
 	lastJumpPos = -1
 }
 

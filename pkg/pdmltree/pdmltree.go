@@ -402,7 +402,7 @@ func (m *ExpandedPaths) addExpanded(path []string) bool {
 func (m *ExpandedPaths) removeExpanded(path []string) bool {
 	for i, p := range *m {
 		if slices.Equal(p, path) {
-			*m = append((*m)[:i], (*m)[i+1:]...)
+			*m = slices.Delete(*m, i, i+1)
 			return true
 		}
 	}
