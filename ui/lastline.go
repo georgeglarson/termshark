@@ -7,7 +7,7 @@ package ui
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -290,7 +290,7 @@ func (s themeArg) Completions() []string {
 	stdConf := configdir.New("", "termshark")
 	conf := stdConf.QueryFolderContainsFile("themes")
 	if conf != nil {
-		files, err := ioutil.ReadDir(filepath.Join(conf.Path, "themes"))
+		files, err := os.ReadDir(filepath.Join(conf.Path, "themes"))
 		if err == nil {
 			for _, file := range files {
 				for _, mode := range s.modes {

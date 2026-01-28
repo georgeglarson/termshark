@@ -9,7 +9,6 @@ package ui
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/gcla/gowid"
@@ -42,7 +41,7 @@ func openLogsUi(app gowid.IApp) {
 }
 
 func openConfigUi(app gowid.IApp) {
-	tmp, err := ioutil.TempFile("", "termshark-*.toml")
+	tmp, err := os.CreateTemp("", "termshark-*.toml")
 	if err != nil {
 		OpenError(fmt.Sprintf("Could not create temp file: %v", err), app)
 		return

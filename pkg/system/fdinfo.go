@@ -6,7 +6,6 @@ package system
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -32,7 +31,7 @@ func ProcessProgress(pid int, filename string) (int64, int64, error) {
 	if err != nil {
 		return -1, -1, err
 	}
-	finfo, err := ioutil.ReadDir(fmt.Sprintf("/proc/%d/fd", pid))
+	finfo, err := os.ReadDir(fmt.Sprintf("/proc/%d/fd", pid))
 	if err != nil {
 		return -1, -1, err
 	}
@@ -47,7 +46,7 @@ func ProcessProgress(pid int, filename string) (int64, int64, error) {
 	if fd == -1 {
 		return -1, -1, gowid.WithKVs(FileNotOpenError, map[string]interface{}{"filename": filename})
 	}
-	info, err := ioutil.ReadFile(fmt.Sprintf("/proc/%d/fdinfo/%d", pid, fd))
+	info, err := os.ReadFile(fmt.Sprintf("/proc/%d/fdinfo/%d", pid, fd))
 
 	matches := re.FindStringSubmatch(string(info))
 	if len(matches) <= 1 {

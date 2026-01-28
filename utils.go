@@ -14,7 +14,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -224,7 +223,7 @@ func TSharkPath() (string, *gowid.KeyValueError) {
 }
 
 func RunForExitCode(prog string, args []string, env []string) (int, error) {
-	return RunForStderr(prog, args, env, ioutil.Discard)
+	return RunForStderr(prog, args, env, io.Discard)
 }
 
 func RunForStderr(prog string, args []string, env []string, stderr io.Writer) (int, error) {
@@ -234,7 +233,7 @@ func RunForStderr(prog string, args []string, env []string, stderr io.Writer) (i
 	if env != nil {
 		cmd.Env = env
 	}
-	cmd.Stdout = ioutil.Discard
+	cmd.Stdout = io.Discard
 	cmd.Stderr = stderr
 	err = cmd.Run()
 	if err != nil {
@@ -445,7 +444,7 @@ func WriteEmptyPcap(filename string) error {
 	binary.LittleEndian.PutUint32(buf[16:20], 10000)
 	binary.LittleEndian.PutUint32(buf[20:24], uint32(dlt_en10mb))
 
-	err := ioutil.WriteFile(filename, buf[:], 0644)
+	err := os.WriteFile(filename, buf[:], 0644)
 
 	return err
 }
@@ -1132,7 +1131,7 @@ func WiresharkProfileNames() []string {
 	for _, folder := range folders {
 		profFolder := filepath.Join(folder, "profiles")
 
-		files, err := ioutil.ReadDir(profFolder)
+		files, err := os.ReadDir(profFolder)
 		if err != nil {
 			log.Warnf("Could not read wireshark config folder %s: %v", profFolder, err)
 			continue
