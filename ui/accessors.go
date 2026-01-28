@@ -7,7 +7,9 @@ package ui
 import (
 	"github.com/gcla/gowid"
 	"github.com/gcla/termshark/v2/pkg/pcap"
+	"github.com/gcla/termshark/v2/pkg/streams"
 	"github.com/gcla/termshark/v2/widgets/filter"
+	"github.com/gcla/termshark/v2/widgets/rossshark"
 	"github.com/gcla/termshark/v2/widgets/search"
 )
 
@@ -188,6 +190,69 @@ func SetWriteToSelected(selected bool) {
 		UI.App.WriteToSelected = selected
 	}
 	WriteToSelected = selected // keep old global in sync during transition
+}
+
+// GetWriteToDeleted returns whether the temporary pcap was deleted.
+// Deprecated: Access UI.App.WriteToDeleted directly when migration is complete.
+func GetWriteToDeleted() bool {
+	if UI != nil && UI.App != nil {
+		return UI.App.WriteToDeleted
+	}
+	return WriteToDeleted // fallback to old global during transition
+}
+
+// SetWriteToDeleted sets whether the temporary pcap was deleted.
+// Deprecated: Access UI.App.WriteToDeleted directly when migration is complete.
+func SetWriteToDeleted(deleted bool) {
+	if UI != nil && UI.App != nil {
+		UI.App.WriteToDeleted = deleted
+	}
+	WriteToDeleted = deleted // keep old global in sync during transition
+}
+
+// GetStreamLoader returns the stream loader.
+// Deprecated: Access UI.Features.StreamLoader directly when migration is complete.
+func GetStreamLoader() *streams.Loader {
+	if UI != nil && UI.Features != nil {
+		return UI.Features.StreamLoader
+	}
+	return StreamLoader // fallback to old global during transition
+}
+
+// SetStreamLoader sets the stream loader.
+// Deprecated: Access UI.Features.StreamLoader directly when migration is complete.
+func SetStreamLoader(l *streams.Loader) {
+	if UI != nil && UI.Features != nil {
+		UI.Features.StreamLoader = l
+	}
+	StreamLoader = l // keep old global in sync during transition
+}
+
+// GetFin returns the fin widget (rossshark animation).
+// Deprecated: Access UI.Widgets.Fin directly when migration is complete.
+func GetFin() *rossshark.Widget {
+	if UI != nil && UI.Widgets != nil {
+		return UI.Widgets.Fin
+	}
+	return Fin // fallback to old global during transition
+}
+
+// GetCacheRequests returns the cache requests slice.
+// Deprecated: Access UI.Channels.CacheRequests directly when migration is complete.
+func GetCacheRequests() []pcap.LoadPcapSlice {
+	if UI != nil && UI.Channels != nil {
+		return UI.Channels.CacheRequests
+	}
+	return CacheRequests // fallback to old global during transition
+}
+
+// SetCacheRequests sets the cache requests slice.
+// Deprecated: Access UI.Channels.CacheRequests directly when migration is complete.
+func SetCacheRequests(reqs []pcap.LoadPcapSlice) {
+	if UI != nil && UI.Channels != nil {
+		UI.Channels.CacheRequests = reqs
+	}
+	CacheRequests = reqs // keep old global in sync during transition
 }
 
 // CloseWidgets closes all widget resources. Call this during application cleanup.

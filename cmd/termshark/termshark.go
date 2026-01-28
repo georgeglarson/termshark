@@ -240,7 +240,7 @@ func cmain() int {
 		return 1
 	}
 
-	ui.PacketColorsSupported = checkTsharkColorSupport(tsharkBin)
+	ui.SetPacketColorsSupportedState(checkTsharkColorSupport(tsharkBin))
 
 	// Resolve interface names (convert numeric indices to canonical names)
 	state.psrcs, err = resolveInterfaceNames(state.psrcs)
@@ -260,7 +260,7 @@ func cmain() int {
 	// Initialize application state from configuration
 	initUIState()
 	pdmlArgs, psmlArgs, tsharkArgs := loadTsharkArgs(state.opts.TimestampFormat)
-	if ui.PacketColors && !ui.PacketColorsSupported {
+	if ui.IsPacketColorsEnabled() && !ui.IsPacketColorsSupported() {
 		log.Warnf("Packet coloring is enabled, but %s does not support --color", tsharkBin)
 		ui.InitPacketColors(false)
 	}
@@ -302,7 +302,7 @@ func cmain() int {
 
 	state.appRunner = state.app.Runner()
 
-	pcap.PcapCmds = pcap.MakeCommands(state.opts.DecodeAs, tsharkArgs, pdmlArgs, psmlArgs, ui.PacketColors)
+	pcap.PcapCmds = pcap.MakeCommands(state.opts.DecodeAs, tsharkArgs, pdmlArgs, psmlArgs, ui.IsPacketColorsEnabled())
 	pcap.PcapOpts = pcap.Options{
 		CacheSize:      cacheSize,
 		PacketsPerLoad: bundleSize,
@@ -417,8 +417,8 @@ func cmain() int {
 	// but the tshark processes reading data for stream reassembly may still
 	// complain about interruptions
 	stopLoaders := func() {
-		if ui.StreamLoader != nil {
-			ui.StreamLoader.SuppressErrors = true
+		if ui.GetStreamLoader() != nil {
+			ui.GetStreamLoader().SuppressErrors = true
 		}
 		ui.GetLoader().CloseMain()
 	}
@@ -544,8 +544,8 @@ Loop:
 			tcellEvents = state.app.TCellEvents
 		}
 
-		if ui.Fin != nil && ui.Fin.Active() {
-			finChan = ui.Fin.C()
+		if ui.GetFin() != nil && ui.GetFin().Active() {
+			finChan = ui.GetFin().C()
 		}
 
 		// For operations like ClearPcap - need previous loads to be fully finished first. The operations
@@ -575,13 +575,13 @@ Loop:
 			state.checkedPcapCache = true
 
 		case <-inactivityChan:
-			if ui.Fin != nil {
-				ui.Fin.Activate()
+			if ui.GetFin() != nil {
+				ui.GetFin().Activate()
 			}
 			state.currentlyInactive = true
 
 		case <-finChan:
-			ui.Fin.Advance()
+			ui.GetFin().Advance()
 			state.app.Redraw()
 
 		case <-ui.GetStartUIChan():
@@ -730,8 +730,8 @@ Loop:
 			}
 
 		case <-ui.GetCacheRequestsChan():
-			ui.CacheRequests = pcap.ProcessPdmlRequests(ui.CacheRequests,
-				ui.GetLoader().ParentLoader, ui.GetLoader().PdmlLoader, ui.SetStructWidgets{Ld: ui.GetLoader()}, state.app)
+			ui.SetCacheRequests(pcap.ProcessPdmlRequests(ui.GetCacheRequests(),
+				ui.GetLoader().ParentLoader, ui.GetLoader().PdmlLoader, ui.SetStructWidgets{Ld: ui.GetLoader()}, state.app))
 
 		case <-tickChan:
 			// We already know that we are LoadingPdml|LoadingPsml
@@ -1061,7 +1061,7 @@ func (s *appState) printInterfaceError() {
 
 // printPcapSaveMessage prints the message about where packets were saved.
 func (s *appState) printPcapSaveMessage() {
-	if len(pcap.FileSystemSources(s.psrcs)) == 0 && s.startedSuccessfully && !ui.WriteToSelected && !ui.WriteToDeleted {
+	if len(pcap.FileSystemSources(s.psrcs)) == 0 && s.startedSuccessfully && !ui.GetWriteToSelected() && !ui.GetWriteToDeleted() {
 		fmt.Fprintf(os.Stderr, "Packets read from %s have been saved in %s\n",
 			pcap.SourcesString(s.psrcs), s.ifacePcapFilename)
 	}
