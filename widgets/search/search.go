@@ -443,7 +443,7 @@ func New(alg IAlgorithm,
 	res.dataBtn = dataB
 
 	caseCheck := checkbox.New(res.CaseSensitive())
-	caseCheck.OnClick(gowid.WidgetCallback{"cb", func(app gowid.IApp, _ gowid.IWidget) {
+	caseCheck.OnClick(gowid.WidgetCallback{Name: "cb", WidgetChangedFunction: func(app gowid.IApp, _ gowid.IWidget) {
 		res.SetCaseSensitive(caseCheck.IsChecked())
 	}})
 

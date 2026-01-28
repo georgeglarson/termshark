@@ -39,9 +39,9 @@ func TestNumber1(t *testing.T) {
 
 	clickat := func(x, y int) {
 		w.UserInput(evclick(x, y), sz, gowid.Focused, gwtest.D)
-		gwtest.D.SetLastMouseState(gowid.MouseState{true, false, false, time.Now()})
+		gwtest.D.SetLastMouseState(gowid.MouseState{MouseLeftClicked: true, MouseMiddleClicked: false, MouseRightClicked: false, MouseLastClickedTime: time.Now()})
 		w.UserInput(evunclick(x, y), sz, gowid.Focused, gwtest.D)
-		gwtest.D.SetLastMouseState(gowid.MouseState{false, false, false, time.Now()})
+		gwtest.D.SetLastMouseState(gowid.MouseState{MouseLeftClicked: false, MouseMiddleClicked: false, MouseRightClicked: false, MouseLastClickedTime: time.Now()})
 	}
 
 	clickat(2, 0)

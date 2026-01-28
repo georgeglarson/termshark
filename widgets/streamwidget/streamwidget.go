@@ -402,16 +402,16 @@ func (w *Widget) construct() {
 	}
 
 	c2cols := []gowid.IContainerWidget{
-		&gowid.ContainerWidget{rb1, fixed},
-		&gowid.ContainerWidget{rbt1, fixed},
-		&gowid.ContainerWidget{rb2, fixed},
-		&gowid.ContainerWidget{rbt2, fixed},
-		&gowid.ContainerWidget{rb3, fixed},
-		&gowid.ContainerWidget{rbt3, fixed},
+		&gowid.ContainerWidget{IWidget: rb1, D: fixed},
+		&gowid.ContainerWidget{IWidget: rbt1, D: fixed},
+		&gowid.ContainerWidget{IWidget: rb2, D: fixed},
+		&gowid.ContainerWidget{IWidget: rbt2, D: fixed},
+		&gowid.ContainerWidget{IWidget: rb3, D: fixed},
+		&gowid.ContainerWidget{IWidget: rbt3, D: fixed},
 	}
 	cols2 := columns.New(c2cols)
 
-	rb1.OnClick(gowid.WidgetCallback{"cb", func(app gowid.IApp, w2 gowid.IWidget) {
+	rb1.OnClick(gowid.WidgetCallback{Name: "cb", WidgetChangedFunction: func(app gowid.IApp, w2 gowid.IWidget) {
 		if rb1.Selected {
 			w.displayAs = Hex
 			for i := 0; i < len(w.tblWidgets); i++ {
@@ -420,7 +420,7 @@ func (w *Widget) construct() {
 			profiles.SetConf("main.stream-view", "hex")
 		}
 	}})
-	rb2.OnClick(gowid.WidgetCallback{"cb", func(app gowid.IApp, w2 gowid.IWidget) {
+	rb2.OnClick(gowid.WidgetCallback{Name: "cb", WidgetChangedFunction: func(app gowid.IApp, w2 gowid.IWidget) {
 		if rb2.Selected {
 			w.displayAs = Ascii
 			for i := 0; i < len(w.tblWidgets); i++ {
@@ -429,7 +429,7 @@ func (w *Widget) construct() {
 			profiles.SetConf("main.stream-view", "ascii")
 		}
 	}})
-	rb3.OnClick(gowid.WidgetCallback{"cb", func(app gowid.IApp, w2 gowid.IWidget) {
+	rb3.OnClick(gowid.WidgetCallback{Name: "cb", WidgetChangedFunction: func(app gowid.IApp, w2 gowid.IWidget) {
 		if rb3.Selected {
 			w.displayAs = Raw
 			for i := 0; i < len(w.tblWidgets); i++ {
@@ -440,7 +440,7 @@ func (w *Widget) construct() {
 	}})
 
 	filterOutBtn := button.New(text.New("Filter stream out"))
-	filterOutBtn.OnClick(gowid.WidgetCallback{"cb", func(app gowid.IApp, w2 gowid.IWidget) {
+	filterOutBtn.OnClick(gowid.WidgetCallback{Name: "cb", WidgetChangedFunction: func(app gowid.IApp, w2 gowid.IWidget) {
 		w.opt.FilterOutFunc(w, app)
 	}})
 
@@ -618,7 +618,7 @@ func (w *Widget) construct() {
 	)
 
 	streamsFooter := columns.NewWithDim(
-		gowid.RenderWithWeight{1},
+		gowid.RenderWithWeight{W: 1},
 		hpadding.New(
 			convCols,
 			gowid.HAlignMiddle{},
@@ -646,7 +646,7 @@ func (w *Widget) construct() {
 	//w.headerHolder = holder.New(w.header)
 
 	streamsHeader := columns.NewWithDim(
-		gowid.RenderWithWeight{1},
+		gowid.RenderWithWeight{W: 1},
 		//w.headerHolder,
 		header,
 	)
@@ -684,24 +684,24 @@ func (w *Widget) construct() {
 	streamView := pile.New(
 		[]gowid.IContainerWidget{
 			&gowid.ContainerWidget{
-				streamsHeader,
-				gowid.RenderWithUnits{U: 1},
+				IWidget: streamsHeader,
+				D:       gowid.RenderWithUnits{U: 1},
 			},
 			&gowid.ContainerWidget{
-				mainPaneWithKeys,
-				gowid.RenderWithWeight{W: 1},
+				IWidget: mainPaneWithKeys,
+				D:       gowid.RenderWithWeight{W: 1},
 			},
 			&gowid.ContainerWidget{
-				streamsFooter1,
-				gowid.RenderWithUnits{U: 1},
+				IWidget: streamsFooter1,
+				D:       gowid.RenderWithUnits{U: 1},
 			},
 			&gowid.ContainerWidget{
-				divider.NewUnicode(),
-				gowid.RenderFlow{},
+				IWidget: divider.NewUnicode(),
+				D:       gowid.RenderFlow{},
 			},
 			&gowid.ContainerWidget{
-				streamsFooter,
-				gowid.RenderWithUnits{U: 1},
+				IWidget: streamsFooter,
+				D:       gowid.RenderWithUnits{U: 1},
 			},
 		},
 	)

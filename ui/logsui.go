@@ -61,27 +61,25 @@ func openConfigUi(app gowid.IApp) {
 
 func openFileUi(file string, delete bool, opt fileviewer.Options, app gowid.IApp) {
 	logsUi, err := fileviewer.New(file,
-		gowid.WidgetCallback{"cb",
-			func(app gowid.IApp, w gowid.IWidget) {
-				t := w.(*terminal.Widget)
-				ecode := t.Cmd.ProcessState.ExitCode()
-				// -1 for signals - don't show an error for that
-				if ecode != 0 && ecode != -1 {
-					d := OpenError(fmt.Sprintf("Could not run file viewer\n\n%s", t.Cmd.ProcessState), app)
-					d.OnOpenClose(gowid.MakeWidgetCallback("cb", func(app gowid.IApp, w gowid.IWidget) {
-						closeFileUi(app)
-					}))
-				} else {
+		gowid.WidgetCallback{Name: "cb", WidgetChangedFunction: func(app gowid.IApp, w gowid.IWidget) {
+			t := w.(*terminal.Widget)
+			ecode := t.Cmd.ProcessState.ExitCode()
+			// -1 for signals - don't show an error for that
+			if ecode != 0 && ecode != -1 {
+				d := OpenError(fmt.Sprintf("Could not run file viewer\n\n%s", t.Cmd.ProcessState), app)
+				d.OnOpenClose(gowid.MakeWidgetCallback("cb", func(app gowid.IApp, w gowid.IWidget) {
 					closeFileUi(app)
+				}))
+			} else {
+				closeFileUi(app)
+			}
+			if delete {
+				err := os.Remove(file)
+				if err != nil {
+					log.Warnf("Problem deleting %s: %v", file, err)
 				}
-				if delete {
-					err := os.Remove(file)
-					if err != nil {
-						log.Warnf("Problem deleting %s: %v", file, err)
-					}
-				}
-			},
-		},
+			}
+		}},
 		opt,
 	)
 	if err != nil {

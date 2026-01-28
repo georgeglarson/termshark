@@ -241,7 +241,7 @@ func openNewProfile(app gowid.IApp) {
 		dialogWidgets = append(dialogWidgets,
 			divider.NewBlank(),
 			columns.NewWithDim(
-				gowid.RenderWithWeight{1},
+				gowid.RenderWithWeight{W: 1},
 				&gowid.ContainerWidget{
 					IWidget: linkWidget,
 					D:       gowid.RenderFixed{},

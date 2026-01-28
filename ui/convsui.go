@@ -116,10 +116,10 @@ func init() {
 
 	if runtime.GOOS == "windows" {
 		vdiv = "│"
-		frameRunes = framed.FrameRunes{'┌', '┐', '└', '┘', 0, '─', '│', '│'}
+		frameRunes = framed.FrameRunes{Tl: '┌', Tr: '┐', Bl: '└', Br: '┘', T: 0, B: '─', L: '│', R: '│'}
 	} else {
 		vdiv = "┃"
-		frameRunes = framed.FrameRunes{'┏', '┓', '┗', '┛', 0, '━', '┃', '┃'}
+		frameRunes = framed.FrameRunes{Tl: '┏', Tr: '┓', Bl: '┗', Br: '┛', T: 0, B: '━', L: '┃', R: '┃'}
 	}
 }
 
@@ -364,7 +364,7 @@ func (w *ConvsUiWidget) construct() {
 	header := w.makeHeaderConvsUiWidget()
 
 	convsHeader := columns.NewWithDim(
-		gowid.RenderWithWeight{1},
+		gowid.RenderWithWeight{W: 1},
 		header,
 	)
 
@@ -410,7 +410,7 @@ func (w *ConvsUiWidget) construct() {
 
 	nameCheck := checkbox.New(w.ResolveNames())
 
-	nameCheck.OnClick(gowid.WidgetCallback{"cb", func(app gowid.IApp, w2 gowid.IWidget) {
+	nameCheck.OnClick(gowid.WidgetCallback{Name: "cb", WidgetChangedFunction: func(app gowid.IApp, w2 gowid.IWidget) {
 		w.SetResolveNames(nameCheck.IsChecked())
 		w.ReloadNeeded()
 	}})
@@ -424,7 +424,7 @@ func (w *ConvsUiWidget) construct() {
 
 	filterCheck := checkbox.New(w.UseFilter())
 
-	filterCheck.OnClick(gowid.WidgetCallback{"cb", func(app gowid.IApp, w2 gowid.IWidget) {
+	filterCheck.OnClick(gowid.WidgetCallback{Name: "cb", WidgetChangedFunction: func(app gowid.IApp, w2 gowid.IWidget) {
 		w.SetUseFilter(filterCheck.IsChecked())
 		w.ReloadNeeded()
 	}})
@@ -438,7 +438,7 @@ func (w *ConvsUiWidget) construct() {
 
 	absTimeCheck := checkbox.New(w.AbsoluteTime())
 
-	absTimeCheck.OnClick(gowid.WidgetCallback{"cb", func(app gowid.IApp, w2 gowid.IWidget) {
+	absTimeCheck.OnClick(gowid.WidgetCallback{Name: "cb", WidgetChangedFunction: func(app gowid.IApp, w2 gowid.IWidget) {
 		w.SetAbsoluteTime(absTimeCheck.IsChecked())
 		w.ReloadNeeded()
 	}})

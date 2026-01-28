@@ -508,7 +508,7 @@ func (p *psmlColumnsModel) HeaderWidgets() []gowid.IWidget {
 	pr := gowid.MakePaletteRef("dialog")
 	st := func(w gowid.IWidget) gowid.IWidget {
 		return vpadding.New(
-			styled.NewExt(w, gowid.ColorInverter{pr}, gowid.ColorInverter{pr}),
+			styled.NewExt(w, gowid.ColorInverter{ICellStyler: pr}, gowid.ColorInverter{ICellStyler: pr}),
 			gowid.VAlignTop{},
 			gowid.RenderWithUnits{U: 1},
 		)

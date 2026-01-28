@@ -110,7 +110,7 @@ func New(name string, opt Options) *Widget {
 	res := &Widget{}
 
 	ed := edit.New()
-	ed.OnTextSet(gowid.WidgetCallback{"cb", func(app gowid.IApp, w gowid.IWidget) {
+	ed.OnTextSet(gowid.WidgetCallback{Name: "cb", WidgetChangedFunction: func(app gowid.IApp, w gowid.IWidget) {
 		// every time the filter changes, drop any pending enter - we don't want to
 		// apply a filter to a stale value
 		res.enterPending = false

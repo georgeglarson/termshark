@@ -318,7 +318,7 @@ func cmain() int {
 				case nil:
 					// We're on termux/android, and we were given a file. Note that termux
 					// makes a copy, so we ought to clean that up when termshark terminates.
-					psrcs = append(psrcs, pcap.TemporaryFileSource{pcap.FileSource{Filename: pfile}})
+					psrcs = append(psrcs, pcap.TemporaryFileSource{FileSource: pcap.FileSource{Filename: pfile}})
 				case system.NoPicker:
 					// We're not on termux/android. Treat like this:
 					// $ termshark
@@ -723,7 +723,7 @@ func cmain() int {
 
 	// This is a global. The type supports swapping out the real loader by embedding it via
 	// pointer, but I assume this only happens in the main goroutine.
-	ui.Loader = &pcap.PacketLoader{ParentLoader: pcap.NewPcapLoader(pcap.PcapCmds, &pcap.Runner{app}, pcap.PcapOpts)}
+	ui.Loader = &pcap.PacketLoader{ParentLoader: pcap.NewPcapLoader(pcap.PcapCmds, &pcap.Runner{IApp: app}, pcap.PcapOpts)}
 
 	// Populate the filter widget initially - runs asynchronously
 	go ui.FilterWidget.UpdateCompletions(app)
@@ -1160,7 +1160,7 @@ Loop:
 
 		case <-ui.CacheRequestsChan:
 			ui.CacheRequests = pcap.ProcessPdmlRequests(ui.CacheRequests,
-				ui.Loader.ParentLoader, ui.Loader.PdmlLoader, ui.SetStructWidgets{ui.Loader}, app)
+				ui.Loader.ParentLoader, ui.Loader.PdmlLoader, ui.SetStructWidgets{Ld: ui.Loader}, app)
 
 		case <-tickChan:
 			// We already know that we are LoadingPdml|LoadingPsml
