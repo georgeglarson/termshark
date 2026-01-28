@@ -209,6 +209,7 @@ var packetListViewHolder *holder.Widget
 | slices.Insert | `append(s[:i], append([]T{v}, s[i:]...)...)` | `slices.Insert(s, i, v)` | DONE |
 | slices.Delete | `append(s[:i], s[i+1:]...)` | `slices.Delete(s, i, i+1)` | DONE |
 | clear() | `for k := range m { delete(m, k) }` | `clear(m)` | DONE |
+| min/max builtins | `math.Min/Max` for numeric types | `min()/max()` | DONE |
 
 ### 7.2 Generics (Go 1.18+)
 

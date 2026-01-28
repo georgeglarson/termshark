@@ -8,7 +8,6 @@ package ui
 import (
 	"encoding/xml"
 	"fmt"
-	"math"
 	"os"
 	"reflect"
 	"regexp"
@@ -626,7 +625,7 @@ func UpdateProgressBarForFile(c *pcap.PacketLoader, prevRatio float64, app gowid
 		loadProgress.SetProgress(app, int(prog.cur))
 	}
 
-	return math.Max(prevRatio, curRatio)
+	return max(prevRatio, curRatio)
 }
 
 //======================================================================
