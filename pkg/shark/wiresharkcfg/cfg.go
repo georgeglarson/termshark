@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/shibukawa/configdir"
+	"github.com/adrg/xdg"
 )
 
 //======================================================================
@@ -38,10 +38,16 @@ func NewDefault() (*Config, error) {
 		}
 	}
 	if tryXDG {
-		stdConf := configdir.New("", "wireshark")
-		dirs := stdConf.QueryFolders(configdir.All)
-		cpath = filepath.Join(dirs[0].Path, "preferences")
-		_, err = os.Stat(cpath)
+		// Check XDG config directories for wireshark preferences
+		// Try user config first, then system directories
+		dirs := append([]string{xdg.ConfigHome}, xdg.ConfigDirs...)
+		for _, dir := range dirs {
+			cpath = filepath.Join(dir, "wireshark", "preferences")
+			_, err = os.Stat(cpath)
+			if err == nil {
+				break
+			}
+		}
 		if os.IsNotExist(err) {
 			return nil, err
 		}

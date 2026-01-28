@@ -7,13 +7,13 @@
 
 | Dependency | Last Updated | Risk | Recommendation |
 |------------|--------------|------|----------------|
-| shibukawa/configdir | 2017 | Medium | Replace with adrg/xdg or stdlib |
+| shibukawa/configdir | 2017 | Medium | ~~Replace with adrg/xdg or stdlib~~ **DONE** |
 | kballard/go-shellquote | 2018 | Low | Keep (stable, no security issues) |
 | gcla/tail | 2019 | Low | Keep (fork, maintainer controls) |
 | condchan | 2019 | Medium | Replace with channels or sync.Cond |
 | gopkg.in/tomb.v1 | 2014 | Low | Replace with errgroup or context |
 | mitchellh/go-homedir | 2019 | Low | ~~Replace with os.UserHomeDir()~~ **DONE** |
-| rakyll/statik | 2020 | Medium | Replace with go:embed |
+| rakyll/statik | 2020 | Medium | ~~Replace with go:embed~~ **DONE** |
 | tevino/abool | 2020 | Low | ~~Replace with sync/atomic.Bool~~ **DONE** |
 
 ---
@@ -159,9 +159,9 @@
 1. ~~**mitchellh/go-homedir** → os.UserHomeDir()~~ **DONE**
 2. ~~**tevino/abool** → sync/atomic.Bool~~ **DONE**
 
-### Short-term (Medium effort)
-3. **rakyll/statik** → go:embed
-4. **shibukawa/configdir** → adrg/xdg
+### Short-term (Medium effort) - COMPLETED
+3. ~~**rakyll/statik** → go:embed~~ **DONE**
+4. ~~**shibukawa/configdir** → adrg/xdg~~ **DONE**
 
 ### Evaluate Later
 5. **condchan** → channels (needs usage analysis)

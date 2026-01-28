@@ -9,16 +9,13 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 
+	"github.com/adrg/xdg"
 	"github.com/gcla/gowid"
-	"github.com/rakyll/statik/fs"
-	"github.com/shibukawa/configdir"
+	"github.com/gcla/termshark/v2/assets"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-
-	_ "github.com/gcla/termshark/v2/assets/statik"
 )
 
 //======================================================================
@@ -100,8 +97,7 @@ func Load(name string, app gowid.IApp) error {
 	}()
 
 	theme.SetConfigType("toml")
-	stdConf := configdir.New("", "termshark")
-	dirs := stdConf.QueryFolders(configdir.Global)
+	configDir := filepath.Join(xdg.ConfigHome, "termshark")
 
 	mode := Mode(app.GetColorMode()).String()
 
@@ -116,7 +112,7 @@ func Load(name string, app gowid.IApp) error {
 
 	for _, m := range modes {
 		// Prefer to load from disk
-		themeFileName := filepath.Join(dirs[0].Path, "themes", fmt.Sprintf("%s-%s.toml", name, m))
+		themeFileName := filepath.Join(configDir, "themes", fmt.Sprintf("%s-%s.toml", name, m))
 		log.Infof("Trying to load user theme %s", themeFileName)
 		var file io.ReadCloser
 		file, err = os.Open(themeFileName)
@@ -128,16 +124,11 @@ func Load(name string, app gowid.IApp) error {
 	}
 
 	// Fall back to built-in themes
-	statikFS, err := fs.New()
-	if err != nil {
-		return fmt.Errorf("in mode %v: %w", app.GetColorMode(), err)
-	}
-
 	for _, m := range modes {
-		themeFileName := path.Join("/themes", fmt.Sprintf("%s-%s.toml", name, m))
+		themeFileName := fmt.Sprintf("themes/%s-%s.toml", name, m)
 		log.Infof("Trying to load built-in theme %s", themeFileName)
 		var file io.ReadCloser
-		file, err = statikFS.Open(themeFileName)
+		file, err = assets.Themes.Open(themeFileName)
 		if err == nil {
 			defer file.Close()
 			log.Infof("Loaded built-in theme %s", themeFileName)

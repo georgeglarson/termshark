@@ -7,24 +7,23 @@ package ui
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
 
+	"github.com/adrg/xdg"
 	"github.com/gcla/gowid"
 	"github.com/gcla/gowid/gwutil"
 	"github.com/gcla/gowid/vim"
 	"github.com/gcla/termshark/v2"
+	"github.com/gcla/termshark/v2/assets"
 	"github.com/gcla/termshark/v2/configs/profiles"
 	"github.com/gcla/termshark/v2/pkg/theme"
 	"github.com/gcla/termshark/v2/widgets/mapkeys"
 	"github.com/gcla/termshark/v2/widgets/minibuffer"
-	"github.com/rakyll/statik/fs"
-	"github.com/shibukawa/configdir"
-
-	_ "github.com/gcla/termshark/v2/assets/statik"
 )
 
 //======================================================================
@@ -265,44 +264,35 @@ func (s themeArg) Completions() []string {
 	matches := make([]string, 0)
 
 	// First gather built-in themes
-	statikFS, err := fs.New()
+	entries, err := fs.ReadDir(assets.Themes, "themes")
 	if err == nil {
-		dir, err := statikFS.Open("/themes")
-		if err == nil {
-			info, err := dir.Readdir(-1)
-			if err == nil {
-				for _, finfo := range info {
-					for _, mode := range s.modes {
-						suff := fmt.Sprintf("-%s.toml", mode)
+		for _, entry := range entries {
+			for _, mode := range s.modes {
+				suff := fmt.Sprintf("-%s.toml", mode)
 
-						if strings.HasSuffix(finfo.Name(), suff) {
-							m := strings.TrimSuffix(finfo.Name(), suff)
-							if strings.Contains(m, s.substr) {
-								matches = append(matches, m)
-							}
-						}
+				if strings.HasSuffix(entry.Name(), suff) {
+					m := strings.TrimSuffix(entry.Name(), suff)
+					if strings.Contains(m, s.substr) {
+						matches = append(matches, m)
 					}
 				}
 			}
 		}
 	}
 
-	// Then from filesystem
-	stdConf := configdir.New("", "termshark")
-	conf := stdConf.QueryFolderContainsFile("themes")
-	if conf != nil {
-		files, err := os.ReadDir(filepath.Join(conf.Path, "themes"))
-		if err == nil {
-			for _, file := range files {
-				for _, mode := range s.modes {
-					suff := fmt.Sprintf("-%s.toml", mode)
+	// Then from filesystem (user themes)
+	userThemesDir := filepath.Join(xdg.ConfigHome, "termshark", "themes")
+	files, err := os.ReadDir(userThemesDir)
+	if err == nil {
+		for _, file := range files {
+			for _, mode := range s.modes {
+				suff := fmt.Sprintf("-%s.toml", mode)
 
-					if strings.HasSuffix(file.Name(), suff) {
-						m := strings.TrimSuffix(file.Name(), suff)
-						if !slices.Contains(matches, m) {
-							if strings.Contains(m, s.substr) {
-								matches = append(matches, m)
-							}
+				if strings.HasSuffix(file.Name(), suff) {
+					m := strings.TrimSuffix(file.Name(), suff)
+					if !slices.Contains(matches, m) {
+						if strings.Contains(m, s.substr) {
+							matches = append(matches, m)
 						}
 					}
 				}

@@ -35,8 +35,8 @@ import (
 	"github.com/gcla/termshark/v2/widgets/filter"
 	"github.com/gdamore/tcell/v2"
 	flags "github.com/jessevdk/go-flags"
+	"github.com/adrg/xdg"
 	"github.com/mattn/go-isatty"
-	"github.com/shibukawa/configdir"
 	log "github.com/sirupsen/logrus"
 
 	"net/http"
@@ -128,7 +128,7 @@ func cmain() int {
 
 	configDir := setupConfigDirs()
 
-	err := profiles.ReadDefaultConfig(configDir.Path)
+	err := profiles.ReadDefaultConfig(configDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, fmt.Sprintf("%s\n", err.Error()))
 	}
@@ -1195,7 +1195,7 @@ Loop:
 
 		case <-watcher.ConfigChanged():
 			// Re-read so changes that can take effect immediately do so
-			if err := profiles.ReadDefaultConfig(configDir.Path); err != nil {
+			if err := profiles.ReadDefaultConfig(configDir); err != nil {
 				log.Warnf("Unexpected error re-reading toml config: %v", err)
 			}
 			ui.UpdateRecentMenu(app)
@@ -1211,22 +1211,21 @@ Loop:
 //======================================================================
 
 // setupConfigDirs creates the necessary configuration and cache directories.
-// Returns the global config folder for use in config loading.
-func setupConfigDirs() *configdir.Config {
-	stdConf := configdir.New("", "termshark")
-	dirs := stdConf.QueryFolders(configdir.Cache)
-	if err := dirs[0].CreateParentDir("dummy"); err != nil {
+// Returns the global config folder path for use in config loading.
+func setupConfigDirs() string {
+	cacheDir := filepath.Join(xdg.CacheHome, "termshark")
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not create cache dir: %v\n", err)
 	}
-	dirs = stdConf.QueryFolders(configdir.Global)
-	if err := dirs[0].CreateParentDir("dummy"); err != nil {
+	configDir := filepath.Join(xdg.ConfigHome, "termshark")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not create config dir: %v\n", err)
 	} else {
-		if err = os.MkdirAll(filepath.Join(dirs[0].Path, "profiles"), 0755); err != nil {
+		if err = os.MkdirAll(filepath.Join(configDir, "profiles"), 0755); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not create profiles dir: %v\n", err)
 		}
 	}
-	return dirs[0]
+	return configDir
 }
 
 // setupLogging configures the logging output, either to a file or to stderr.

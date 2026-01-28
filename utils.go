@@ -45,8 +45,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/gdamore/tcell/v2/terminfo"
 	"github.com/gdamore/tcell/v2/terminfo/dynamic"
+	"github.com/adrg/xdg"
 	"github.com/mattn/go-isatty"
-	"github.com/shibukawa/configdir"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -254,9 +254,7 @@ func RunForStderr(prog string, args []string, env []string, stderr io.Writer) (i
 }
 
 func ConfFile(file string) string {
-	stdConf := configdir.New("", "termshark")
-	dirs := stdConf.QueryFolders(configdir.Global)
-	return filepath.Join(dirs[0].Path, file)
+	return filepath.Join(xdg.ConfigHome, "termshark", file)
 }
 
 func CacheFile(bin string) string {
@@ -264,9 +262,7 @@ func CacheFile(bin string) string {
 }
 
 func CacheDir() string {
-	stdConf := configdir.New("", "termshark")
-	dirs := stdConf.QueryFolders(configdir.Cache)
-	return dirs[0].Path
+	return filepath.Join(xdg.CacheHome, "termshark")
 }
 
 // A separate dir from CacheDir because I need to use inotify under some

@@ -4,6 +4,7 @@ go 1.22
 
 require (
 	github.com/adam-hanna/arrayOperations v0.2.6
+	github.com/adrg/xdg v0.5.3
 	github.com/antchfx/xmlquery v1.4.3
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/flytam/filenamify v1.1.0
@@ -19,8 +20,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mreiferson/go-snappystream v0.2.3
 	github.com/psanford/wormhole-william v1.0.6-0.20210402190004-049df45b8d5a
-	github.com/rakyll/statik v0.1.7
-	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0

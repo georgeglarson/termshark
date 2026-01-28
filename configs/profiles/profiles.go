@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/shibukawa/configdir"
+	"github.com/adrg/xdg"
 	"github.com/spf13/viper"
 )
 
@@ -208,13 +208,11 @@ func writeConfigAs(v *viper.Viper, name string) error {
 }
 
 func profilesDir() (string, error) {
-	stdConf := configdir.New("", "termshark")
-	conf := stdConf.QueryFolderContainsFile("profiles")
-	if conf == nil {
+	dir := filepath.Join(xdg.ConfigHome, "termshark", "profiles")
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		return "", fmt.Errorf("Could not find profiles dir.")
 	}
-	dirs := stdConf.QueryFolders(configdir.Global)
-	return filepath.Join(dirs[0].Path, "profiles"), nil
+	return dir, nil
 }
 
 func CopyToAndUse(name string) error {
