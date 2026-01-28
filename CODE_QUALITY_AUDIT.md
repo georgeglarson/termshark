@@ -269,6 +269,15 @@ type HandlerList[T any] []T
 | `950e8ad` | Add golangci-lint configuration |
 | `92cb2a9` | Remove direct usage of deprecated github.com/pkg/errors |
 | `f4cceb5` | Add lifecycle package for centralized goroutine management |
+| `e028f99` | Migrate TrackedGo calls to termshark.Go |
+| `7a71c2b` | Remove unused Goroutinewg package variables |
+| `b4346aa` | Add context awareness to goroutines for graceful shutdown |
+| `1408e84` | Extract helper functions from cmain() |
+| `b27d79e` | Extract TTY validation and TERM override functions |
+| `74bdd17` | Extract UI state and config loading functions |
+| `b1bcaf3` | Extract configureBase16Colors() |
+| `f02aa90` | Use errors.Is() for io.EOF comparisons |
+| `7438996` | Use errors.As() for exec.ExitError type assertions |
 
 ---
 
