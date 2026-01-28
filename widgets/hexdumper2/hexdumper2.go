@@ -295,7 +295,7 @@ Loop:
 					active = &cursorStyle
 				}
 			} else {
-				for j := 0; j < len(layers); j++ {
+				for j := range len(layers) {
 					layer = &layers[j]
 					if i >= layer.Start && i < layer.End {
 						if j+1 == diff {
@@ -312,7 +312,7 @@ Loop:
 				}
 			}
 
-			for j := 0; j < len(layers); j++ {
+			for j := range len(layers) {
 				layer = &layers[j]
 				if i >= layer.Start && i < layer.End-1 {
 					if j+1 == diff {

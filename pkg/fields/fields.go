@@ -223,7 +223,7 @@ func (w *TSharkFields) InitNoCache() error {
 			protos := strings.SplitN(fields[2], ".", 2)
 			if len(protos) > 1 {
 				cur := fieldsMap
-				for i := 0; i < len(protos)-1; i++ {
+				for i := range len(protos) - 1 {
 					if val, ok := cur[protos[i]]; ok {
 						cur = val.(map[string]interface{})
 					} else {
@@ -274,7 +274,7 @@ func (t *TSharkFields) LookupField(name string) (bool, Field) {
 	fields := strings.Split(name, ".")
 
 	cur := t.ser.Fields.(map[string]interface{})
-	for i := 0; i < len(fields); i++ {
+	for i := range len(fields) {
 		if val, ok := cur[fields[i]]; ok {
 			if i == len(fields)-1 {
 				switch val := val.(type) {
@@ -333,7 +333,7 @@ func (t *TSharkFields) Completions(prefix string, cb IPrefixCompleterCallback) {
 	cur := t.ser.Fields.(map[string]interface{})
 	failed := false
 loop:
-	for i := 0; i < len(fields); i++ {
+	for i := range len(fields) {
 		if val, ok := cur[fields[i]]; ok {
 			if i == len(fields)-1 {
 				switch val.(type) {

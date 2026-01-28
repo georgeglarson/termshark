@@ -1005,7 +1005,7 @@ func (c rawChunkList) CopyRow(rowid table.RowId) []gowid.ICopyResult {
 func (c asciiChunkList) CopyTable() []gowid.ICopyResult {
 	prtl := make([]string, 0, len(c.chunks))
 
-	for i := 0; i < len(c.chunks); i++ {
+	for i := range len(c.chunks) {
 		prtl = append(prtl, format.MakePrintableStringWithNewlines(c.chunks[i].StreamData()))
 	}
 
@@ -1023,7 +1023,7 @@ func (c asciiChunkList) CopyTable() []gowid.ICopyResult {
 func (c chunkList) CopyTable() []gowid.ICopyResult {
 	hexdl := make([]string, 0, len(c.chunks))
 
-	for i := 0; i < len(c.chunks); i++ {
+	for i := range len(c.chunks) {
 		hex := format.HexDump(c.chunks[i].StreamData())
 		if c.chunks[i].Direction() == streams.Server {
 			hex = indentRe.ReplaceAllString(hex, `    $1`)
@@ -1046,7 +1046,7 @@ func (c chunkList) CopyTable() []gowid.ICopyResult {
 func (c rawChunkList) CopyTable() []gowid.ICopyResult {
 	rawl := make([]string, 0, len(c.chunks))
 
-	for i := 0; i < len(c.chunks); i++ {
+	for i := range len(c.chunks) {
 		rawl = append(rawl, format.MakeHexStream(c.chunks[i].StreamData()))
 	}
 

@@ -32,7 +32,7 @@ func (t *scrollingListBox) ScrollPosition() int {
 
 func Test1(t *testing.T) {
 	bws := make([]gowid.IWidget, 8)
-	for i := 0; i < len(bws); i++ {
+	for i := range len(bws) {
 		bws[i] = button.NewBare(text.New(fmt.Sprintf("%03d", i)))
 	}
 

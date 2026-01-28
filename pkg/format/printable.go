@@ -16,7 +16,7 @@ import (
 
 func MakePrintableString(data []byte) string {
 	var buffer bytes.Buffer
-	for i := 0; i < len(data); i++ {
+	for i := range len(data) {
 		if unicode.IsPrint(rune(data[i])) {
 			buffer.WriteString(string(rune(data[i])))
 		}
@@ -26,7 +26,7 @@ func MakePrintableString(data []byte) string {
 
 func MakePrintableStringWithNewlines(data []byte) string {
 	var buffer bytes.Buffer
-	for i := 0; i < len(data); i++ {
+	for i := range len(data) {
 		if (data[i] >= 32 && data[i] < 127) || data[i] == '\n' {
 			buffer.WriteString(string(rune(data[i])))
 		} else {
@@ -39,7 +39,7 @@ func MakePrintableStringWithNewlines(data []byte) string {
 func MakeEscapedString(data []byte) string {
 	res := make([]string, 0)
 	var buffer bytes.Buffer
-	for i := 0; i < len(data); i++ {
+	for i := range len(data) {
 		buffer.WriteString(fmt.Sprintf("\\x%02x", data[i]))
 		if i%16 == 16-1 || i+1 == len(data) {
 			res = append(res, fmt.Sprintf("\"%s\"", buffer.String()))
@@ -51,7 +51,7 @@ func MakeEscapedString(data []byte) string {
 
 func MakeHexStream(data []byte) string {
 	var buffer bytes.Buffer
-	for i := 0; i < len(data); i++ {
+	for i := range len(data) {
 		buffer.WriteString(fmt.Sprintf("%02x", data[i]))
 	}
 	return buffer.String()

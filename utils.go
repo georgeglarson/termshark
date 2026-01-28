@@ -829,7 +829,7 @@ func (s IPCompare) Less(i, j string) bool {
 		if len(x) != len(y) {
 			return len(x) < len(y)
 		} else {
-			for i := 0; i < len(x); i++ {
+			for i := range len(x) {
 				switch {
 				case x[i] < y[i]:
 					return true

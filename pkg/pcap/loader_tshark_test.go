@@ -203,7 +203,7 @@ func (r *hackedPacket) Read(p []byte) (int, error) {
 
 func newPortLooper(pfn portfn, stopper iStopLoop) io.Reader {
 	readers := make([]io.Reader, 65536)
-	for i := 0; i < len(readers); i++ {
+	for i := range len(readers) {
 		readers[i] = &hackedPacket{idx: 34 + 16, port: pfn, stopper: stopper, foocount: i}
 	}
 	readers = append([]io.Reader{strings.NewReader(string(hdr))}, readers...)
