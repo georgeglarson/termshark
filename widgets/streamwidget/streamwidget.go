@@ -414,7 +414,7 @@ func (w *Widget) construct() {
 	rb1.OnClick(gowid.WidgetCallback{Name: "cb", WidgetChangedFunction: func(app gowid.IApp, w2 gowid.IWidget) {
 		if rb1.Selected {
 			w.displayAs = Hex
-			for i := 0; i < len(w.tblWidgets); i++ {
+			for i := range len(w.tblWidgets) {
 				w.updateChunkModel(i, w.displayAs, app)
 			}
 			profiles.SetConf("main.stream-view", "hex")
@@ -423,7 +423,7 @@ func (w *Widget) construct() {
 	rb2.OnClick(gowid.WidgetCallback{Name: "cb", WidgetChangedFunction: func(app gowid.IApp, w2 gowid.IWidget) {
 		if rb2.Selected {
 			w.displayAs = Ascii
-			for i := 0; i < len(w.tblWidgets); i++ {
+			for i := range len(w.tblWidgets) {
 				w.updateChunkModel(i, w.displayAs, app)
 			}
 			profiles.SetConf("main.stream-view", "ascii")
@@ -432,7 +432,7 @@ func (w *Widget) construct() {
 	rb3.OnClick(gowid.WidgetCallback{Name: "cb", WidgetChangedFunction: func(app gowid.IApp, w2 gowid.IWidget) {
 		if rb3.Selected {
 			w.displayAs = Raw
-			for i := 0; i < len(w.tblWidgets); i++ {
+			for i := range len(w.tblWidgets) {
 				w.updateChunkModel(i, w.displayAs, app)
 			}
 			profiles.SetConf("main.stream-view", "raw")
@@ -719,7 +719,7 @@ func (w *Widget) construct() {
 	w.sections = streamView
 	w.IWidget = streamViewWithKeysAfter
 
-	for i := 0; i < len(w.tblWidgets); i++ {
+	for i := range len(w.tblWidgets) {
 		j := i // avoid loop variable gotcha
 		w.viewWidgets[i], w.tblWidgets[i] = w.makeTable(i)
 
@@ -898,7 +898,7 @@ func (w *Widget) AddChunkEntire(ch streams.IChunk, app gowid.IApp) {
 
 	// Update the copymodetable's data - otherwise the slice is stale
 
-	for i := 0; i < len(w.tblWidgets); i++ { // Loop over all conmv views - entire, client, server
+	for i := range len(w.tblWidgets) { // Loop over all conmv views - entire, client, server
 		w.updateChunkModel(i, w.displayAs, app)
 	}
 

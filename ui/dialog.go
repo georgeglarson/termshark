@@ -149,7 +149,7 @@ func OpenTemplatedDialog(container gowid.ISettableComposite, tmplName string, ap
 			ws = append(ws, text.New(line))
 		} else {
 			words := strings.Fields(line)
-			for i := 0; i < len(words); i++ {
+			for i := range len(words) {
 				words[i] = strings.ReplaceAll(words[i], "_", " ")
 			}
 			ws = append(ws, paragraph.NewWithWords(words...))

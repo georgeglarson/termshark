@@ -267,7 +267,7 @@ func (w *Widget) Render(size gowid.IRenderSize, focus gowid.Selector, app gowid.
 	var layer *LayerStyler
 
 	layerStyles := make([]convertedLayer, len(layers))
-	for i := 0; i < len(layers); i++ {
+	for i := range len(layers) {
 		layerStyles[i].u = convertStyle(gowid.MakePaletteRef(layers[i].ColUnselected), app)
 		layerStyles[i].s = convertStyle(gowid.MakePaletteRef(layers[i].ColSelected), app)
 	}

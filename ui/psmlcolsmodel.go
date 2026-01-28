@@ -135,7 +135,7 @@ func (p *psmlColumnsModel) FieldToString(i int) string {
 // a slice of strings suitable for writing to the termshark toml file.
 func (p *psmlColumnsModel) ToConfigList() []string {
 	res := make([]string, 0, len(p.spec))
-	for i := 0; i < len(p.spec); i++ {
+	for i := range len(p.spec) {
 		res = append(res, p.FieldToString(i))
 		res = append(res, p.widgets[i].customName.Text())
 		res = append(res, fmt.Sprintf("%v", p.widgets[i].visible.IsChecked()))
@@ -197,7 +197,7 @@ func (p *psmlColumnsModel) cacheHaveCustom() {
 func (p *psmlColumnsModel) fixup(app gowid.IApp) {
 	p.haveCustom = false
 	p.widgets = make([]psmlDialogWidgets, 0)
-	for i := 0; i < len(p.spec); i++ {
+	for i := range len(p.spec) {
 		sp := specToWidgets(p.spec[i])
 		w := sp.widgets()
 

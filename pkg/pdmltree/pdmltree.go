@@ -381,7 +381,7 @@ func (p *Model) SetCollapsed(app gowid.IApp, isCollapsed bool) {
 		// We need to add an expanded entry for [/], [/, tcp], [/, tcp, tcp.srcport] - because
 		// expanding a node implicitly expands all parent nodes. But contracting an outer node
 		// should leave the expanded state of inner nodes alone.
-		for i := 0; i < len(path); i++ {
+		for i := range len(path) {
 			p.ExpandedFields.addExpanded(path[0 : i+1])
 		}
 	} else {

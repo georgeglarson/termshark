@@ -2425,7 +2425,7 @@ func makePacketListModel(psml iPsmlInfo, app gowid.IApp) *psmlmodel.Model {
 	avgs := psml.PsmlAverageLengths()
 	maxs := psml.PsmlMaxLengths()
 	widths := make([]gowid.IWidgetDimension, 0, len(avgs))
-	for i := 0; i < len(avgs); i++ {
+	for i := range len(avgs) {
 		titleLen := 0
 		if i < len(headers) {
 			titleLen = len(headers[i]) + 1 // add 1 because the table clears the last cell
