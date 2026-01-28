@@ -39,6 +39,7 @@ import (
 	"github.com/gcla/gowid/vim"
 	"github.com/gcla/gowid/widgets/table"
 	"github.com/gcla/termshark/v2/configs/profiles"
+	"github.com/gcla/termshark/v2/pkg/generic"
 	"github.com/gcla/termshark/v2/pkg/lifecycle"
 	"github.com/gcla/termshark/v2/pkg/system"
 	"github.com/gcla/termshark/v2/widgets/resizable"
@@ -415,17 +416,10 @@ func SaveKeyMappings(mappings []KeyMapping) {
 	profiles.SetConf("main.key-mappings", ser)
 }
 
-func RemoveFromStringSlice(pcap string, comps []string) []string {
-	var newcomps []string
-	for _, v := range comps {
-		if v == pcap {
-			continue
-		} else {
-			newcomps = append(newcomps, v)
-		}
-	}
-	newcomps = append([]string{pcap}, newcomps...)
-	return newcomps
+// RemoveFromStringSlice removes element from comps and prepends it.
+// Deprecated: Use generic.MoveToFront instead.
+func RemoveFromStringSlice(element string, comps []string) []string {
+	return generic.MoveToFront(comps, element)
 }
 
 const magicMicroseconds = 0xA1B2C3D4

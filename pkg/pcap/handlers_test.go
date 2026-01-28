@@ -328,6 +328,50 @@ func TestNestedHandlerList(t *testing.T) {
 }
 
 //======================================================================
+// TypedHandlerList Tests
+//======================================================================
+
+func TestTypedHandlerList_Unpack(t *testing.T) {
+	h1 := &mockBeforeBegin{}
+	h2 := &mockBeforeBegin{}
+	list := TypedHandlerList[*mockBeforeBegin]{h1, h2}
+
+	unpacked := list.Unpack()
+
+	assert.Len(t, unpacked, 2)
+	assert.Equal(t, h1, unpacked[0])
+	assert.Equal(t, h2, unpacked[1])
+}
+
+func TestTypedHandlerList_WithHandleBegin(t *testing.T) {
+	h1 := &mockBeforeBegin{}
+	h2 := &mockBeforeBegin{}
+	list := TypedHandlerList[*mockBeforeBegin]{h1, h2}
+
+	HandleBegin(PsmlCode, nil, list)
+
+	assert.True(t, h1.called)
+	assert.True(t, h2.called)
+	assert.Equal(t, PsmlCode, h1.code)
+	assert.Equal(t, PsmlCode, h2.code)
+}
+
+func TestTypedHandlerList_Empty(t *testing.T) {
+	list := TypedHandlerList[*mockBeforeBegin]{}
+
+	unpacked := list.Unpack()
+
+	assert.Len(t, unpacked, 0)
+}
+
+func TestTypedHandlerList_ImplementsIUnpack(t *testing.T) {
+	list := TypedHandlerList[*mockBeforeBegin]{}
+
+	// Verify it implements IUnpack
+	var _ IUnpack = list
+}
+
+//======================================================================
 // Local Variables:
 // mode: Go
 // fill-column: 78
