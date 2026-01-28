@@ -277,7 +277,7 @@ func openEditColumns(app gowid.IApp) {
 		Msg: "Ok",
 		Action: gowid.MakeWidgetCallback("cb",
 			gowid.WidgetChangedFunction(func(app gowid.IApp, widget gowid.IWidget) {
-				for i := 0; i < len(pcols.spec); i++ {
+				for i := range len(pcols.spec) {
 					if pcols.spec[i].Field.Token == "%Cus" && !pcols.widgets[i].customFilter.IsValid() {
 						OpenMessage(fmt.Sprintf("Custom column %d is invalid", i+1), appView, app)
 						return

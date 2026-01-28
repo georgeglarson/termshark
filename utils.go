@@ -863,7 +863,7 @@ func (s MACCompare) Less(i, j string) bool {
 	x, errx := net.ParseMAC(i)
 	y, erry := net.ParseMAC(j)
 	if errx == nil && erry == nil {
-		for i := 0; i < len(x); i++ {
+		for i := range len(x) {
 			switch {
 			case x[i] < y[i]:
 				return true

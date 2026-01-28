@@ -199,7 +199,7 @@ var packetListViewHolder *holder.Widget
 
 | Feature | Current Pattern | Modern Pattern | Status |
 |---------|-----------------|----------------|--------|
-| Range over integers | `for i := 0; i < len(s); i++` | `for i := range len(s)` | Pending |
+| Range over integers | `for i := 0; i < len(s); i++` | `for i := range len(s)` | PARTIAL |
 | Error wrapping | `pkg/errors.WithStack()` | `fmt.Errorf("%w", err)` | DONE |
 | strings.Replace | `strings.Replace(s, o, n, -1)` | `strings.ReplaceAll(s, o, n)` | DONE |
 | slices.Contains | Custom `StringInSlice()` | `slices.Contains()` | DONE |

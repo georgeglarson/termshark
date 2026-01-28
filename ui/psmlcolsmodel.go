@@ -74,10 +74,7 @@ func init() {
 func NewDefaultPsmlColumnsModel(app gowid.IApp) *psmlColumnsModel {
 	spec := shark.DefaultPsmlColumnSpec
 	// copy it to protect from alterations
-	specCopy := make([]shark.PsmlColumnSpec, len(spec))
-	for i := 0; i < len(spec); i++ {
-		specCopy[i] = spec[i]
-	}
+	specCopy := slices.Clone(spec)
 	res := &psmlColumnsModel{
 		spec: specCopy,
 	}
@@ -107,9 +104,9 @@ func NewPsmlColumnsModelFrom(colsKey string, app gowid.IApp) *psmlColumnsModel {
 
 func (p *psmlColumnsModel) Close() error {
 	var err error
-	for i := 0; i < len(p.widgets); i++ {
-		if p.widgets[i].customFilter != nil {
-			err2 := p.widgets[i].customFilter.Close()
+	for _, w := range p.widgets {
+		if w.customFilter != nil {
+			err2 := w.customFilter.Close()
 			if err == nil {
 				err = err2
 			}

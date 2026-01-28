@@ -91,7 +91,7 @@ func (w *Widget) Render(size gowid.IRenderSize, focus gowid.Selector, app gowid.
 				return w.ContentWidget.Render(size, focus, app)
 			}
 
-			for i := 0; i < len(indices); i++ {
+			for i := range len(indices) {
 				if w.Occ == i || w.Occ == -1 {
 					for j := indices[i][0]; j < indices[i][1]; j++ {
 						(*textContent)[j].Attr = w.Style
