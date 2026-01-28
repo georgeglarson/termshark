@@ -229,11 +229,8 @@ func CopyToAndUse(name string) error {
 	}
 	dir = filepath.Join(dir, name)
 
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.Mkdir(dir, 0700)
-		if err != nil {
-			return fmt.Errorf("Unexpected error making dir %s: %v", dir, err)
-		}
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return fmt.Errorf("Unexpected error making dir %s: %v", dir, err)
 	}
 
 	vProfile.SetConfigFile(filepath.Join(dir, "termshark.toml"))
@@ -309,11 +306,8 @@ func Use(name string) error {
 	}
 	dir = filepath.Join(dir, name)
 
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.Mkdir(dir, 0700)
-		if err != nil {
-			return fmt.Errorf("Unexpected error making dir %s: %v", dir, err)
-		}
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return fmt.Errorf("Unexpected error making dir %s: %v", dir, err)
 	}
 
 	if err := readConfig(vNew, dir, "termshark", false); err != nil {

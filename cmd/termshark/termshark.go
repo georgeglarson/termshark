@@ -560,12 +560,9 @@ func cmain() int {
 	}
 
 	for _, dir := range []string{termshark.CacheDir(), termshark.DefaultPcapDir(), termshark.PcapDir()} {
-		if _, err = os.Stat(dir); os.IsNotExist(err) {
-			err = os.Mkdir(dir, 0700)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Unexpected error making dir %s: %v", dir, err)
-				return 1
-			}
+		if err = os.MkdirAll(dir, 0700); err != nil {
+			fmt.Fprintf(os.Stderr, "Unexpected error making dir %s: %v", dir, err)
+			return 1
 		}
 	}
 
