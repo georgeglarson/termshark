@@ -114,6 +114,124 @@ func TestFieldsAndProtos(t *testing.T) {
 	assert.NotNil(t, f.Protocols)
 }
 
+func TestDedup(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{
+			name:     "empty slice",
+			input:    []string{},
+			expected: []string{},
+		},
+		{
+			name:     "single element",
+			input:    []string{"a"},
+			expected: []string{"a"},
+		},
+		{
+			name:     "no duplicates",
+			input:    []string{"a", "b", "c"},
+			expected: []string{"a", "b", "c"},
+		},
+		{
+			name:     "consecutive duplicates",
+			input:    []string{"a", "a", "b", "b", "c"},
+			expected: []string{"a", "b", "c"},
+		},
+		{
+			name:     "all same",
+			input:    []string{"x", "x", "x", "x"},
+			expected: []string{"x"},
+		},
+		{
+			name:     "duplicate at end",
+			input:    []string{"a", "b", "b"},
+			expected: []string{"a", "b"},
+		},
+		{
+			name:     "duplicate at start",
+			input:    []string{"a", "a", "b"},
+			expected: []string{"a", "b"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Make a copy since dedup modifies in place
+			input := make([]string, len(tt.input))
+			copy(input, tt.input)
+			result := dedup(input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestLookupField_EdgeCases(t *testing.T) {
+	fields := New()
+	err := fields.InitNoCache()
+	assert.NoError(t, err)
+
+	// Empty string
+	found, _ := fields.LookupField("")
+	assert.False(t, found)
+
+	// Single dot
+	found, _ = fields.LookupField(".")
+	assert.False(t, found)
+
+	// Path too deep (beyond what exists)
+	found, _ = fields.LookupField("tcp.port.something.extra")
+	assert.False(t, found)
+}
+
+type mockCallback struct {
+	results []string
+}
+
+func (m *mockCallback) Call(res []string) {
+	m.results = res
+}
+
+func TestCompletions(t *testing.T) {
+	fields := New()
+	err := fields.InitNoCache()
+	assert.NoError(t, err)
+
+	// Test completion with prefix
+	cb := &mockCallback{}
+	fields.Completions("tcp.p", cb)
+	// Should have completions starting with "tcp.p"
+	assert.True(t, len(cb.results) > 0, "should have tcp.p* completions")
+	for _, r := range cb.results {
+		if r != "tcp" { // protocol might also match
+			assert.True(t, len(r) >= 5, "completion should be at least 'tcp.p'")
+		}
+	}
+
+	// Test completion with space at end (no partial field)
+	cb = &mockCallback{}
+	fields.Completions("tcp ", cb)
+	assert.NotNil(t, cb.results)
+
+	// Test completion with empty prefix
+	cb = &mockCallback{}
+	fields.Completions("", cb)
+	assert.NotNil(t, cb.results)
+}
+
+func TestCompletions_UninitializedHandledGracefully(t *testing.T) {
+	// Note: Completions() uses once.Do() to initialize, so calling it
+	// will trigger initialization. This test verifies that Completions
+	// handles initialization and returns results without panicking.
+	fields := New()
+	cb := &mockCallback{}
+	fields.Completions("tcp", cb)
+	// Should not panic and should return some results after auto-init
+	assert.NotNil(t, cb.results)
+}
+
 //======================================================================
 // Local Variables:
 // mode: Go

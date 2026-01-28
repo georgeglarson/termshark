@@ -340,6 +340,129 @@ func TestDecodePacket_InvalidXML(t *testing.T) {
 	assert.Nil(t, result)
 }
 
+func TestModel_MakeParentLinks(t *testing.T) {
+	grandchild := &Model{Name: "grandchild"}
+	child := &Model{Name: "child", Children_: []*Model{grandchild}}
+	root := &Model{Name: "root", Children_: []*Model{child}}
+
+	var paths ExpandedPaths
+	root.MakeParentLinks(&paths)
+
+	// Check parent links are set correctly
+	assert.Nil(t, root.Parent)
+	assert.Equal(t, root, child.Parent)
+	assert.Equal(t, child, grandchild.Parent)
+
+	// Check ExpandedFields is set
+	assert.Equal(t, &paths, root.ExpandedFields)
+	assert.Equal(t, &paths, child.ExpandedFields)
+	assert.Equal(t, &paths, grandchild.ExpandedFields)
+}
+
+func TestModel_MakeParentLinks_Nil(t *testing.T) {
+	// Should not panic on nil
+	var m *Model
+	m.MakeParentLinks(nil)
+}
+
+func TestModel_ExpandByPath(t *testing.T) {
+	leaf := &Model{Name: "tcp.port", Expanded: false}
+	tcp := &Model{Name: "tcp", Expanded: false, Children_: []*Model{leaf}}
+
+	// Expand the path to tcp.port
+	tcp.expandByPath([]string{"tcp", "tcp.port"})
+
+	// Only tcp.port should be expanded (leaf of path)
+	assert.False(t, tcp.Expanded)
+	assert.True(t, leaf.Expanded)
+}
+
+func TestModel_ExpandByPath_EmptyPath(t *testing.T) {
+	m := &Model{Name: "test", Expanded: false}
+	m.expandByPath([]string{})
+	assert.False(t, m.Expanded)
+}
+
+func TestModel_ExpandByPath_NoMatch(t *testing.T) {
+	m := &Model{Name: "test", Expanded: false}
+	m.expandByPath([]string{"other"})
+	assert.False(t, m.Expanded)
+}
+
+func TestModel_ApplyExpandedPaths(t *testing.T) {
+	child := &Model{Name: "child", Expanded: false}
+	root := &Model{Name: "root", Expanded: false, Children_: []*Model{child}}
+
+	paths := ExpandedPaths{[]string{"root"}, []string{"root", "child"}}
+	root.ApplyExpandedPaths(&paths)
+
+	assert.True(t, root.Expanded)
+	assert.True(t, child.Expanded)
+}
+
+func TestModel_ApplyExpandedPaths_Nil(t *testing.T) {
+	root := &Model{Name: "root", Expanded: false}
+	root.ApplyExpandedPaths(nil)
+	assert.False(t, root.Expanded)
+}
+
+func TestExpandedIterator(t *testing.T) {
+	child1 := &Model{UiName: "child1"}
+	child2 := &Model{UiName: "child2"}
+	parent := &Model{
+		UiName:    "parent",
+		Expanded:  true,
+		Children_: []*Model{child1, child2},
+	}
+
+	expModel := (*ExpandedModel)(parent)
+	it := expModel.Children().(*ExpandedIterator)
+
+	// First iteration
+	assert.True(t, it.Next())
+	val := it.Value().(*ExpandedModel)
+	assert.Equal(t, "child1", val.UiName)
+
+	// Second iteration
+	assert.True(t, it.Next())
+	val = it.Value().(*ExpandedModel)
+	assert.Equal(t, "child2", val.UiName)
+
+	// No more items
+	assert.False(t, it.Next())
+}
+
+func TestExpandedModel_Children_IgnoresExpandedFlag(t *testing.T) {
+	// ExpandedModel is designed to always iterate children,
+	// regardless of the Expanded flag. This is the key difference
+	// from Model.Children() which returns EmptyIterator when collapsed.
+	child := &Model{UiName: "child"}
+	parent := &Model{
+		UiName:    "parent",
+		Expanded:  false, // Note: collapsed
+		Children_: []*Model{child},
+	}
+
+	expModel := (*ExpandedModel)(parent)
+	it := expModel.Children()
+
+	// ExpandedModel.Children() returns ExpandedIterator, not EmptyIterator
+	_, isExpandedIterator := it.(*ExpandedIterator)
+	assert.True(t, isExpandedIterator, "ExpandedModel.Children() should return ExpandedIterator")
+
+	// Should still be able to iterate children even though Expanded is false
+	assert.True(t, it.Next())
+	assert.Equal(t, "child", it.Value().(*ExpandedModel).UiName)
+	assert.False(t, it.Next())
+}
+
+func TestExpandedModel_String(t *testing.T) {
+	m := &Model{UiName: "test"}
+	em := (*ExpandedModel)(m)
+	s := em.String()
+	assert.Contains(t, s, "[test]")
+}
+
 //======================================================================
 // Local Variables:
 // mode: Go
