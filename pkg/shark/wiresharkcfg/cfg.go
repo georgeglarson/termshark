@@ -7,7 +7,7 @@ package wiresharkcfg
 import (
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -38,7 +38,7 @@ func NewDefault() (*Config, error) {
 	if tryXDG {
 		stdConf := configdir.New("", "wireshark")
 		dirs := stdConf.QueryFolders(configdir.All)
-		cpath = path.Join(dirs[0].Path, "preferences")
+		cpath = filepath.Join(dirs[0].Path, "preferences")
 		_, err = os.Stat(cpath)
 		if os.IsNotExist(err) {
 			return nil, err

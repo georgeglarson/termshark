@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -20,7 +20,7 @@ var NoTermuxApi error = fmt.Errorf("Could not launch file picker. Please install
 func PickFile() (string, error) {
 	tsdir := "/data/data/com.termux/files/home"
 	tsfile := "termux"
-	tsabs := path.Join(tsdir, tsfile)
+	tsabs := filepath.Join(tsdir, tsfile)
 
 	if err := os.Remove(tsabs); err != nil && !os.IsNotExist(err) {
 		return "", fmt.Errorf("Could not remove previous temporary termux file %s: %w", tsabs, err)

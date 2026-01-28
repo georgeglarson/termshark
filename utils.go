@@ -19,7 +19,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -255,7 +254,7 @@ func RunForStderr(prog string, args []string, env []string, stderr io.Writer) (i
 func ConfFile(file string) string {
 	stdConf := configdir.New("", "termshark")
 	dirs := stdConf.QueryFolders(configdir.Global)
-	return path.Join(dirs[0].Path, file)
+	return filepath.Join(dirs[0].Path, file)
 }
 
 func CacheFile(bin string) string {
@@ -293,7 +292,7 @@ func PcapDir() string {
 // DefaultPcapDir returns ~/.cache/pcaps by default. Termshark will check a
 // couple of user settings first before using this.
 func DefaultPcapDir() string {
-	return path.Join(CacheDir(), "pcaps")
+	return filepath.Join(CacheDir(), "pcaps")
 }
 
 func TSharkBin() string {
