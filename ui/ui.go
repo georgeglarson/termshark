@@ -367,6 +367,41 @@ func calculateAndSyncPrefetchRequests(currentRow, pktsPerLoad int) {
 }
 
 //======================================================================
+// Controller callback setup
+//======================================================================
+
+// SetupControllerCallbacks registers callbacks on the Controller for UI notifications.
+// This should be called after the gowid App is created but before user interaction.
+func SetupControllerCallbacks(gowApp gowid.IApp) {
+	// OnError callback - display errors to the user
+	AppController.SetOnError(func(event app.ErrorEvent) {
+		gowApp.Run(gowid.RunFunction(func(app gowid.IApp) {
+			msg := event.Message
+			if event.Err != nil {
+				msg = fmt.Sprintf("%s: %v", msg, event.Err)
+			}
+			OpenError(msg, app)
+		}))
+	})
+
+	// OnLoadRequest callback - trigger packet cache loading
+	// Currently a no-op since calculateAndSyncPrefetchRequests handles this,
+	// but prepared for future use when we fully migrate to Controller-driven loading.
+	AppController.SetOnLoadRequest(func(event app.LoadRequestEvent) {
+		// Future: trigger actual loading via Loader
+		// For now, calculateAndSyncPrefetchRequests already updates CacheRequests
+	})
+
+	// OnStateChange callback - for future UI widget updates driven by state
+	// Currently most updates happen via the old paths, but this prepares for
+	// full migration to state-driven UI.
+	AppController.SetOnStateChange(func(event app.StateChangeEvent) {
+		// Future: update UI widgets based on state changes
+		// For now, the sync helpers and existing code paths handle this
+	})
+}
+
+//======================================================================
 
 type MultiMenuOpener struct {
 	under gowid.IWidget
@@ -4483,6 +4518,9 @@ func Build(tty string) (*gowid.App, error) {
 	if offs, err := termshark.LoadOffsetFromConfig("altview2vertical"); err == nil {
 		altview2Cols.SetOffsets(offs, app)
 	}
+
+	// Wire up Controller callbacks now that the gowid app exists
+	SetupControllerCallbacks(app)
 
 	return app, err
 }
