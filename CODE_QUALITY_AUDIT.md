@@ -14,7 +14,7 @@
 | Error Handling | COMPLETE | pkg/errors, %v wrapping, type assertions | All |
 | Goroutine Lifecycle | COMPLETE | Global WaitGroup injection | ~40 goroutines |
 | Code Complexity | PARTIAL | 1260-line cmain(), 80+ UI globals | ~145 lines extracted |
-| Modernization | COMPLETE | strings.Replace, error wrapping, slices pkg, sort -> slices | All |
+| Modernization | COMPLETE | strings.Replace, error wrapping, slices pkg, sort -> slices, go vet clean | All |
 | Bug Fixes | COMPLETE | iota misuse (8 files), WriteGob error handling, redundant code | All |
 | Test Coverage | Pending | ~30% coverage, 0% for UI | 0 |
 | Type Safety | Pending | interface{} callbacks | 0 |
@@ -210,6 +210,23 @@ var packetListViewHolder *holder.Widget
 | slices.Delete | `append(s[:i], s[i+1:]...)` | `slices.Delete(s, i, i+1)` | DONE |
 | clear() | `for k := range m { delete(m, k) }` | `clear(m)` | DONE |
 | min/max builtins | `math.Min/Max` for numeric types | `min()/max()` | DONE |
+| filepath.Join | `path.Join` for file paths | `filepath.Join` (OS-aware) | DONE |
+| Compiled regex | `regexp.MustCompile` in functions | Package-level variables | DONE |
+
+### 7.3 Static Analysis (go vet) - COMPLETE
+
+All `go vet` warnings fixed:
+
+| Issue | Files | Fix |
+|-------|-------|-----|
+| Context leak | ui/searchbyfilter.go | Call cancelFn() before error return |
+| Unkeyed struct literals | 9 files | Add explicit field names |
+
+Unkeyed struct literals fixed for external types:
+- `gowid.MouseState`, `gowid.WidgetCallback`, `gowid.ContainerWidget`
+- `gowid.RenderWithWeight`, `gowid.ColorInverter`
+- `framed.FrameRunes`
+- `pcap.TemporaryFileSource`, `pcap.Runner`, `ui.SetStructWidgets`
 
 ### 7.2 Generics (Go 1.18+)
 
@@ -298,6 +315,15 @@ type HandlerList[T any] []T
 | `eab3250` | Use Go 1.21+ slices package (slices.Contains, slices.Equal) |
 | `a8188ec` | Fix iota bug in FieldType constants |
 | `5d7f362` | Fix iota bugs in multiple const blocks (7 files) |
+| `4dd5c8c` | Modernize sort to slices package and fix WriteGob error handling |
+| `ff1376d` | Use slices.Insert, slices.Delete, and clear() builtins |
+| `8b961eb` | Replace math.Max with max builtin (Go 1.21+) |
+| `445ca55` | Use Go 1.22+ features: range len(), slices.Clone |
+| `834eeab` | Replace manual byte slice copy with slices.Clone |
+| `d68c6f8` | Fix go vet warnings: context leak and unkeyed struct literal |
+| `1c8e4d9` | Use filepath.Join instead of path.Join for filesystem paths |
+| `8179d47` | Move regexp.MustCompile from functions to package level |
+| `b04f94f` | Fix unkeyed struct literal warnings from go vet |
 
 ---
 
