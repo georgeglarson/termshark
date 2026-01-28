@@ -90,3 +90,30 @@ func TestTrackerWaitGroup(t *testing.T) {
 		t.Errorf("expected counter to be 1, got %d", counter)
 	}
 }
+
+func TestTrackerContext(t *testing.T) {
+	tracker := New()
+
+	ctx := tracker.Context()
+	if ctx == nil {
+		t.Error("Context() returned nil")
+	}
+
+	// Context should not be cancelled initially
+	select {
+	case <-ctx.Done():
+		t.Error("context should not be cancelled before Shutdown()")
+	default:
+		// Expected
+	}
+
+	tracker.Shutdown()
+
+	// Context should be cancelled after Shutdown()
+	select {
+	case <-ctx.Done():
+		// Expected
+	case <-time.After(time.Second):
+		t.Error("context should be cancelled after Shutdown()")
+	}
+}
