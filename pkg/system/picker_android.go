@@ -51,7 +51,7 @@ func PickFile() (string, error) {
 		for {
 			select {
 			case we := <-iwatcher.Events:
-				if path.Base(we.Name) == tsfile {
+				if filepath.Base(we.Name) == tsfile {
 					break Loop
 				}
 
