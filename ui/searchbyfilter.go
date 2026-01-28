@@ -20,6 +20,7 @@ import (
 	"github.com/gcla/gowid/widgets/table"
 	"github.com/gcla/termshark/v2"
 	"github.com/gcla/termshark/v2/configs/profiles"
+	appstate "github.com/gcla/termshark/v2/pkg/app"
 	"github.com/gcla/termshark/v2/pkg/format"
 	"github.com/gcla/termshark/v2/pkg/pcap"
 	"github.com/gcla/termshark/v2/widgets/search"
@@ -142,7 +143,7 @@ func (w *FilterSearchCallbacks) SearchPacketsFrom(ifrom interface{}, istart inte
 	searchFor := term.(fmt.Stringer).String()
 
 	if Loader.DisplayFilter() != "" {
-		searchFor = fmt.Sprintf("(%s) && (%s)", Loader.DisplayFilter(), searchFor)
+		searchFor = appstate.CombineFilters(appstate.CombAndSelected, searchFor, Loader.DisplayFilter())
 	}
 
 	var mpval *filterSearchState
