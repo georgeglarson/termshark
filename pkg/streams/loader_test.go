@@ -1130,7 +1130,7 @@ func TestDecode1(t *testing.T) {
 		indices: make([]int, 0),
 	}
 
-	decodeStreamXml(strings.NewReader(pdml), "tcp", context.TODO(), pt)
+	decodeStreamXml(strings.NewReader(pdml), "tcp", context.Background(), pt)
 
 	assert.Equal(t, []int{0, 1, 3, 4, 6, 7}, pt.indices)
 }
