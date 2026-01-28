@@ -33,6 +33,7 @@ import (
 	"github.com/gcla/gowid/widgets/vpadding"
 	"github.com/gcla/termshark/v2"
 	"github.com/gcla/termshark/v2/configs/profiles"
+	"github.com/gcla/termshark/v2/pkg/app"
 	"github.com/gcla/termshark/v2/pkg/convs"
 	"github.com/gcla/termshark/v2/pkg/pcap"
 	"github.com/gcla/termshark/v2/pkg/psmlmodel"
@@ -662,59 +663,35 @@ type IFilterModel interface {
 	GetBFilter(Direction) string
 }
 
-func ComputeConvFilterOp(dirOp FilterMask, comb FilterCombinator, model IFilterModel, curFilter string) string {
-	var filter string
-	switch dirOp {
-	case AtfB:
-		filter = fmt.Sprintf("%s && %s", model.GetAFilter(Any), model.GetBFilter(Any))
-	case AtB:
-		filter = fmt.Sprintf("%s && %s", model.GetAFilter(From), model.GetBFilter(To))
-	case BtA:
-		filter = fmt.Sprintf("%s && %s", model.GetBFilter(From), model.GetAFilter(To))
-	case AtfAny:
-		filter = model.GetAFilter(Any)
-	case AtAny:
-		filter = model.GetAFilter(From)
-	case AnytA:
-		filter = model.GetAFilter(To)
-	case AnytfB:
-		filter = model.GetBFilter(Any)
-	case AnytB:
-		filter = model.GetBFilter(To)
-	case BtAny:
-		filter = model.GetBFilter(From)
-	}
-
-	return ComputeFilterCombOp(comb, filter, curFilter)
+// filterModelAdapter wraps IFilterModel to implement app.FilterModel.
+type filterModelAdapter struct {
+	model IFilterModel
 }
 
-func ComputeFilterCombOp(comb FilterCombinator, newFilter string, curFilter string) string {
-	switch comb {
-	case NotSelected:
-		newFilter = fmt.Sprintf("!(%s)", newFilter)
-	case AndSelected:
-		if curFilter != "" {
-			newFilter = fmt.Sprintf("%s && (%s)", curFilter, newFilter)
-		}
-	case OrSelected:
-		if curFilter != "" {
-			newFilter = fmt.Sprintf("%s || (%s)", curFilter, newFilter)
-		}
-	case AndNotSelected:
-		if curFilter != "" {
-			newFilter = fmt.Sprintf("%s && !(%s)", curFilter, newFilter)
-		} else {
-			newFilter = fmt.Sprintf("!%s", newFilter)
-		}
-	case OrNotSelected:
-		if curFilter != "" {
-			newFilter = fmt.Sprintf("%s || !(%s)", curFilter, newFilter)
-		} else {
-			newFilter = fmt.Sprintf("!%s", newFilter)
-		}
-	}
+func (a filterModelAdapter) GetAFilter(dir app.Direction) string {
+	return a.model.GetAFilter(Direction(dir))
+}
 
-	return newFilter
+func (a filterModelAdapter) GetBFilter(dir app.Direction) string {
+	return a.model.GetBFilter(Direction(dir))
+}
+
+// ComputeConvFilterOp computes a conversation filter expression.
+// Delegates to app.ComputeConversationFilter for the core logic.
+func ComputeConvFilterOp(dirOp FilterMask, comb FilterCombinator, model IFilterModel, curFilter string) string {
+	adapter := filterModelAdapter{model: model}
+	return app.ComputeConversationFilter(
+		app.FilterMask(dirOp),
+		app.FilterCombinator(comb),
+		adapter,
+		curFilter,
+	)
+}
+
+// ComputeFilterCombOp combines a new filter with an existing filter.
+// Delegates to app.CombineFilters for the core logic.
+func ComputeFilterCombOp(comb FilterCombinator, newFilter string, curFilter string) string {
+	return app.CombineFilters(app.FilterCombinator(comb), newFilter, curFilter)
 }
 
 func (w *ConvsUiWidget) OnCancel(app gowid.IApp) {
