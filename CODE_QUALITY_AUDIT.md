@@ -223,7 +223,7 @@ type HandlerList[T any] []T
 ### Phase 2: Error Handling (Short Term)
 5. ~~Remove `github.com/pkg/errors` dependency~~ DONE (direct usage removed)
 6. ~~Migrate to stdlib error wrapping~~ DONE
-7. Add `errors.Is()`/`errors.As()` where appropriate
+7. ~~Add `errors.Is()` for io.EOF comparisons~~ DONE (5 locations updated)
 
 ### Phase 3: Architecture (Medium Term) - IN PROGRESS
 8. ~~Refactor goroutine lifecycle to use context/errgroup~~ COMPLETE
