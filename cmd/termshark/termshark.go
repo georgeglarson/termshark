@@ -125,21 +125,9 @@ func cmain() int {
 	// processes start running, they use the same tty line discipline.
 	system.RegisterForSignals(sigChan)
 
-	stdConf := configdir.New("", "termshark")
-	dirs := stdConf.QueryFolders(configdir.Cache)
-	if err := dirs[0].CreateParentDir("dummy"); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not create cache dir: %v\n", err)
-	}
-	dirs = stdConf.QueryFolders(configdir.Global)
-	if err := dirs[0].CreateParentDir("dummy"); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not create config dir: %v\n", err)
-	} else {
-		if err = os.MkdirAll(filepath.Join(dirs[0].Path, "profiles"), 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: could not create profiles dir: %v\n", err)
-		}
-	}
+	configDir := setupConfigDirs()
 
-	err := profiles.ReadDefaultConfig(dirs[0].Path)
+	err := profiles.ReadDefaultConfig(configDir.Path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, fmt.Sprintf("%s\n", err.Error()))
 	}
@@ -524,18 +512,9 @@ func cmain() int {
 	// Here we now have an accurate view of all psrcs - either file, fifo, pipe or interface
 
 	// Helpful to use logging when enumerating interfaces below, so do it first
-	if !opts.LogTty {
-		logfile := termshark.CacheFile("termshark.log")
-		logfd, err := os.OpenFile(logfile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Could not create log file %s: %v\n", logfile, err)
-			return 1
-		}
-		// Don't close it - just let the descriptor be closed at exit. logrus is used
-		// in many places, some outside of this main function, and closing results in
-		// an error often on freebsd.
-		//defer logfd.Close()
-		log.SetOutput(logfd)
+	if err := setupLogging(opts.LogTty); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return 1
 	}
 
 	debug := false
@@ -552,77 +531,18 @@ func cmain() int {
 		}()
 	}
 
-	for _, dir := range []string{termshark.CacheDir(), termshark.DefaultPcapDir(), termshark.PcapDir()} {
-		if err = os.MkdirAll(dir, 0700); err != nil {
-			fmt.Fprintf(os.Stderr, "Unexpected error making dir %s: %v", dir, err)
-			return 1
-		}
-	}
-
-	// Write this pcap out here because the color validation code later depends on empty.pcap
-	emptyPcap := termshark.CacheFile("empty.pcap")
-	if _, err := os.Stat(emptyPcap); os.IsNotExist(err) {
-		err = termshark.WriteEmptyPcap(emptyPcap)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Could not create dummy pcap %s: %v", emptyPcap, err)
-			return 1
-		}
-	}
-
-	tsharkBin, kverr := termshark.TSharkPath()
-	if kverr != nil {
-		fmt.Fprintf(os.Stderr, kverr.KeyVals["msg"].(string))
+	if err = createCacheDirs(); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
 
-	// Here, tsharkBin is a fully-qualified tshark binary that exists on the fs (absent race
-	// conditions...)
-
-	valids := profiles.ConfStrings("main.validated-tsharks")
-
-	if !termshark.StringInSlice(tsharkBin, valids) {
-		tver, err := termshark.TSharkVersion(tsharkBin)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Could not determine tshark version: %v\n", err)
-			return 1
-		}
-		// This is the earliest version I could determine gives reliable results in termshark.
-		// tshark compiled against tag v1.10.1 doesn't populate the hex view.
-		mver, _ := semver.Make("1.10.2")
-		if tver.LT(mver) {
-			fmt.Fprintf(os.Stderr, "termshark will not operate correctly with a tshark older than %v (found %v)\n", mver, tver)
-			return 1
-		}
-
-		valids = append(valids, tsharkBin)
-		profiles.SetConf("main.validated-tsharks", valids)
+	tsharkBin, err := validateTsharkBinary()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return 1
 	}
 
-	// If the last tshark we used isn't the same as the current one, then remove the cached fields
-	// data structure so it can be regenerated.
-	if tsharkBin != profiles.ConfString("main.last-used-tshark", "") {
-		fields.DeleteCachedFields()
-	}
-
-	// Write out the last-used tshark path. We do this to make the above fields cache be consistent
-	// with the tshark binary we're using.
-	profiles.SetConf("main.last-used-tshark", tsharkBin)
-
-	// Determine if the current binary supports color. Tshark will fail with an error if it's too old
-	// and you supply the --color flag. Assume true, and check if our current binary is not in the
-	// validate list.
-	ui.PacketColorsSupported = true
-	colorTsharks := profiles.ConfStrings("main.color-tsharks")
-
-	if !termshark.StringInSlice(tsharkBin, colorTsharks) {
-		ui.PacketColorsSupported, err = termshark.TSharkSupportsColor(tsharkBin)
-		if err != nil {
-			ui.PacketColorsSupported = false
-		} else {
-			colorTsharks = append(colorTsharks, tsharkBin)
-			profiles.SetConf("main.color-tsharks", colorTsharks)
-		}
-	}
+	ui.PacketColorsSupported = checkTsharkColorSupport(tsharkBin)
 
 	// If any of opts.Ifaces is provided as a number, it's meant as the index of the interfaces as
 	// per the order returned by the OS. useIface will always be the name of the interface.
@@ -1346,7 +1266,7 @@ Loop:
 
 		case <-watcher.ConfigChanged():
 			// Re-read so changes that can take effect immediately do so
-			if err := profiles.ReadDefaultConfig(dirs[0].Path); err != nil {
+			if err := profiles.ReadDefaultConfig(configDir.Path); err != nil {
 				log.Warnf("Unexpected error re-reading toml config: %v", err)
 			}
 			ui.UpdateRecentMenu(app)
@@ -1355,6 +1275,122 @@ Loop:
 	}
 
 	return 0
+}
+
+//======================================================================
+// Helper functions extracted from cmain() for better readability
+//======================================================================
+
+// setupConfigDirs creates the necessary configuration and cache directories.
+// Returns the global config folder for use in config loading.
+func setupConfigDirs() *configdir.Config {
+	stdConf := configdir.New("", "termshark")
+	dirs := stdConf.QueryFolders(configdir.Cache)
+	if err := dirs[0].CreateParentDir("dummy"); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not create cache dir: %v\n", err)
+	}
+	dirs = stdConf.QueryFolders(configdir.Global)
+	if err := dirs[0].CreateParentDir("dummy"); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not create config dir: %v\n", err)
+	} else {
+		if err = os.MkdirAll(filepath.Join(dirs[0].Path, "profiles"), 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: could not create profiles dir: %v\n", err)
+		}
+	}
+	return dirs[0]
+}
+
+// setupLogging configures the logging output, either to a file or to stderr.
+func setupLogging(logToTty bool) error {
+	if !logToTty {
+		logfile := termshark.CacheFile("termshark.log")
+		logfd, err := os.OpenFile(logfile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
+			return fmt.Errorf("could not create log file %s: %w", logfile, err)
+		}
+		// Don't close it - just let the descriptor be closed at exit. logrus is used
+		// in many places, some outside of this main function, and closing results in
+		// an error often on freebsd.
+		log.SetOutput(logfd)
+	}
+	return nil
+}
+
+// validateTsharkBinary checks that the tshark binary exists and is a supported version.
+// Returns the path to the tshark binary.
+func validateTsharkBinary() (string, error) {
+	tsharkBin, kverr := termshark.TSharkPath()
+	if kverr != nil {
+		return "", fmt.Errorf(kverr.KeyVals["msg"].(string))
+	}
+
+	valids := profiles.ConfStrings("main.validated-tsharks")
+
+	if !termshark.StringInSlice(tsharkBin, valids) {
+		tver, err := termshark.TSharkVersion(tsharkBin)
+		if err != nil {
+			return "", fmt.Errorf("could not determine tshark version: %w", err)
+		}
+		// This is the earliest version that gives reliable results in termshark.
+		mver, _ := semver.Make("1.10.2")
+		if tver.LT(mver) {
+			return "", fmt.Errorf("termshark will not operate correctly with a tshark older than %v (found %v)", mver, tver)
+		}
+
+		valids = append(valids, tsharkBin)
+		profiles.SetConf("main.validated-tsharks", valids)
+	}
+
+	// If the last tshark we used isn't the same as the current one, then remove the cached fields
+	// data structure so it can be regenerated.
+	if tsharkBin != profiles.ConfString("main.last-used-tshark", "") {
+		fields.DeleteCachedFields()
+	}
+
+	// Write out the last-used tshark path.
+	profiles.SetConf("main.last-used-tshark", tsharkBin)
+
+	return tsharkBin, nil
+}
+
+// checkTsharkColorSupport determines if the current tshark binary supports color output.
+func checkTsharkColorSupport(tsharkBin string) bool {
+	colorTsharks := profiles.ConfStrings("main.color-tsharks")
+
+	if termshark.StringInSlice(tsharkBin, colorTsharks) {
+		return true
+	}
+
+	supported, err := termshark.TSharkSupportsColor(tsharkBin)
+	if err != nil {
+		return false
+	}
+
+	if supported {
+		colorTsharks = append(colorTsharks, tsharkBin)
+		profiles.SetConf("main.color-tsharks", colorTsharks)
+	}
+
+	return supported
+}
+
+// createCacheDirs creates the necessary cache directories for termshark.
+func createCacheDirs() error {
+	for _, dir := range []string{termshark.CacheDir(), termshark.DefaultPcapDir(), termshark.PcapDir()} {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			return fmt.Errorf("unexpected error making dir %s: %w", dir, err)
+		}
+	}
+
+	// Write the empty pcap file used for color validation
+	emptyPcap := termshark.CacheFile("empty.pcap")
+	if _, err := os.Stat(emptyPcap); os.IsNotExist(err) {
+		if err = termshark.WriteEmptyPcap(emptyPcap); err != nil {
+			return fmt.Errorf("could not create dummy pcap %s: %w", emptyPcap, err)
+		}
+	}
+
+	return nil
 }
 
 //======================================================================
