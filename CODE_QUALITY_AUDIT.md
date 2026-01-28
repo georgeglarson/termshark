@@ -46,17 +46,15 @@ All `io/ioutil` usages replaced with modern equivalents:
 
 ---
 
-## 2. Error Handling - PENDING
+## 2. Error Handling - PARTIAL
 
-### 2.1 pkg/errors Library (Deprecated)
+### 2.1 pkg/errors Library (Deprecated) - FIXED
 
-Uses `github.com/pkg/errors` instead of Go 1.13+ stdlib error wrapping.
+Removed all direct usage of `github.com/pkg/errors`. All `errors.WithStack()` calls replaced with direct error returns.
 
-| File | Usage | Replacement |
-|------|-------|-------------|
-| `utils.go:157` | `errors.WithStack()` | `fmt.Errorf("%w", err)` |
+Note: `pkg/errors` remains as an indirect dependency via `gowid`.
 
-**Recommendation:** Migrate to stdlib `fmt.Errorf("%w", err)` and `errors.Is()`/`errors.As()`
+**Commit:** `92cb2a9` - Remove direct usage of deprecated github.com/pkg/errors
 
 ### 2.2 Inconsistent Error Patterns
 
@@ -209,8 +207,8 @@ type HandlerList[T any] []T
 4. ~~Add golangci-lint configuration~~ DONE
 
 ### Phase 2: Error Handling (Short Term)
-5. Remove `github.com/pkg/errors` dependency
-6. Migrate to stdlib error wrapping
+5. ~~Remove `github.com/pkg/errors` dependency~~ DONE (direct usage removed)
+6. ~~Migrate to stdlib error wrapping~~ DONE
 7. Add `errors.Is()`/`errors.As()` where appropriate
 
 ### Phase 3: Architecture (Medium Term)
@@ -237,6 +235,7 @@ type HandlerList[T any] []T
 | `53277dd` | Update fsnotify import to modern path |
 | `7e3fcf5` | Remove redundant blank import of net/http |
 | `950e8ad` | Add golangci-lint configuration |
+| `92cb2a9` | Remove direct usage of deprecated github.com/pkg/errors |
 
 ---
 
