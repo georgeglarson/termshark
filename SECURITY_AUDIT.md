@@ -65,6 +65,14 @@ Removed `&& false` condition that prevented temporary config files from being de
 
 **Commit:** `5ae8376` - Enable temp file cleanup for config viewer
 
+### 2.5 Symlink Validation in Profiles - FIXED
+
+Added symlink validation to prevent symlink-based attacks:
+- `AllNonDefaultNames()`: Skip symlinks and non-directories when listing profiles
+- `Delete()`: Refuse to delete symlinks to prevent deletion of arbitrary directories
+
+**Commit:** `c6c7e02` - Add symlink validation in profile enumeration and deletion
+
 ---
 
 ## 3. Input Validation
@@ -125,7 +133,7 @@ Updated: Go 1.22
 
 ### Medium Priority
 4. ~~Review and update other outdated dependencies~~ DONE
-5. Add symlink validation in profile enumeration
+5. ~~Add symlink validation in profile enumeration~~ DONE
 
 ---
 
@@ -139,3 +147,4 @@ Updated: Go 1.22
 | `a552a97` | Fix TOCTOU race conditions in directory creation |
 | `2da7b90` | Upgrade Go to 1.22 and update dependencies |
 | `ae5af27` | Validate --profile CLI argument to prevent path traversal |
+| `c6c7e02` | Add symlink validation in profile enumeration and deletion |
