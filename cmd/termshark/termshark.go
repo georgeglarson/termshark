@@ -649,30 +649,14 @@ func cmain() int {
 		}
 	}()
 
-	// Initialize application state for dark mode and auto-scroll
-	ui.DarkMode = profiles.ConfBool("main.dark-mode", true)
-	ui.AutoScroll = profiles.ConfBool("main.auto-scroll", true)
-	ui.PacketColors = profiles.ConfBool("main.packet-colors", true)
-
-	// Set them up here so they have access to any command-line flags that
-	// need to be passed to the tshark commands used
-	pdmlArgs := profiles.ConfStringSlice("main.pdml-args", []string{})
-	psmlArgs := profiles.ConfStringSlice("main.psml-args", []string{})
-	if opts.TimestampFormat != "" {
-		psmlArgs = append(psmlArgs, "-t", opts.TimestampFormat)
-	}
-	tsharkArgs := profiles.ConfStringSlice("main.tshark-args", []string{})
+	// Initialize application state from configuration
+	initUIState()
+	pdmlArgs, psmlArgs, tsharkArgs := loadTsharkArgs(opts.TimestampFormat)
 	if ui.PacketColors && !ui.PacketColorsSupported {
 		log.Warnf("Packet coloring is enabled, but %s does not support --color", tsharkBin)
 		ui.PacketColors = false
 	}
-	cacheSize := profiles.ConfInt("main.pcap-cache-size", 64)
-	bundleSize := profiles.ConfInt("main.pcap-bundle-size", 1000)
-	if bundleSize <= 0 {
-		maxBundleSize := 100000
-		log.Infof("Config specifies pcap-bundle-size as %d - setting to max (%d)", bundleSize, maxBundleSize)
-		bundleSize = maxBundleSize
-	}
+	cacheSize, bundleSize := loadCacheSettings()
 
 	var ifaceTmpFile string
 	var waitingForPackets bool
@@ -1399,6 +1383,36 @@ func applyTermOverride() {
 		fmt.Fprintf(os.Stderr, "Configuration file overrides TERM setting, using TERM=%s\n", termVar)
 		os.Setenv("TERM", termVar)
 	}
+}
+
+// initUIState initializes the UI state from configuration settings.
+func initUIState() {
+	ui.DarkMode = profiles.ConfBool("main.dark-mode", true)
+	ui.AutoScroll = profiles.ConfBool("main.auto-scroll", true)
+	ui.PacketColors = profiles.ConfBool("main.packet-colors", true)
+}
+
+// loadTsharkArgs loads the tshark command-line arguments from configuration.
+func loadTsharkArgs(timestampFormat string) (pdmlArgs, psmlArgs, tsharkArgs []string) {
+	pdmlArgs = profiles.ConfStringSlice("main.pdml-args", []string{})
+	psmlArgs = profiles.ConfStringSlice("main.psml-args", []string{})
+	if timestampFormat != "" {
+		psmlArgs = append(psmlArgs, "-t", timestampFormat)
+	}
+	tsharkArgs = profiles.ConfStringSlice("main.tshark-args", []string{})
+	return
+}
+
+// loadCacheSettings loads pcap cache configuration settings.
+func loadCacheSettings() (cacheSize, bundleSize int) {
+	cacheSize = profiles.ConfInt("main.pcap-cache-size", 64)
+	bundleSize = profiles.ConfInt("main.pcap-bundle-size", 1000)
+	if bundleSize <= 0 {
+		maxBundleSize := 100000
+		log.Infof("Config specifies pcap-bundle-size as %d - setting to max (%d)", bundleSize, maxBundleSize)
+		bundleSize = maxBundleSize
+	}
+	return
 }
 
 //======================================================================
