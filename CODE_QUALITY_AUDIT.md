@@ -12,7 +12,7 @@
 |----------|--------|--------------|-------|
 | Deprecated APIs | Partial | 6 files with ioutil | 6 |
 | Error Handling | Pending | pkg/errors usage, inconsistent patterns | 0 |
-| Goroutine Lifecycle | Pending | Global WaitGroup injection | 0 |
+| Goroutine Lifecycle | In Progress | Global WaitGroup injection | ~40 |
 | Test Coverage | Pending | ~30% coverage, 0% for UI | 0 |
 | Code Complexity | Pending | 1260-line cmain(), 80+ UI globals | 0 |
 | Dependencies | Pending | Outdated fsnotify path | 0 |
@@ -79,14 +79,25 @@ Note: `pkg/errors` remains as an indirect dependency via `gowid`.
 **Current state:**
 - `lifecycle.Tracker` created and tested
 - `main()` uses Tracker, provides WaitGroup to legacy code
-- Legacy packages still use injected WaitGroup (compatible)
+- All `TrackedGo()` calls migrated to `termshark.Go()` across:
+  - `ui/` (13 calls)
+  - `pkg/confwatcher/` (2 calls)
+  - `pkg/summary/` (1 call)
+  - `pkg/capinfo/` (3 calls)
+  - `pkg/convs/` (3 calls)
+  - `pkg/streams/` (4 calls)
+  - `widgets/filter/` (2 calls)
+  - `widgets/wormhole/` (2 calls)
+  - `pkg/pcap/` (11 calls + 1 in test)
 
 **Remaining work:**
-- Gradually migrate `TrackedGo()` calls to `tracker.Go()`
 - Add context awareness to long-running goroutines
-- Remove package-level Goroutinewg variables
+- Remove package-level Goroutinewg variables (once all packages migrated)
+- Consider deprecating `TrackedGo()` function
 
-**Commit:** `f4cceb5` - Add lifecycle package for centralized goroutine management
+**Commits:**
+- `f4cceb5` - Add lifecycle package for centralized goroutine management
+- (pending) - Migrate TrackedGo calls to termshark.Go()
 
 ---
 
@@ -205,7 +216,11 @@ type HandlerList[T any] []T
 7. Add `errors.Is()`/`errors.As()` where appropriate
 
 ### Phase 3: Architecture (Medium Term)
-8. ~~Refactor goroutine lifecycle to use context/errgroup~~ IN PROGRESS (foundation laid)
+8. ~~Refactor goroutine lifecycle to use context/errgroup~~ MOSTLY COMPLETE
+   - ~~Create lifecycle.Tracker~~ DONE
+   - ~~Migrate all TrackedGo() calls to termshark.Go()~~ DONE
+   - Add context awareness to long-running goroutines (pending)
+   - Remove package-level Goroutinewg variables (pending)
 9. Extract `cmain()` into smaller functions
 10. Create `AppState` struct for UI globals
 
