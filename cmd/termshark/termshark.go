@@ -533,7 +533,7 @@ func cmain() int {
 	// Helpful to use logging when enumerating interfaces below, so do it first
 	if !opts.LogTty {
 		logfile := termshark.CacheFile("termshark.log")
-		logfd, err := os.OpenFile(logfile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
+		logfd, err := os.OpenFile(logfile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Could not create log file %s: %v\n", logfile, err)
 			return 1
@@ -561,7 +561,7 @@ func cmain() int {
 
 	for _, dir := range []string{termshark.CacheDir(), termshark.DefaultPcapDir(), termshark.PcapDir()} {
 		if _, err = os.Stat(dir); os.IsNotExist(err) {
-			err = os.Mkdir(dir, 0777)
+			err = os.Mkdir(dir, 0700)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Unexpected error making dir %s: %v", dir, err)
 				return 1

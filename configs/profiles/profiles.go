@@ -52,7 +52,7 @@ func readConfig(v *viper.Viper, dir string, base string, createIfNecessary bool)
 	fp := filepath.Join(dir, fmt.Sprintf("%s.toml", base))
 	if createIfNecessary {
 		var f *os.File
-		if f, err = os.OpenFile(fp, os.O_RDONLY|os.O_CREATE, 0666); err == nil {
+		if f, err = os.OpenFile(fp, os.O_RDONLY|os.O_CREATE, 0600); err == nil {
 			f.Close()
 		}
 	}
@@ -230,7 +230,7 @@ func CopyToAndUse(name string) error {
 	dir = filepath.Join(dir, name)
 
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.Mkdir(dir, 0777)
+		err = os.Mkdir(dir, 0700)
 		if err != nil {
 			return fmt.Errorf("Unexpected error making dir %s: %v", dir, err)
 		}
@@ -310,7 +310,7 @@ func Use(name string) error {
 	dir = filepath.Join(dir, name)
 
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.Mkdir(dir, 0777)
+		err = os.Mkdir(dir, 0700)
 		if err != nil {
 			return fmt.Errorf("Unexpected error making dir %s: %v", dir, err)
 		}
