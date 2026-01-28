@@ -35,7 +35,7 @@ func TestTrackFocus1(t *testing.T) {
 	ftw.Render(gowid.RenderFixed{}, gowid.Focused, gwtest.D)
 	assert.Equal(t, false, cbran)
 
-	ftw.RemoveOnFocusLost(gowid.CallbackID{"cb"})
+	ftw.RemoveOnFocusLost(gowid.CallbackID{Name: "cb"})
 	ftw.Render(gowid.RenderFixed{}, gowid.NotSelected, gwtest.D)
 	assert.Equal(t, false, cbran)
 }

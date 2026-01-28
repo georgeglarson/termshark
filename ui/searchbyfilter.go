@@ -73,6 +73,7 @@ func newFilterSearchState(filename string, cmd pcap.IPcapCommand) (*filterSearch
 
 	info, err := os.Stat(filename)
 	if err != nil {
+		cancelFn() // prevent context leak
 		return nil, err
 	}
 
