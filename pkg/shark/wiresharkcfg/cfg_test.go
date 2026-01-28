@@ -6,6 +6,7 @@ package wiresharkcfg
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -115,6 +116,25 @@ func TestConfig_PopulateFrom_InvalidFile(t *testing.T) {
 	// The parser is lenient, so it may not error, but let's test the path
 	// Either it errors or it parses (parser is lenient)
 	_ = err
+}
+
+func TestConfig_PopulateFrom_ValidFile(t *testing.T) {
+	// Use ParseReader directly to test config population with known-good format
+	// The parser preserves the space after ": " in values
+	content := strings.NewReader("\ngui.toolbar_main_show: TRUE\n\n")
+	parsed, err := ParseReader("", content)
+	assert.NoError(t, err)
+
+	cfg := parsed.(*Config)
+	assert.Equal(t, " TRUE", cfg.Strings["gui.toolbar_main_show"])
+}
+
+func TestNotFoundError(t *testing.T) {
+	assert.Equal(t, "Could not find wireshark preferences", NotFoundError.Error())
+}
+
+func TestNotParsedError(t *testing.T) {
+	assert.Equal(t, "Could not parse wireshark preferences", NotParsedError.Error())
 }
 
 //======================================================================

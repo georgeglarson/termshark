@@ -7,6 +7,7 @@ package termshark
 import (
 	"bytes"
 	"os"
+	"regexp"
 	"testing"
 	"time"
 
@@ -484,6 +485,99 @@ func TestFixNewlines(t *testing.T) {
 	result := fixNewlines(input)
 	// On non-Windows, should return input unchanged
 	assert.Equal(t, input, result)
+}
+
+func TestRunningRemotely(t *testing.T) {
+	orig := os.Getenv("SSH_TTY")
+	defer os.Setenv("SSH_TTY", orig)
+
+	os.Setenv("SSH_TTY", "/dev/pts/0")
+	assert.True(t, RunningRemotely())
+
+	os.Unsetenv("SSH_TTY")
+	assert.False(t, RunningRemotely())
+}
+
+func TestGlobalJumpPos_Base(t *testing.T) {
+	g := GlobalJumpPos{
+		JumpPos:  JumpPos{Summary: "test", Pos: 42},
+		Filename: "/path/to/capture.pcap",
+	}
+	assert.Equal(t, "capture.pcap", g.Base())
+
+	g.Filename = "simple.pcap"
+	assert.Equal(t, "simple.pcap", g.Base())
+}
+
+func TestDateStringForFilename(t *testing.T) {
+	s := DateStringForFilename()
+	// Format is 2006-01-02--15-04-05
+	assert.Regexp(t, `^\d{4}-\d{2}-\d{2}--\d{2}-\d{2}-\d{2}$`, s)
+}
+
+func TestErrLogger(t *testing.T) {
+	w := ErrLogger("component", "test")
+	assert.NotNil(t, w)
+	w.Close()
+}
+
+func TestTsregexp_FindStringSubmatchMap(t *testing.T) {
+	tests := []struct {
+		name     string
+		pattern  string
+		input    string
+		expected map[string]string
+	}{
+		{
+			name:    "named groups",
+			pattern: `(?P<first>\w+)\s+(?P<second>\w+)`,
+			input:   "hello world",
+			expected: map[string]string{
+				"first":  "hello",
+				"second": "world",
+			},
+		},
+		{
+			name:     "no match",
+			pattern:  `(?P<num>\d+)`,
+			input:    "abc",
+			expected: map[string]string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			re := tsregexp{regexp.MustCompile(tt.pattern)}
+			result := re.FindStringSubmatchMap(tt.input)
+			for k, v := range tt.expected {
+				assert.Equal(t, v, result[k], "key=%s", k)
+			}
+		})
+	}
+}
+
+func TestFileSizeDifferentTo(t *testing.T) {
+	// Create a temp file with known content
+	tmpfile, err := os.CreateTemp("", "test*.txt")
+	assert.NoError(t, err)
+	defer os.Remove(tmpfile.Name())
+
+	tmpfile.WriteString("hello")
+	tmpfile.Close()
+
+	// Same size should return false (not different)
+	newSize, diff := FileSizeDifferentTo(tmpfile.Name(), 5)
+	assert.False(t, diff)
+	assert.Equal(t, int64(5), newSize)
+
+	// Different size should return true
+	newSize, diff = FileSizeDifferentTo(tmpfile.Name(), 10)
+	assert.True(t, diff)
+	assert.Equal(t, int64(5), newSize)
+
+	// Non-existent file still returns diff=true
+	_, diff = FileSizeDifferentTo("/nonexistent/file.txt", 5)
+	assert.True(t, diff)
 }
 
 //======================================================================
