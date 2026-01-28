@@ -10,7 +10,7 @@
 
 | Category | Status | Issues Found | Fixed |
 |----------|--------|--------------|-------|
-| Deprecated APIs | Pending | 6 files with ioutil | 0 |
+| Deprecated APIs | Partial | 6 files with ioutil | 6 |
 | Error Handling | Pending | pkg/errors usage, inconsistent patterns | 0 |
 | Goroutine Lifecycle | Pending | Global WaitGroup injection | 0 |
 | Test Coverage | Pending | ~30% coverage, 0% for UI | 0 |
@@ -21,20 +21,19 @@
 
 ---
 
-## 1. Deprecated APIs - PENDING
+## 1. Deprecated APIs - PARTIAL
 
-### 1.1 io/ioutil Usage (Deprecated since Go 1.16)
+### 1.1 io/ioutil Usage (Deprecated since Go 1.16) - FIXED
 
-| File | Usage | Replacement |
-|------|-------|-------------|
-| `utils.go:17,227,237` | ReadFile, ReadAll | `os.ReadFile`, `io.ReadAll` |
-| `ui/logsui.go` | TempFile | `os.CreateTemp` |
-| `ui/lastline.go` | ReadAll | `io.ReadAll` |
-| `pkg/streams/follow.go` | Discard, ReadAll | `io.Discard`, `io.ReadAll` |
-| `pkg/system/fdinfo.go` | ReadFile | `os.ReadFile` |
-| `pkg/shark/wiresharkcfg/parser.go` | Generated code | Regenerate |
+All `io/ioutil` usages replaced with modern equivalents:
+- `ioutil.ReadAll` -> `io.ReadAll`
+- `ioutil.ReadDir` -> `os.ReadDir`
+- `ioutil.ReadFile` -> `os.ReadFile`
+- `ioutil.WriteFile` -> `os.WriteFile`
+- `ioutil.TempFile` -> `os.CreateTemp`
+- `ioutil.Discard` -> `io.Discard`
 
-**Fix:** Run `gofmt -w -r 'ioutil.ReadAll -> io.ReadAll' .` and similar rewrites
+**Commit:** `5aacbe6` - Replace deprecated io/ioutil with modern equivalents
 
 ### 1.2 Deprecated Import Paths
 
@@ -202,7 +201,7 @@ type HandlerList[T any] []T
 ## Remaining Work
 
 ### Phase 1: Quick Wins (Immediate)
-1. Replace `io/ioutil` with modern equivalents
+1. ~~Replace `io/ioutil` with modern equivalents~~ DONE
 2. Update `gopkg.in/fsnotify/fsnotify.v1` import path
 3. Remove unused imports
 4. Add golangci-lint configuration
@@ -232,7 +231,7 @@ type HandlerList[T any] []T
 
 | Commit | Description |
 |--------|-------------|
-| (none yet) | |
+| `5aacbe6` | Replace deprecated io/ioutil with modern equivalents |
 
 ---
 
