@@ -187,6 +187,46 @@ func TestFolders(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestReverseStringSlice(t *testing.T) {
+	tests := []struct {
+		input    []string
+		expected []string
+	}{
+		{[]string{}, []string{}},
+		{[]string{"a"}, []string{"a"}},
+		{[]string{"a", "b"}, []string{"b", "a"}},
+		{[]string{"a", "b", "c"}, []string{"c", "b", "a"}},
+		{[]string{"1", "2", "3", "4"}, []string{"4", "3", "2", "1"}},
+	}
+
+	for _, test := range tests {
+		s := make([]string, len(test.input))
+		copy(s, test.input)
+		ReverseStringSlice(s)
+		assert.Equal(t, test.expected, s)
+	}
+}
+
+func TestIsCommandInPath(t *testing.T) {
+	// "ls" should be in path on most systems
+	assert.True(t, IsCommandInPath("ls"))
+	assert.True(t, IsCommandInPath("sh"))
+
+	// A nonexistent command
+	assert.False(t, IsCommandInPath("definitely_not_a_real_command_12345"))
+}
+
+func TestTSharkVersionFromOutputInvalid(t *testing.T) {
+	// Test with invalid output
+	_, err := TSharkVersionFromOutput("not a valid version string")
+	assert.Error(t, err)
+	assert.Equal(t, TSharkVersionUnknown, err)
+
+	// Test with empty string
+	_, err = TSharkVersionFromOutput("")
+	assert.Error(t, err)
+}
+
 //======================================================================
 // Local Variables:
 // mode: Go

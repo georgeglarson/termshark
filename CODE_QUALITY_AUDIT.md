@@ -114,26 +114,71 @@ Note: `pkg/errors` remains as an indirect dependency via `gowid`.
 
 ---
 
-## 4. Test Coverage - PENDING
+## 4. Test Coverage - AUDITED
 
-### 4.1 Current State
+### 4.1 Coverage by Package
 
-| Area | Coverage | Notes |
-|------|----------|-------|
-| Widgets (hexdumper, number, etc.) | Good | Unit tests exist |
-| Parsers (wiresharkcfg, streams) | Good | Extensive test data |
-| UI orchestration (`ui/ui.go`) | None | 4412 LOC, 0 tests |
-| Main logic (`cmd/termshark/`) | None | Not testable (globals) |
-| Configuration (`configs/`) | None | Should have tests |
-| Loaders (`pkg/pcap/loader.go`) | Limited | 2359 LOC, minimal tests |
+| Package | Coverage | Tests | LOC | Priority |
+|---------|----------|-------|-----|----------|
+| `pkg/lifecycle` | **93.8%** | 4 | ~100 | ✓ Complete |
+| `widgets/number` | **93.5%** | 1 | ~200 | ✓ Complete |
+| `widgets/trackfocus` | **73.3%** | 1 | ~80 | ✓ Good |
+| `pkg/shark/wiresharkcfg` | **49.9%** | 1 | ~1800 | Medium |
+| `widgets/withscrollbar` | **40.7%** | 1 | ~200 | Low |
+| `widgets/hexdumper` | **20.5%** | 2 | ~600 | Medium |
+| `pkg/format` | **20.0%** | 1 | ~100 | Low |
+| `pkg/streams` | **19.0%** | 4 | ~1200 | Medium |
+| `utils.go` (termshark/v2) | **13.5%** | 10 | ~1300 | High |
+| `pkg/fields` | **13.3%** | 1 | ~200 | Low |
+| `pkg/shark` | **7.8%** | 1 | ~400 | Medium |
+| `pkg/pdmltree` | **7.4%** | 1 | ~200 | Low |
+| `ui/` | **0.7%** | 1 | ~4400 | Critical |
+| `pkg/pcap` | **0%** | 4* | ~2400 | Critical |
+| `configs/profiles` | **0%** | 0 | ~350 | High |
+| `cmd/termshark` | **0%** | 0 | ~1400 | High |
 
-**Estimated overall coverage:** ~30%
+*Note: `pkg/pcap` tests require `-tags tshark` build flag (integration tests)
 
-### 4.2 Test Quality Issues
+### 4.2 Test Files Summary
 
+| File | Test Functions | Assertions | Style |
+|------|----------------|------------|-------|
+| `utils_test.go` | 10 | 39 | Table-driven, good |
+| `pkg/lifecycle/lifecycle_test.go` | 4 | Uses t.Error | Good unit tests |
+| `pkg/pcap/loader_tshark_test.go` | 4 | 35 | Integration (requires tshark) |
+| `pkg/streams/follow_test.go` | 3 | 2 | Parser tests |
+| `widgets/resizable/resizable_test.go` | 1 | 6 | Widget rendering |
+| `pkg/shark/wiresharkcfg/parser_test.go` | 1 | Large | Parser with real config |
+| Others | 1 each | 1-5 | Basic coverage |
+
+### 4.3 Test Quality Issues
+
+**Fixed:**
 - ~~`pkg/streams/loader_test.go:1133`: Uses `context.TODO()` (should be `context.Background()`)~~ FIXED
-- No mocks for tshark commands
-- Integration-style tests rather than unit tests
+
+**Remaining:**
+1. **No mocks for external commands** - Tests that need tshark are behind `-tags tshark`
+2. **Integration over unit tests** - Most tests require real files/commands
+3. **Low assertion density** - Some test files have few assertions
+4. **No table-driven tests for parsers** - Could improve edge case coverage
+5. **No benchmark tests** - Performance not measured
+
+### 4.4 Testability Blockers
+
+| Package | Blocker | Recommendation |
+|---------|---------|----------------|
+| `ui/ui.go` | 80+ package globals | Create AppState struct |
+| `cmd/termshark` | Global state, no interfaces | Extract testable functions |
+| `pkg/pcap/loader.go` | Tight coupling to tshark | Add command interface |
+| `configs/profiles` | File system operations | Add path abstraction |
+
+### 4.5 Recommended Test Additions (Priority Order)
+
+1. **`configs/profiles/profiles.go`** - Config loading/saving (easy to test)
+2. **`utils.go` additional tests** - More edge cases for utility functions
+3. **`pkg/pcap/loader.go` unit tests** - Mock command execution
+4. **`ui/` component tests** - Test individual UI functions
+5. **`cmd/termshark/` extracted functions** - Test helper functions
 
 ---
 
