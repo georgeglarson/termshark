@@ -10,7 +10,7 @@
 | shibukawa/configdir | 2017 | Medium | ~~Replace with adrg/xdg or stdlib~~ **DONE** |
 | kballard/go-shellquote | 2018 | Low | Keep (stable, no security issues) |
 | gcla/tail | 2019 | Low | Keep (fork, maintainer controls) |
-| condchan | 2019 | Medium | Replace with channels or sync.Cond |
+| condchan | 2019 | Medium | ~~Replace with channels or sync.Cond~~ **DONE** |
 | gopkg.in/tomb.v1 | 2014 | Low | Replace with errgroup or context |
 | mitchellh/go-homedir | 2019 | Low | ~~Replace with os.UserHomeDir()~~ **DONE** |
 | rakyll/statik | 2020 | Medium | ~~Replace with go:embed~~ **DONE** |
@@ -163,11 +163,11 @@
 3. ~~**rakyll/statik** → go:embed~~ **DONE**
 4. ~~**shibukawa/configdir** → adrg/xdg~~ **DONE**
 
-### Evaluate Later
-5. **condchan** → channels (needs usage analysis)
-6. **kballard/go-shellquote** → keep
-7. **gcla/tail** → keep
-8. **tomb.v1** → keep (indirect)
+### Evaluate Later - COMPLETED
+5. ~~**condchan** → channels~~ **DONE**
+6. **kballard/go-shellquote** → keep (stable, no issues)
+7. **gcla/tail** → keep (maintainer's fork)
+8. **tomb.v1** → keep (indirect via tail)
 
 ---
 

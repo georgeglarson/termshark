@@ -23,7 +23,6 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0
-	gitlab.com/jonas.jasas/condchan v0.0.0-20190210165812-36637ad2b5bc
 	golang.org/x/sys v0.28.0
 )
 

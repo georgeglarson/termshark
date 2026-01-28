@@ -25,7 +25,6 @@ import (
 	"github.com/gcla/termshark/v2/pkg/pcap"
 	"github.com/gcla/termshark/v2/widgets/search"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/jonas.jasas/condchan"
 )
 
 //======================================================================
@@ -58,15 +57,35 @@ type filterSearchState struct {
 	cancelFn context.CancelFunc
 	pcapInfo os.FileInfo
 
-	// To protect below:
-	cc *condchan.CondChan
+	// To protect state below:
+	mu        sync.Mutex
+	broadcast chan struct{} // closed on broadcast, then replaced with new channel
 
-	// State covered by cc and ccMtx
+	// State covered by mu
 	first         int         // first packet found; from here, jump into nextMap
 	nextMap       map[int]int // map from actual packet row <packet>12</packet> to pos in unsorted table
 	finished      bool        // true if filter search process and mapping goroutine have done their work.
 	interrupted   bool
 	errorFromUser error
+}
+
+// doBroadcast wakes all goroutines waiting on this state.
+// Must be called with mu held.
+func (s *filterSearchState) doBroadcast() {
+	close(s.broadcast)
+	s.broadcast = make(chan struct{})
+}
+
+// waitForSignal releases the mutex, waits for either a broadcast or context cancellation,
+// then re-acquires the mutex. Must be called with mu held.
+func (s *filterSearchState) waitForSignal() {
+	ch := s.broadcast
+	s.mu.Unlock()
+	select {
+	case <-ch:
+	case <-s.ctx.Done():
+	}
+	s.mu.Lock()
 }
 
 func newFilterSearchState(filename string, cmd pcap.IPcapCommand) (*filterSearchState, error) {
@@ -79,13 +98,13 @@ func newFilterSearchState(filename string, cmd pcap.IPcapCommand) (*filterSearch
 	}
 
 	res := &filterSearchState{
-		cmd:      cmd,
-		nextMap:  make(map[int]int),
-		ctx:      ctx,
-		cancelFn: cancelFn,
-		pcapInfo: info,
+		cmd:       cmd,
+		nextMap:   make(map[int]int),
+		ctx:       ctx,
+		cancelFn:  cancelFn,
+		pcapInfo:  info,
+		broadcast: make(chan struct{}),
 	}
-	res.cc = condchan.New(&sync.Mutex{})
 	return res, nil
 }
 
@@ -119,12 +138,12 @@ func (w *FilterSearchCallbacks) RequestStop(app gowid.IApp) {
 	w.mapLock.Lock()
 	defer w.mapLock.Unlock()
 	if mpval, ok := w.searchMap[w.curSearchTerm]; ok {
-		mpval.cc.L.Lock()
+		mpval.mu.Lock()
 		mpval.cancelFn()
 		if !mpval.finished {
 			mpval.interrupted = true
 		}
-		mpval.cc.L.Unlock()
+		mpval.mu.Unlock()
 	}
 }
 
@@ -196,7 +215,7 @@ func (w *FilterSearchCallbacks) SearchPacketsFrom(ifrom interface{}, istart inte
 				// When this returns, the process has finished running, and if it started, Wait()
 				// has been called.
 				err := w.runProcess(mpval.ctx, psmlCmd, app, func(prev int, cur int) {
-					mpval.cc.L.Lock()
+					mpval.mu.Lock()
 
 					if mpval.first == 0 {
 						mpval.first = cur
@@ -212,15 +231,16 @@ func (w *FilterSearchCallbacks) SearchPacketsFrom(ifrom interface{}, istart inte
 						}
 					}
 
-					mpval.cc.L.Unlock()
-					mpval.cc.Broadcast()
+					mpval.doBroadcast()
+					mpval.mu.Unlock()
 				})
 
-				mpval.cc.L.Lock()
+				mpval.mu.Lock()
 				mpval.cancelFn()
 				mpval.finished = true
 				mpval.errorFromUser = err
-				mpval.cc.L.Unlock()
+				mpval.doBroadcast()
+				mpval.mu.Unlock()
 			})
 		}
 	}
@@ -267,8 +287,8 @@ func (w *FilterSearchCallbacks) SearchPacketsFrom(ifrom interface{}, istart inte
 	}
 
 	// Find the closest matching packet from the current position in the table
-	mpval.cc.L.Lock()
-	defer mpval.cc.L.Unlock()
+	mpval.mu.Lock()
+	defer mpval.mu.Unlock()
 
 Loop:
 	for {
@@ -296,17 +316,9 @@ Loop:
 		}
 
 		if !mpval.finished {
-			mpval.cc.Select(func(c <-chan struct{}) { // Waiting with select
-				// Either of these two channels mean we should proceed. The first
-				// means that some search state has changed - maybe a new result,
-				// maybe a cancellation, maybe the end of the process execution. The
-				// second means something else interrupted - e.g. user hit the stop
-				// button.
-				select {
-				case <-c:
-				case <-mpval.ctx.Done():
-				}
-			})
+			// Wait for either a broadcast (state change) or context cancellation.
+			// waitForSignal releases the lock, waits, then re-acquires it.
+			mpval.waitForSignal()
 		}
 	}
 }
