@@ -483,6 +483,10 @@ func (w *FilterSearchCallbacks) runProcess(ctx context.Context, psmlCmd pcap.IPc
 			case "structure":
 				structure = false
 			case "packet":
+				// Validate curPsml has at least one element before accessing
+				if len(curPsml) == 0 {
+					break
+				}
 				// Track the mapping of packet number <section>12</section> to position
 				// in the table e.g. 5th element. This is so that I can jump to the correct
 				// row with marks even if a filter is currently applied.

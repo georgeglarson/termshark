@@ -1808,6 +1808,12 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 				case "packet":
 					p.Lock()
 
+					// Validate curPsml has at least one element before accessing
+					if len(curPsml) == 0 {
+						p.Unlock()
+						continue
+					}
+
 					// Track the mapping of packet number <section>12</section> to position
 					// in the table e.g. 5th element. This is so that I can jump to the correct
 					// row with marks even if a filter is currently applied.
@@ -1821,17 +1827,22 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 
 					p.packetPsmlData = append(p.packetPsmlData, curPsml[1:])
 
-					if len(p.packetAverageLength) > len(curPsml)-1 {
+					if len(curPsml) > 1 && len(p.packetAverageLength) > len(curPsml)-1 {
 						p.packetAverageLength = p.packetAverageLength[0 : len(curPsml)-1]
 					}
-					if len(p.packetMaxLength) > len(curPsml)-1 {
+					if len(curPsml) > 1 && len(p.packetMaxLength) > len(curPsml)-1 {
 						p.packetMaxLength = p.packetMaxLength[0 : len(curPsml)-1]
 					}
 
-					for i, ct := range curCounts[1:] {
-						// skip the first one - that's not displayed in the UI. We always have element 0 as No.
-						p.packetAverageLength[i].update(ct)
-						p.packetMaxLength[i].update(ct)
+					if len(curCounts) > 1 {
+						for i, ct := range curCounts[1:] {
+							if i >= len(p.packetAverageLength) || i >= len(p.packetMaxLength) {
+								break
+							}
+							// skip the first one - that's not displayed in the UI. We always have element 0 as No.
+							p.packetAverageLength[i].update(ct)
+							p.packetMaxLength[i].update(ct)
+						}
 					}
 
 					p.packetPsmlColors = append(p.packetPsmlColors, PacketColors{
