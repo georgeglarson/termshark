@@ -14,6 +14,7 @@ import (
 	"github.com/gcla/gowid/widgets/table"
 	"github.com/gcla/termshark/v2"
 	"github.com/gcla/termshark/v2/configs/profiles"
+	"github.com/gcla/termshark/v2/pkg/app"
 	"github.com/gcla/termshark/v2/pkg/pcap"
 	log "github.com/sirupsen/logrus"
 )
@@ -240,6 +241,9 @@ var _ pcap.INewSource = checkGlobalJumpAfterPsml{}
 func clearMarks() {
 	clear(marksMap)
 	lastJumpPos = -1
+	// Also clear Controller's local marks
+	app.ClearLocalMarks(AppController.State)
+	AppController.State.SetLastJumpPos(-1)
 }
 
 func (t checkGlobalJumpAfterPsml) OnNewSource(code pcap.HandlerCode, app gowid.IApp) {

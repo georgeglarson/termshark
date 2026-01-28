@@ -222,7 +222,7 @@ func (s *StructSearchCallbacks) SearchPacketsResult(res search.Result, app gowid
 
 		packetListView.SetFocusXY(app, table.Coords{Column: tableCol, Row: tableRow})
 		// Don't continue to jump to the end
-		AutoScroll = false
+		setAutoScrollWithSync(false)
 
 		//========================================
 

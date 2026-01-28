@@ -47,6 +47,7 @@ import (
 	"github.com/gcla/gowid/widgets/vpadding"
 	"github.com/gcla/termshark/v2"
 	"github.com/gcla/termshark/v2/configs/profiles"
+	"github.com/gcla/termshark/v2/pkg/app"
 	"github.com/gcla/termshark/v2/pkg/fields"
 	"github.com/gcla/termshark/v2/pkg/noroot"
 	"github.com/gcla/termshark/v2/pkg/pcap"
@@ -239,6 +240,7 @@ var NoGlobalJump termshark.GlobalJumpPos // leave as default, like a placeholder
 
 var Loader *pcap.PacketLoader
 var FieldCompleter *fields.TSharkFields // share this - safe once constructed
+var AppController *app.Controller       // Application controller for business logic
 
 var WriteToSelected bool       // true if the user provided the -w flag
 var WriteToDeleted bool        // true if the user deleted the temporary pcap before quitting
@@ -265,6 +267,9 @@ func init() {
 	globalMarksMap = make(map[rune]termshark.GlobalJumpPos)
 	lastJumpPos = -1
 
+	// Initialize the application controller
+	AppController = app.NewController()
+
 	EnsureTemplateData()
 	TemplateData["Marks"] = marksMap
 	TemplateData["GlobalMarks"] = globalMarksMap
@@ -284,6 +289,69 @@ func (g getMappings) Get() []termshark.KeyMapping {
 
 func (g getMappings) None() bool {
 	return len(termshark.LoadKeyMappings()) == 0
+}
+
+//======================================================================
+// Mark synchronization helpers - bridge between old global maps and Controller
+//======================================================================
+
+// setLocalMarkWithSync sets a local mark in both the old marksMap and the Controller.
+func setLocalMarkWithSync(mark rune, jpos termshark.JumpPos) {
+	marksMap[mark] = jpos
+	AppController.State.SetLocalMark(mark, app.MarkPosition{
+		Summary: jpos.Summary,
+		Pos:     jpos.Pos,
+	})
+}
+
+// setGlobalMarkWithSync sets a global mark in both the old globalMarksMap and the Controller.
+func setGlobalMarkWithSync(mark rune, gpos termshark.GlobalJumpPos) {
+	globalMarksMap[mark] = gpos
+	AppController.State.SetGlobalMark(mark, app.GlobalMarkPosition{
+		MarkPosition: app.MarkPosition{
+			Summary: gpos.Summary,
+			Pos:     gpos.Pos,
+		},
+		Filename: gpos.Filename,
+	})
+}
+
+// setLastJumpPosWithSync sets the last jump position in both lastJumpPos and the Controller.
+func setLastJumpPosWithSync(pos int) {
+	lastJumpPos = pos
+	AppController.State.SetLastJumpPos(pos)
+}
+
+// syncControllerPcap updates the Controller with the current pcap path.
+func syncControllerPcap() {
+	if Loader != nil {
+		AppController.State.SetCurrentPcap(Loader.Pcap())
+	}
+}
+
+// setAutoScrollWithSync sets the AutoScroll state in both the global var and the Controller.
+func setAutoScrollWithSync(enabled bool) {
+	AutoScroll = enabled
+	AppController.State.SetAutoScroll(enabled)
+}
+
+// calculateAndSyncPrefetchRequests uses the Controller's prefetch algorithm and syncs
+// with the CacheRequests global for backward compatibility.
+func calculateAndSyncPrefetchRequests(currentRow, pktsPerLoad int) {
+	// Use the app package's pure prefetch algorithm
+	requests := app.CalculatePrefetchRequests(currentRow, pktsPerLoad)
+
+	// Sync with the old global CacheRequests
+	CacheRequests = CacheRequests[:0]
+	for _, req := range requests {
+		CacheRequests = append(CacheRequests, req.ToLoadPcapSlice())
+	}
+
+	// Also update the Controller's pending requests
+	AppController.State.ClearPendingRequests()
+	for _, req := range requests {
+		AppController.State.AddPendingRequest(req)
+	}
 }
 
 //======================================================================
@@ -1874,7 +1942,7 @@ func vimKeysMainView(evk *tcell.EventKey, app gowid.IApp) bool {
 				if err != nil {
 					OpenError(err.Error(), app)
 				} else {
-					marksMap[evk.Rune()] = jpos
+					setLocalMarkWithSync(evk.Rune(), jpos)
 					OpenMessage(fmt.Sprintf("Local mark '%c' set to packet %v.", evk.Rune(), jpos.Pos), appView, app)
 				}
 			}
@@ -1893,10 +1961,11 @@ func vimKeysMainView(evk *tcell.EventKey, app gowid.IApp) bool {
 						if err != nil {
 							OpenError(err.Error(), app)
 						} else {
-							globalMarksMap[evk.Rune()] = termshark.GlobalJumpPos{
+							gpos := termshark.GlobalJumpPos{
 								JumpPos:  jpos,
 								Filename: Loader.Pcap(),
 							}
+							setGlobalMarkWithSync(evk.Rune(), gpos)
 							termshark.SaveGlobalMarks(globalMarksMap)
 							OpenMessage(fmt.Sprintf("Global mark '%c' set to packet %v.", evk.Rune(), jpos.Pos), appView, app)
 						}
@@ -1921,7 +1990,7 @@ func vimKeysMainView(evk *tcell.EventKey, app gowid.IApp) bool {
 					}
 
 					pn, _ := packetNumberFromCurrentTableRow() // save for ''
-					lastJumpPos = pn.Pos
+					setLastJumpPosWithSync(pn.Pos)
 
 					packetListView.SetFocusXY(app, table.Coords{Column: tableCol, Row: tableRow})
 				}
@@ -1950,7 +2019,7 @@ func vimKeysMainView(evk *tcell.EventKey, app gowid.IApp) bool {
 						}
 
 						pn, _ := packetNumberFromCurrentTableRow() // save for ''
-						lastJumpPos = pn.Pos
+						setLastJumpPosWithSync(pn.Pos)
 
 						packetListView.SetFocusXY(app, table.Coords{Column: tableCol, Row: tableRow})
 					}
@@ -1977,7 +2046,7 @@ func vimKeysMainView(evk *tcell.EventKey, app gowid.IApp) bool {
 							OpenError(fmt.Sprintf("Error looking up packet %v", packetRowId), app)
 						} else {
 							pn, _ := packetNumberFromCurrentTableRow() // save for ''
-							lastJumpPos = pn.Pos
+							setLastJumpPosWithSync(pn.Pos)
 
 							packetListView.SetFocusXY(app, table.Coords{Column: tablePos.Column, Row: tableRow})
 						}
@@ -2527,7 +2596,7 @@ func ApplyAutoScroll(ev *tcell.EventKey, app gowid.IApp) bool {
 	}
 	if doit {
 		if profiles.ConfBool("main.auto-scroll", true) {
-			AutoScroll = true
+			setAutoScrollWithSync(true)
 			reenableAutoScroll = true // when packet updates come, helps
 			// understand that AutoScroll should not be disabled again
 		}
@@ -2567,7 +2636,7 @@ func setPacketListWidgets(psml iPsmlInfo, app gowid.IApp) {
 			// This mimics Wireshark's behavior. Note that if the user hits the end key, this may
 			// update the view and run this callback, but end means to resume auto-scrolling if it's
 			// enabled, so we should not promptly disable it again
-			AutoScroll = false
+			setAutoScrollWithSync(false)
 		}
 
 		row2 := fxy.Row
@@ -2575,32 +2644,10 @@ func setPacketListWidgets(psml iPsmlInfo, app gowid.IApp) {
 		row := int(row3)
 
 		if gotrow && row >= 0 {
-
 			pktsPerLoad := Loader.PacketsPerLoad()
 
-			rowm := row % pktsPerLoad
-
-			CacheRequests = CacheRequests[:0]
-
-			CacheRequests = append(CacheRequests, pcap.LoadPcapSlice{
-				Row:           (row / pktsPerLoad) * pktsPerLoad,
-				CancelCurrent: true,
-			})
-			if rowm > pktsPerLoad/2 {
-				// Optimistically load the batch below this one
-				CacheRequests = append(CacheRequests, pcap.LoadPcapSlice{
-					Row: ((row / pktsPerLoad) + 1) * pktsPerLoad,
-				})
-			} else {
-				// Optimistically load the batch above this one
-				row2 := ((row / pktsPerLoad) - 1) * pktsPerLoad
-				if row2 < 0 {
-					row2 = 0
-				}
-				CacheRequests = append(CacheRequests, pcap.LoadPcapSlice{
-					Row: row2,
-				})
-			}
+			// Use the app package's prefetch algorithm
+			calculateAndSyncPrefetchRequests(row, pktsPerLoad)
 
 			CacheRequestsChan <- struct{}{}
 		}
@@ -3009,7 +3056,7 @@ func RequestLoadPcap(pcapf string, displayFilter string, jump termshark.GlobalJu
 		pcap.HandleError(pcap.NoneCode, app, err, handlers)
 	} else {
 		// no auto-scroll when reading a file
-		AutoScroll = false
+		setAutoScrollWithSync(false)
 		Loader.LoadPcap(pcapf, displayFilter, handlers, app)
 	}
 }

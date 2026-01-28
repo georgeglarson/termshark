@@ -371,7 +371,7 @@ func (d setCommand) Run(app gowid.IApp, args ...string) error {
 		switch args[1] {
 		case "auto-scroll":
 			if b, err = parseOnOff(args[2]); err == nil {
-				AutoScroll = b
+				setAutoScrollWithSync(b)
 				profiles.SetConf("main.auto-scroll", AutoScroll)
 				OpenMessage(fmt.Sprintf("Packet auto-scroll is now %s", gwutil.If(b, "on", "off").(string)), appView, app)
 			}

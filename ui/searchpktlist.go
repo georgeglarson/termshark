@@ -193,7 +193,7 @@ func (s *ListSearchCallbacks) SearchPacketsResult(res search.Result, app gowid.I
 
 		packetListView.SetFocusXY(app, table.Coords{Column: coords.Column, Row: trow})
 		// Don't continue to jump to the end
-		AutoScroll = false
+		setAutoScrollWithSync(false)
 
 		// Callback might not run if focus position in table is the same e.g. if we find a match
 		// on the same row that we started. So in that case, to expand the lower widgets, call
