@@ -411,6 +411,9 @@ Converted `for i := 0; i < len(x); i++` to `for i := range len(x)` in:
   - ui/convsui.go, ui/lastline.go, ui/newprofile.go
 - Removed the deprecated function from utils.go
 
+### Build Fixes
+- **pkg/system/picker_android.go**: Fixed `path.Base` → `filepath.Base` (path package wasn't imported, causing build failure with `-tags android`)
+
 ### Test Improvements
 - Added `configs/profiles/profiles_test.go` with tests for:
   - `ConfStringFrom`, `ConfKeyExistsIn`, `ConfInt`, `ConfBool`
@@ -429,3 +432,4 @@ Converted `for i := 0; i < len(x); i++` to `for i := range len(x)` in:
 | `ea3fc4d` | Use Go 1.22 range-over-int syntax for index loops |
 | `03d3702` | Continue converting loops to Go 1.22 range-over-int syntax |
 | `b4212fc` | Replace deprecated StringInSlice with slices.Contains |
+| `7c8795b` | Fix undefined path.Base in Android picker (use filepath.Base) |
