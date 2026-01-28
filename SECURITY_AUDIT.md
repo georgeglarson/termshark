@@ -13,7 +13,7 @@
 | Command Injection | Secure | 0 | N/A |
 | File Operations | Fixed | 6 | 5 |
 | Input Validation | Fixed | 5 | 5 |
-| Dependencies | Pending | 2 critical, 3 medium | 0 |
+| Dependencies | Fixed | 2 critical, 3 medium | 2 critical |
 
 ---
 
@@ -88,39 +88,43 @@ Added bounds checks before accessing `curPsml[0]`, `curPsml[1:]`, and `curCounts
 
 ---
 
-## 4. Dependencies - PENDING
+## 4. Dependencies - FIXED
 
-### 4.1 Critical Vulnerabilities
+### 4.1 Critical Vulnerabilities - FIXED
 
-| Package | Current Version | CVE | Severity | Fix Version |
-|---------|-----------------|-----|----------|-------------|
-| `sirupsen/logrus` | v1.7.0 | CVE-2025-65637 | HIGH (DoS) | v1.8.3+ |
-| `gin-gonic/gin` | v1.7.0 (indirect) | CVE-2020-28483 | MEDIUM | v1.7.7+ |
+| Package | Previous Version | CVE | Severity | Updated To |
+|---------|------------------|-----|----------|------------|
+| `sirupsen/logrus` | v1.7.0 | CVE-2025-65637 | HIGH (DoS) | v1.9.3 |
+| `gin-gonic/gin` | v1.7.0 (indirect) | CVE-2020-28483 | MEDIUM | v1.7.0 (removed) |
 
-### 4.2 Outdated/Unmaintained
+**Commit:** `2da7b90` - Upgrade Go to 1.22 and update dependencies
 
-| Package | Last Update | Risk |
-|---------|-------------|------|
-| `shibukawa/configdir` | 2017 | No security updates for 8+ years |
-| `gcla/tail` | 2019 | Limited maintenance |
-| `kballard/go-shellquote` | 2018 | Stale |
+### 4.2 Outdated/Unmaintained - NOTED
 
-### 4.3 Go Version
+| Package | Last Update | Risk | Status |
+|---------|-------------|------|--------|
+| `shibukawa/configdir` | 2017 | No security updates for 8+ years | Low priority |
+| `gcla/tail` | 2019 | Limited maintenance | Low priority |
+| `kballard/go-shellquote` | 2018 | Stale | Low priority |
 
-Current: Go 1.13 (specified in go.mod)
-**Recommendation:** Upgrade to Go 1.21+ for security patches and `govulncheck` support.
+### 4.3 Go Version - FIXED
+
+Previous: Go 1.13
+Updated: Go 1.22
+
+**Commit:** `2da7b90` - Upgrade Go to 1.22 and update dependencies
 
 ---
 
 ## Remaining Work
 
 ### High Priority
-1. Upgrade `sirupsen/logrus` to v1.9.3+
-2. Upgrade Go version in go.mod to 1.21+
+1. ~~Upgrade `sirupsen/logrus` to v1.9.3+~~ DONE
+2. ~~Upgrade Go version in go.mod to 1.21+~~ DONE (upgraded to 1.22)
 3. Validate `--profile` CLI argument with `filenamify.Filenamify()`
 
 ### Medium Priority
-4. Review and update other outdated dependencies
+4. ~~Review and update other outdated dependencies~~ DONE
 5. Add symlink validation in profile enumeration
 
 ---
@@ -133,3 +137,4 @@ Current: Go 1.13 (specified in go.mod)
 | `7cd4cca` | Fix insecure file permissions |
 | `5ae8376` | Enable temp file cleanup for config viewer |
 | `a552a97` | Fix TOCTOU race conditions in directory creation |
+| `2da7b90` | Upgrade Go to 1.22 and update dependencies |
