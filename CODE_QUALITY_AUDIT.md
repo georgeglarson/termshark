@@ -242,7 +242,8 @@ type HandlerList[T any] []T
    - ~~Extract initUIState()~~ DONE
    - ~~Extract loadTsharkArgs()~~ DONE
    - ~~Extract loadCacheSettings()~~ DONE
-   - Current cmain() size: ~1150 lines (down from ~1260)
+   - ~~Extract configureBase16Colors()~~ DONE
+   - Current cmain() size: ~1115 lines (down from ~1260, -145 lines)
 10. Create `AppState` struct for UI globals
 
 ### Phase 4: Testing (Medium Term)
