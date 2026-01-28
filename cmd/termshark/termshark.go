@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/blang/semver"
+	"github.com/flytam/filenamify"
 	"github.com/gcla/gowid"
 	"github.com/gcla/termshark/v2"
 	"github.com/gcla/termshark/v2/configs/profiles"
@@ -195,6 +196,12 @@ func cmain() int {
 	// From here, the current profile is referenced. So load it up prior to first use. If the user
 	// provides a non-existent profile name, it should be an error, just as for Wireshark.
 	if tsopts.Profile != "" {
+		// Validate that profile name is safe to use as a directory name
+		sanitized, ferr := filenamify.Filenamify(tsopts.Profile, filenamify.Options{})
+		if ferr != nil || sanitized != tsopts.Profile {
+			fmt.Fprintf(os.Stderr, "Error: Invalid profile name %q. Profile names must be valid directory names.\n", tsopts.Profile)
+			return 1
+		}
 		if err = profiles.Use(tsopts.Profile); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			return 1
