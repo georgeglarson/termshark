@@ -362,6 +362,70 @@ func TestConvPktsCompare(t *testing.T) {
 	}
 }
 
+func TestReadWriteGob(t *testing.T) {
+	// Create a temp file
+	tmpfile, err := os.CreateTemp("", "test*.gob.gz")
+	assert.NoError(t, err)
+	tmpfile.Close()
+	defer os.Remove(tmpfile.Name())
+
+	// Test writing and reading a simple struct
+	type TestData struct {
+		Name   string
+		Values []int
+	}
+
+	original := TestData{
+		Name:   "test",
+		Values: []int{1, 2, 3, 4, 5},
+	}
+
+	// Write
+	err = WriteGob(tmpfile.Name(), original)
+	assert.NoError(t, err)
+
+	// Read
+	var loaded TestData
+	err = ReadGob(tmpfile.Name(), &loaded)
+	assert.NoError(t, err)
+
+	assert.Equal(t, original.Name, loaded.Name)
+	assert.Equal(t, original.Values, loaded.Values)
+}
+
+func TestReadGob_NonexistentFile(t *testing.T) {
+	var data string
+	err := ReadGob("/nonexistent/file.gob.gz", &data)
+	assert.Error(t, err)
+}
+
+func TestWriteGob_InvalidPath(t *testing.T) {
+	err := WriteGob("/nonexistent/dir/file.gob.gz", "test")
+	assert.Error(t, err)
+}
+
+func TestDirOfPathCommand(t *testing.T) {
+	// Test with a known command
+	path, err := DirOfPathCommand("ls")
+	assert.NoError(t, err)
+	assert.NotEmpty(t, path)
+
+	// Test with non-existent command
+	_, err = DirOfPathCommand("definitely_not_a_command_12345")
+	assert.Error(t, err)
+}
+
+func TestDirOfPathCommandUnsafe(t *testing.T) {
+	// Test with a known command
+	path := DirOfPathCommandUnsafe("ls")
+	assert.NotEmpty(t, path)
+
+	// Test with non-existent command should panic
+	assert.Panics(t, func() {
+		DirOfPathCommandUnsafe("definitely_not_a_command_12345")
+	})
+}
+
 //======================================================================
 // Local Variables:
 // mode: Go
