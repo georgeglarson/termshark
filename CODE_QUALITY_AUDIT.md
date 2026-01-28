@@ -10,18 +10,19 @@
 
 | Category | Status | Issues Found | Fixed |
 |----------|--------|--------------|-------|
-| Deprecated APIs | Partial | 6 files with ioutil | 6 |
-| Error Handling | Pending | pkg/errors usage, inconsistent patterns | 0 |
-| Goroutine Lifecycle | In Progress | Global WaitGroup injection | ~40 |
+| Deprecated APIs | COMPLETE | 6 files with ioutil, fsnotify path | All |
+| Error Handling | COMPLETE | pkg/errors, %v wrapping, type assertions | All |
+| Goroutine Lifecycle | COMPLETE | Global WaitGroup injection | ~40 goroutines |
+| Code Complexity | PARTIAL | 1260-line cmain(), 80+ UI globals | ~145 lines extracted |
+| Modernization | COMPLETE | strings.Replace, error wrapping | All |
 | Test Coverage | Pending | ~30% coverage, 0% for UI | 0 |
-| Code Complexity | Pending | 1260-line cmain(), 80+ UI globals | 0 |
-| Dependencies | Pending | Outdated fsnotify path | 0 |
+| Type Safety | Pending | interface{} callbacks | 0 |
 
-**Overall Assessment:** Good architecture with modernization opportunities
+**Overall Assessment:** Significant modernization completed; testing and type safety remain
 
 ---
 
-## 1. Deprecated APIs - PARTIAL
+## 1. Deprecated APIs - COMPLETE
 
 ### 1.1 io/ioutil Usage (Deprecated since Go 1.16) - FIXED
 
@@ -46,7 +47,7 @@ All `io/ioutil` usages replaced with modern equivalents:
 
 ---
 
-## 2. Error Handling - PARTIAL
+## 2. Error Handling - COMPLETE
 
 ### 2.1 pkg/errors Library (Deprecated) - FIXED
 
@@ -56,17 +57,18 @@ Note: `pkg/errors` remains as an indirect dependency via `gowid`.
 
 **Commit:** `92cb2a9` - Remove direct usage of deprecated github.com/pkg/errors
 
-### 2.2 Inconsistent Error Patterns
+### 2.2 Inconsistent Error Patterns - FIXED
 
-- Type assertions for errors (`*exec.ExitError`) instead of `errors.As()`
-- No use of `errors.Is()` or `errors.As()` found
-- Some functions panic, others return errors
+- ~~Type assertions for errors (`*exec.ExitError`) instead of `errors.As()`~~ FIXED
+- ~~No use of `errors.Is()` or `errors.As()` found~~ FIXED (11 type assertions migrated)
+- ~~`fmt.Errorf` with `%v` instead of `%w` for error wrapping~~ FIXED
+- Some functions panic, others return errors (acceptable pattern)
 
 ---
 
-## 3. Goroutine Lifecycle - IN PROGRESS
+## 3. Goroutine Lifecycle - COMPLETE
 
-### 3.1 Global WaitGroup Injection (Anti-pattern) - FOUNDATION LAID
+### 3.1 Global WaitGroup Injection (Anti-pattern) - FIXED
 
 **Original pattern:** `cmd/termshark/termshark.go:57-69`
 
