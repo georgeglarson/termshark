@@ -27,52 +27,52 @@ type FieldType uint
 // enum ftenum {
 const (
 	FT_NONE              FieldType = iota /* used for text labels with no value */
-	FT_PROTOCOL          FieldType = iota
-	FT_BOOLEAN           FieldType = iota /* TRUE and FALSE come from <glib.h> */
-	FT_CHAR              FieldType = iota /* 1-octet character as 0-255 */
-	FT_UINT8             FieldType = iota
-	FT_UINT16            FieldType = iota
-	FT_UINT24            FieldType = iota /* really a UINT32, but displayed as 6 hex-digits if FD_HEX*/
-	FT_UINT32            FieldType = iota
-	FT_UINT40            FieldType = iota /* really a UINT64, but displayed as 10 hex-digits if FD_HEX*/
-	FT_UINT48            FieldType = iota /* really a UINT64, but displayed as 12 hex-digits if FD_HEX*/
-	FT_UINT56            FieldType = iota /* really a UINT64, but displayed as 14 hex-digits if FD_HEX*/
-	FT_UINT64            FieldType = iota
-	FT_INT8              FieldType = iota
-	FT_INT16             FieldType = iota
-	FT_INT24             FieldType = iota /* same as for UINT24 */
-	FT_INT32             FieldType = iota
-	FT_INT40             FieldType = iota /* same as for UINT40 */
-	FT_INT48             FieldType = iota /* same as for UINT48 */
-	FT_INT56             FieldType = iota /* same as for UINT56 */
-	FT_INT64             FieldType = iota
-	FT_IEEE_11073_SFLOAT FieldType = iota
-	FT_IEEE_11073_FLOAT  FieldType = iota
-	FT_FLOAT             FieldType = iota
-	FT_DOUBLE            FieldType = iota
-	FT_ABSOLUTE_TIME     FieldType = iota
-	FT_RELATIVE_TIME     FieldType = iota
-	FT_STRING            FieldType = iota
-	FT_STRINGZ           FieldType = iota /* for use with proto_tree_add_item() */
-	FT_UINT_STRING       FieldType = iota /* for use with proto_tree_add_item() */
-	FT_ETHER             FieldType = iota
-	FT_BYTES             FieldType = iota
-	FT_UINT_BYTES        FieldType = iota
-	FT_IPv4              FieldType = iota
-	FT_IPv6              FieldType = iota
-	FT_IPXNET            FieldType = iota
-	FT_FRAMENUM          FieldType = iota /* a UINT32, but if selected lets you go to frame with that number */
-	FT_PCRE              FieldType = iota /* a compiled Perl-Compatible Regular Expression object */
-	FT_GUID              FieldType = iota /* GUID, UUID */
-	FT_OID               FieldType = iota /* OBJECT IDENTIFIER */
-	FT_EUI64             FieldType = iota
-	FT_AX25              FieldType = iota
-	FT_VINES             FieldType = iota
-	FT_REL_OID           FieldType = iota /* RELATIVE-OID */
-	FT_SYSTEM_ID         FieldType = iota
-	FT_STRINGZPAD        FieldType = iota /* for use with proto_tree_add_item() */
-	FT_FCWWN             FieldType = iota
-	FT_NUM_TYPES         FieldType = iota /* last item number plus one */
+	FT_PROTOCOL                           // 1
+	FT_BOOLEAN                            /* TRUE and FALSE come from <glib.h> */
+	FT_CHAR                               /* 1-octet character as 0-255 */
+	FT_UINT8                              // 4
+	FT_UINT16                             // 5
+	FT_UINT24                             /* really a UINT32, but displayed as 6 hex-digits if FD_HEX*/
+	FT_UINT32                             // 7
+	FT_UINT40                             /* really a UINT64, but displayed as 10 hex-digits if FD_HEX*/
+	FT_UINT48                             /* really a UINT64, but displayed as 12 hex-digits if FD_HEX*/
+	FT_UINT56                             /* really a UINT64, but displayed as 14 hex-digits if FD_HEX*/
+	FT_UINT64                             // 11
+	FT_INT8                               // 12
+	FT_INT16                              // 13
+	FT_INT24                              /* same as for UINT24 */
+	FT_INT32                              // 15
+	FT_INT40                              /* same as for UINT40 */
+	FT_INT48                              /* same as for UINT48 */
+	FT_INT56                              /* same as for UINT56 */
+	FT_INT64                              // 19
+	FT_IEEE_11073_SFLOAT                  // 20
+	FT_IEEE_11073_FLOAT                   // 21
+	FT_FLOAT                              // 22
+	FT_DOUBLE                             // 23
+	FT_ABSOLUTE_TIME                      // 24
+	FT_RELATIVE_TIME                      // 25
+	FT_STRING                             // 26
+	FT_STRINGZ                            /* for use with proto_tree_add_item() */
+	FT_UINT_STRING                        /* for use with proto_tree_add_item() */
+	FT_ETHER                              // 29
+	FT_BYTES                              // 30
+	FT_UINT_BYTES                         // 31
+	FT_IPv4                               // 32
+	FT_IPv6                               // 33
+	FT_IPXNET                             // 34
+	FT_FRAMENUM                           /* a UINT32, but if selected lets you go to frame with that number */
+	FT_PCRE                               /* a compiled Perl-Compatible Regular Expression object */
+	FT_GUID                               /* GUID, UUID */
+	FT_OID                                /* OBJECT IDENTIFIER */
+	FT_EUI64                              // 39
+	FT_AX25                               // 40
+	FT_VINES                              // 41
+	FT_REL_OID                            /* RELATIVE-OID */
+	FT_SYSTEM_ID                          // 43
+	FT_STRINGZPAD                         /* for use with proto_tree_add_item() */
+	FT_FCWWN                              // 45
+	FT_NUM_TYPES                          /* last item number plus one */
 )
 
 var FieldTypeMap = map[string]FieldType{
