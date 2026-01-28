@@ -220,10 +220,12 @@ type HandlerList[T any] []T
 3. ~~Remove unused imports~~ DONE
 4. ~~Add golangci-lint configuration~~ DONE
 
-### Phase 2: Error Handling (Short Term)
+### Phase 2: Error Handling (Short Term) - COMPLETE
 5. ~~Remove `github.com/pkg/errors` dependency~~ DONE (direct usage removed)
 6. ~~Migrate to stdlib error wrapping~~ DONE
-7. ~~Add `errors.Is()` for io.EOF comparisons~~ DONE (5 locations updated)
+7. ~~Add `errors.Is()`/`errors.As()` where appropriate~~ DONE
+   - 5 `io.EOF` comparisons migrated to `errors.Is()`
+   - 9 `*exec.ExitError` type assertions migrated to `errors.As()`
 
 ### Phase 3: Architecture (Medium Term) - IN PROGRESS
 8. ~~Refactor goroutine lifecycle to use context/errgroup~~ COMPLETE
