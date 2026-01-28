@@ -332,21 +332,31 @@ func syncControllerPcap() {
 // setAutoScrollWithSync sets the AutoScroll state in both the global var and the Controller.
 func setAutoScrollWithSync(enabled bool) {
 	AutoScroll = enabled
+	if UI != nil && UI.App != nil {
+		UI.App.AutoScroll = enabled
+	}
 	AppController.State.SetAutoScroll(enabled)
 }
 
 // setDarkModeWithSync sets the DarkMode state in both the global var and the Controller.
 func setDarkModeWithSync(enabled bool) {
 	DarkMode = enabled
+	if UI != nil && UI.App != nil {
+		UI.App.DarkMode = enabled
+	}
 	AppController.State.SetDarkMode(enabled)
 }
 
 // setPacketColorsWithSync sets the PacketColors state in both the global var and the Controller.
 func setPacketColorsWithSync(enabled bool) {
 	PacketColors = enabled
+	if UI != nil && UI.App != nil {
+		UI.App.PacketColors = enabled
+	}
 	AppController.State.SetPacketColors(enabled)
 }
 
+//======================================================================
 // calculateAndSyncPrefetchRequests uses the Controller's prefetch algorithm and syncs
 // with the CacheRequests global for backward compatibility.
 func calculateAndSyncPrefetchRequests(currentRow, pktsPerLoad int) {

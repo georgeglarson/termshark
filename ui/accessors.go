@@ -162,6 +162,24 @@ func IsAutoScrollEnabled() bool {
 	return AutoScroll // fallback to old global during transition
 }
 
+// GetWriteToSelected returns whether write-to was selected.
+// Deprecated: Access UI.App.WriteToSelected directly when migration is complete.
+func GetWriteToSelected() bool {
+	if UI != nil && UI.App != nil {
+		return UI.App.WriteToSelected
+	}
+	return WriteToSelected // fallback to old global during transition
+}
+
+// SetWriteToSelected sets whether write-to was selected.
+// Deprecated: Access UI.App.WriteToSelected directly when migration is complete.
+func SetWriteToSelected(selected bool) {
+	if UI != nil && UI.App != nil {
+		UI.App.WriteToSelected = selected
+	}
+	WriteToSelected = selected // keep old global in sync during transition
+}
+
 //======================================================================
 // Local Variables:
 // mode: Go

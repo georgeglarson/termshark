@@ -272,7 +272,7 @@ func cmain() int {
 	if len(pcap.FileSystemSources(state.psrcs)) == 0 {
 		if state.opts.WriteTo != "" {
 			ifaceTmpFile = string(state.opts.WriteTo)
-			ui.WriteToSelected = true
+			ui.SetWriteToSelected(true)
 		} else {
 			srcNames := make([]string, 0, len(state.psrcs))
 			for _, psrc := range state.psrcs {
@@ -310,18 +310,18 @@ func cmain() int {
 
 	// This is a global. The type supports swapping out the real loader by embedding it via
 	// pointer, but I assume this only happens in the main goroutine.
-	ui.Loader = &pcap.PacketLoader{ParentLoader: pcap.NewPcapLoader(pcap.PcapCmds, &pcap.Runner{IApp: state.app}, pcap.PcapOpts)}
+	ui.SetLoader(&pcap.PacketLoader{ParentLoader: pcap.NewPcapLoader(pcap.PcapCmds, &pcap.Runner{IApp: state.app}, pcap.PcapOpts)})
 
 	// Populate the filter widget initially - runs asynchronously
 	go ui.FilterWidget.UpdateCompletions(state.app)
 
-	ui.Running = false
+	ui.SetRunning(false)
 
 	validator := filter.DisplayFilterValidator{
 		Invalid: &filter.ValidateCB{
 			App: state.app,
 			Fn: func(app gowid.IApp) {
-				if !ui.Running {
+				if !ui.IsRunning() {
 					fmt.Fprintf(os.Stderr, "Invalid filter: %s\n", state.displayFilter)
 					ui.RequestQuit()
 				} else {
@@ -409,8 +409,8 @@ func cmain() int {
 	}
 
 	// Initialize event loop state
-	state.wasLoadingPdmlLastTime = ui.Loader.PdmlLoader.IsLoading()
-	state.wasLoadingAnythingLastTime = ui.Loader.LoadingAnything()
+	state.wasLoadingPdmlLastTime = ui.GetLoader().PdmlLoader.IsLoading()
+	state.wasLoadingAnythingLastTime = ui.GetLoader().LoadingAnything()
 
 	// This is used to stop iface load and any stream reassembly. Make sure to
 	// avoid any stream reassembly errors, since this is a controlled shutdown
@@ -420,7 +420,7 @@ func cmain() int {
 		if ui.StreamLoader != nil {
 			ui.StreamLoader.SuppressErrors = true
 		}
-		ui.Loader.CloseMain()
+		ui.GetLoader().CloseMain()
 	}
 
 	inactiveDuration := 60 * time.Second
@@ -444,18 +444,18 @@ Loop:
 		// practice,
 
 		// On change of state - check for new pdml requests
-		if ui.Loader.PdmlLoader.IsLoading() != state.wasLoadingPdmlLastTime {
+		if ui.GetLoader().PdmlLoader.IsLoading() != state.wasLoadingPdmlLastTime {
 			ui.CacheRequestsChan <- struct{}{}
 		}
 
 		// This should really be moved to a handler...
-		if !ui.Loader.LoadingAnything() {
+		if !ui.GetLoader().LoadingAnything() {
 			if state.wasLoadingAnythingLastTime {
 				// If the state has just switched to 0, it means no interface-reading process is
 				// running. That means we will no longer be reading from an interface or a fifo, so
 				// we point the loader at the file we wrote to the cache, and redirect all
 				// loads/filters to that now.
-				ui.Loader.TurnOffPipe()
+				ui.GetLoader().TurnOffPipe()
 				state.app.Run(gowid.RunFunction(func(app gowid.IApp) {
 					ui.ClearProgressWidgetFor(app, ui.LoaderOwns)
 					ui.SetProgressDeterminateFor(app, ui.LoaderOwns) // always switch back - for pdml (partial) loads of later data.
@@ -471,8 +471,8 @@ Loop:
 			// EnableOpsVar will be enabled when all the handlers have run, which happen in the main goroutine.
 			// I need them to run because the loader channel is closed in one, and the ticker goroutines
 			// don't terminate until these goroutines stop
-			if ui.QuitRequested {
-				if ui.Running {
+			if ui.IsQuitRequested() {
+				if ui.IsRunning() {
 					if !state.quitIssuedToApp {
 						state.app.Quit()
 						state.quitIssuedToApp = true // Avoid closing app twice - doubly-closed channel
@@ -488,7 +488,7 @@ Loop:
 		// by the UI. If the PDML is an optimistic load out of the display, then no need for
 		// progress.
 		doprog := false
-		if ui.Loader.PsmlLoader.IsLoading() || (ui.Loader.PdmlLoader.IsLoading() && ui.Loader.PdmlLoader.LoadIsVisible()) {
+		if ui.GetLoader().PsmlLoader.IsLoading() || (ui.GetLoader().PdmlLoader.IsLoading() && ui.GetLoader().PdmlLoader.LoadIsVisible()) {
 			if state.prevProgPercentage >= 1.0 {
 				if state.progCancelTimer != nil {
 					state.progCancelTimer.Reset(time.Duration(500) * time.Millisecond)
@@ -515,13 +515,13 @@ Loop:
 			if system.HaveFdinfo {
 				// Prefer progress, if the OS supports it.
 				doprog = true
-				if ui.Loader.ReadingFromFifo() {
+				if ui.GetLoader().ReadingFromFifo() {
 					// But if we are have an interface load (or a pipe load), then we can't
 					// predict when the data will run out, so use a spinner. That's because we
 					// feed the data to tshark -T psml with a tail command which reads from
 					// the tmp file being created by the pipe/interface source.
 					doprog = false
-					if !ui.Loader.InterfaceLoader.IsLoading() && !ui.Loader.PsmlLoader.IsLoading() {
+					if !ui.GetLoader().InterfaceLoader.IsLoading() && !ui.GetLoader().PsmlLoader.IsLoading() {
 						// Unless those loads are finished, and the only loading activity is now
 						// PDML/pcap, which is loaded on demand in blocks of 1000. Then we can
 						// use the progress bar.
@@ -531,7 +531,7 @@ Loop:
 			}
 		}
 
-		if ui.Loader.InterfaceLoader.IsLoading() && !state.currentlyInactive {
+		if ui.GetLoader().InterfaceLoader.IsLoading() && !state.currentlyInactive {
 			inactivityChan = state.inactivityTimer.C
 		}
 
@@ -540,7 +540,7 @@ Loop:
 		}
 
 		// Only process tcell and gowid events if the UI is running.
-		if ui.Running {
+		if ui.IsRunning() {
 			tcellEvents = state.app.TCellEvents
 		}
 
@@ -553,14 +553,14 @@ Loop:
 		// via a handler.
 		//
 		// Make sure state doesn't change until all handlers have been run
-		if !ui.Loader.PdmlLoader.IsLoading() && !ui.Loader.PsmlLoader.IsLoading() {
+		if !ui.GetLoader().PdmlLoader.IsLoading() && !ui.GetLoader().PsmlLoader.IsLoading() {
 			opsChan = pcap.OpsChan
 		}
 
 		afterRenderEvents = state.app.AfterRenderEvents
 
-		state.wasLoadingPdmlLastTime = ui.Loader.PdmlLoader.IsLoading()
-		state.wasLoadingAnythingLastTime = ui.Loader.LoadingAnything()
+		state.wasLoadingPdmlLastTime = ui.GetLoader().PdmlLoader.IsLoading()
+		state.wasLoadingAnythingLastTime = ui.GetLoader().LoadingAnything()
 
 		select {
 
@@ -609,7 +609,7 @@ Loop:
 				ui.OpenError(fmt.Sprintf("Unexpected error setting Ctrl-z handler: %v\n", err), state.app)
 			}
 
-			ui.Running = true
+			ui.SetRunning(true)
 			state.startedSuccessfully = true
 
 			ui.StartUIChan = nil // make sure it's not triggered again
@@ -653,16 +653,16 @@ Loop:
 
 				state.appRunner.Stop()
 				state.app.Close()
-				ui.Running = false
+				ui.SetRunning(false)
 			}()
 
 		case fn := <-opsChan:
 			state.app.Run(fn)
 
-		case <-ui.QuitRequestedChan:
-			ui.QuitRequested = true
+		case <-ui.GetQuitRequestedChan():
+			ui.SetQuitRequested(true)
 			// Without this, a quit during a pcap load won't happen until the load is finished
-			if ui.Loader.LoadingAnything() {
+			if ui.GetLoader().LoadingAnything() {
 				// We know we're not idle, so stop any load so the quit op happens quickly for the user. Quit
 				// will happen next time round because the quitRequested flag is checked.
 				stopLoaders()
@@ -670,7 +670,7 @@ Loop:
 
 		case sig := <-sigChan:
 			if system.IsSigTSTP(sig) {
-				if ui.Running {
+				if ui.IsRunning() {
 					// Remove our terminal overrides that allow ctrl-z
 					state.ctrlzLineDisc.Restore()
 					// Stop tcell/gowid events for keys, etc
@@ -678,7 +678,7 @@ Loop:
 					// Go back to terminal view
 					state.app.DeactivateScreen()
 
-					ui.Running = false
+					ui.SetRunning(false)
 					state.uiSuspended = true
 
 				} else {
@@ -707,7 +707,7 @@ Loop:
 						ui.OpenError(fmt.Sprintf("Unexpected error setting Ctrl-z handler: %v\n", err), state.app)
 					}
 
-					ui.Running = true
+					ui.SetRunning(true)
 					state.uiSuspended = false
 				}
 			} else if system.IsSigUSR1(sig) {
@@ -731,17 +731,17 @@ Loop:
 
 		case <-ui.CacheRequestsChan:
 			ui.CacheRequests = pcap.ProcessPdmlRequests(ui.CacheRequests,
-				ui.Loader.ParentLoader, ui.Loader.PdmlLoader, ui.SetStructWidgets{Ld: ui.Loader}, state.app)
+				ui.GetLoader().ParentLoader, ui.GetLoader().PdmlLoader, ui.SetStructWidgets{Ld: ui.GetLoader()}, state.app)
 
 		case <-tickChan:
 			// We already know that we are LoadingPdml|LoadingPsml
 			if doprog {
 				state.app.Run(gowid.RunFunction(func(app gowid.IApp) {
-					state.prevProgPercentage = ui.UpdateProgressBarForFile(ui.Loader, state.prevProgPercentage, app)
+					state.prevProgPercentage = ui.UpdateProgressBarForFile(ui.GetLoader(), state.prevProgPercentage, app)
 				}))
 			} else {
 				state.app.Run(gowid.RunFunction(func(app gowid.IApp) {
-					ui.UpdateProgressBarForInterface(ui.Loader.InterfaceLoader, app)
+					ui.UpdateProgressBarForInterface(ui.GetLoader().InterfaceLoader, app)
 				}))
 			}
 
@@ -759,7 +759,7 @@ Loop:
 				break Loop
 			}
 			ev.RunThenRenderEvent(state.app)
-			if ui.Running {
+			if ui.IsRunning() {
 				state.app.RedrawTerminal()
 			}
 
