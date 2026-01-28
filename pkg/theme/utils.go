@@ -26,8 +26,8 @@ import (
 type Layer int
 
 const (
-	Foreground Layer = 0
-	Background Layer = iota
+	Foreground Layer = iota // 0
+	Background              // 1
 )
 
 var theme *viper.Viper

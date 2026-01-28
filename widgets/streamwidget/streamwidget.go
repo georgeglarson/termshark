@@ -69,17 +69,17 @@ var PacketRowNotLoadedError = fmt.Errorf("The packet is not yet loaded.")
 type DisplayFormat int
 
 const (
-	Hex   DisplayFormat = 0
-	Ascii DisplayFormat = iota
-	Raw   DisplayFormat = iota
+	Hex   DisplayFormat = iota // 0
+	Ascii                      // 1
+	Raw                        // 2
 )
 
 type ConversationFilter int
 
 const (
-	Entire     ConversationFilter = 0
-	ClientOnly ConversationFilter = iota
-	ServerOnly ConversationFilter = iota
+	Entire     ConversationFilter = iota // 0
+	ClientOnly                           // 1
+	ServerOnly                           // 2
 )
 
 type streamStats struct {

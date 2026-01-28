@@ -44,9 +44,9 @@ var _ error = StreamParseError{}
 type Protocol int
 
 const (
-	Unspecified Protocol = 0
-	TCP         Protocol = iota
-	UDP         Protocol = iota
+	Unspecified Protocol = iota // 0
+	TCP                         // 1
+	UDP                         // 2
 )
 
 var _ fmt.Stringer = Protocol(0)
@@ -69,8 +69,8 @@ func (p Protocol) String() string {
 type Direction int
 
 const (
-	Client Direction = 0
-	Server Direction = iota
+	Client Direction = iota // 0
+	Server                  // 1
 )
 
 func (d Direction) String() string {

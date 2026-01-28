@@ -88,8 +88,8 @@ type SubmitCB struct{}
 type Pos int
 
 const (
-	Left  Pos = iota
-	Below Pos = iota
+	Left  Pos = iota // 0
+	Below            // 1
 )
 
 type Options struct {

@@ -36,9 +36,9 @@ import (
 type state uint
 
 const (
-	NotStarted state = 0
-	Sending    state = iota
-	Complete   state = iota
+	NotStarted state = iota // 0
+	Sending                 // 1
+	Complete                // 2
 )
 
 type ErrorFunc func(err error, app gowid.IApp)

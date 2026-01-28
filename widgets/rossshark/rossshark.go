@@ -49,8 +49,8 @@ func init() {
 type Direction int
 
 const (
-	Backward Direction = 0
-	Forward  Direction = iota
+	Backward Direction = iota // 0
+	Forward                   // 1
 )
 
 type Widget struct {

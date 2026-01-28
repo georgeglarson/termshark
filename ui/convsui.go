@@ -57,42 +57,42 @@ var frameRunes framed.FrameRunes
 type Direction int
 
 const (
-	Any  Direction = 0
-	To   Direction = iota
-	From Direction = iota
+	Any  Direction = iota // 0
+	To                    // 1
+	From                  // 2
 )
 
 type ConvAddr int
 
 const (
-	IPv4Addr ConvAddr = 0
-	IPv6Addr ConvAddr = iota
-	MacAddr  ConvAddr = iota
+	IPv4Addr ConvAddr = iota // 0
+	IPv6Addr                 // 1
+	MacAddr                  // 2
 )
 
 type FilterMask int
 
 const (
-	AtfB   FilterMask = 0
-	AtB    FilterMask = iota
-	BtA    FilterMask = iota
-	AtfAny FilterMask = iota
-	AtAny  FilterMask = iota
-	AnytA  FilterMask = iota
-	AnytfB FilterMask = iota
-	AnytB  FilterMask = iota
-	BtAny  FilterMask = iota
+	AtfB   FilterMask = iota // 0
+	AtB                      // 1
+	BtA                      // 2
+	AtfAny                   // 3
+	AtAny                    // 4
+	AnytA                    // 5
+	AnytfB                   // 6
+	AnytB                    // 7
+	BtAny                    // 8
 )
 
 type FilterCombinator int
 
 const (
-	Selected       FilterCombinator = 0
-	NotSelected    FilterCombinator = iota
-	AndSelected    FilterCombinator = iota
-	OrSelected     FilterCombinator = iota
-	AndNotSelected FilterCombinator = iota
-	OrNotSelected  FilterCombinator = iota
+	Selected       FilterCombinator = iota // 0
+	NotSelected                            // 1
+	AndSelected                            // 2
+	OrSelected                             // 3
+	AndNotSelected                         // 4
+	OrNotSelected                          // 5
 )
 
 // Use to construct a string like "ip.addr == 1.2.3.4 && tcp.port == 12345"
