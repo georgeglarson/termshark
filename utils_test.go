@@ -426,6 +426,66 @@ func TestDirOfPathCommandUnsafe(t *testing.T) {
 	})
 }
 
+func TestStringIsArgPrefixOf(t *testing.T) {
+	tests := []struct {
+		arg      string
+		list     []string
+		expected bool
+	}{
+		{"--flag=value", []string{"--flag"}, true},
+		{"--flag=value", []string{"--other", "--flag"}, true},
+		{"--flag=value", []string{"--other"}, false},
+		{"--flag", []string{"--flag"}, false}, // no = sign
+		{"--flag=", []string{"--flag"}, true},
+		{"", []string{"--flag"}, false},
+		{"--flag=value", []string{}, false},
+	}
+
+	for _, tt := range tests {
+		result := StringIsArgPrefixOf(tt.arg, tt.list)
+		assert.Equal(t, tt.expected, result, "StringIsArgPrefixOf(%q, %v)", tt.arg, tt.list)
+	}
+}
+
+func TestRootCause(t *testing.T) {
+	// Simple error (no wrapping)
+	err := BadState
+	assert.Equal(t, BadState, RootCause(err))
+
+	// Nil error
+	assert.Nil(t, RootCause(nil))
+}
+
+func TestErrorTypes(t *testing.T) {
+	assert.Equal(t, "Bad state", BadState.Error())
+	assert.Equal(t, "Error running command", BadCommand.Error())
+	assert.Equal(t, "Configuration error", ConfigErr.Error())
+	assert.Equal(t, "Internal error", InternalErr.Error())
+}
+
+func TestIndentPdml(t *testing.T) {
+	input := `<proto name="tcp"><field name="port" show="80"/></proto>`
+	var out bytes.Buffer
+	err := IndentPdml(bytes.NewReader([]byte(input)), &out)
+	assert.NoError(t, err)
+	assert.Contains(t, out.String(), "tcp")
+	assert.Contains(t, out.String(), "port")
+}
+
+func TestIndentPdml_InvalidXML(t *testing.T) {
+	input := `<not valid xml`
+	var out bytes.Buffer
+	err := IndentPdml(bytes.NewReader([]byte(input)), &out)
+	assert.Error(t, err)
+}
+
+func TestFixNewlines(t *testing.T) {
+	input := []byte("line1\nline2\nline3")
+	result := fixNewlines(input)
+	// On non-Windows, should return input unchanged
+	assert.Equal(t, input, result)
+}
+
 //======================================================================
 // Local Variables:
 // mode: Go

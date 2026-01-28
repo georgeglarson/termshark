@@ -6,6 +6,7 @@ package pdmltree
 import (
 	"testing"
 
+	"github.com/gcla/gowid/widgets/tree"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -461,6 +462,117 @@ func TestExpandedModel_String(t *testing.T) {
 	em := (*ExpandedModel)(m)
 	s := em.String()
 	assert.Contains(t, s, "[test]")
+}
+
+func TestModel_HexLayers(t *testing.T) {
+	// Build a model with two protocol layers, each with sub-fields
+	field1 := &Model{Name: "eth.src", Pos: 6, Size: 6}
+	field2 := &Model{Name: "eth.dst", Pos: 0, Size: 6}
+	eth := &Model{Name: "eth", Pos: 0, Size: 14, Children_: []*Model{field2, field1}}
+
+	field3 := &Model{Name: "ip.src", Pos: 26, Size: 4}
+	field4 := &Model{Name: "ip.dst", Pos: 30, Size: 4}
+	ip := &Model{Name: "ip", Pos: 14, Size: 20, Children_: []*Model{field3, field4}}
+
+	// Root with geninfo (skipped by default) + two layers
+	geninfo := &Model{Name: "geninfo", Pos: 0, Size: 34}
+	root := &Model{Name: "packet", Children_: []*Model{geninfo, eth, ip}}
+
+	// Position 8 falls within eth layer (0-14) and specifically eth.src (6-12)
+	layers := root.HexLayers(8, false)
+	assert.Equal(t, 2, len(layers)) // layer + field
+	assert.Equal(t, 0, layers[0].Start)
+	assert.Equal(t, 14, layers[0].End)
+	assert.Equal(t, "hex-layer-unselected", layers[0].ColUnselected)
+	assert.Equal(t, 6, layers[1].Start)
+	assert.Equal(t, 12, layers[1].End)
+	assert.Equal(t, "hex-field-unselected", layers[1].ColUnselected)
+
+	// Position 28 falls within ip layer (14-34) and specifically ip.src (26-30)
+	layers = root.HexLayers(28, false)
+	assert.Equal(t, 2, len(layers))
+	assert.Equal(t, 14, layers[0].Start)
+	assert.Equal(t, 34, layers[0].End)
+	assert.Equal(t, 26, layers[1].Start)
+	assert.Equal(t, 30, layers[1].End)
+
+	// Position outside all layers
+	layers = root.HexLayers(50, false)
+	assert.Equal(t, 0, len(layers))
+
+	// With includeFirst=true, geninfo is included in search
+	layers = root.HexLayers(8, true)
+	// geninfo covers 0-34, so it matches too, plus eth and eth.src
+	assert.True(t, len(layers) >= 2)
+}
+
+func TestModel_ExpandByPosition(t *testing.T) {
+	grandchild := &Model{Name: "gc", Expanded: false}
+	child1 := &Model{Name: "c1", Expanded: false, Children_: []*Model{grandchild}}
+	child2 := &Model{Name: "c2", Expanded: false}
+	root := &Model{Name: "root", Expanded: false, Children_: []*Model{child1, child2}}
+
+	// Expand path [0, 0] - root -> child1 -> grandchild
+	// ExpandByPosition expands every node along the way, but the
+	// leaf (grandchild) is not expanded because it receives an empty pos
+	pos := tree.NewPosExt([]int{0, 0})
+	root.ExpandByPosition(pos)
+
+	assert.True(t, root.Expanded)
+	assert.True(t, child1.Expanded)
+	assert.False(t, child2.Expanded)     // Not on the path
+	assert.False(t, grandchild.Expanded) // Leaf gets empty pos, returns early
+}
+
+func TestModel_ExpandByPosition_EmptyPos(t *testing.T) {
+	root := &Model{Name: "root", Expanded: false}
+	pos := tree.NewPosExt([]int{})
+	root.ExpandByPosition(pos)
+	assert.False(t, root.Expanded) // Empty pos should not expand
+}
+
+func TestModel_ExpandByPosition_OutOfBounds(t *testing.T) {
+	child := &Model{Name: "child", Expanded: false}
+	root := &Model{Name: "root", Expanded: false, Children_: []*Model{child}}
+
+	// Index 5 is out of bounds (only 1 child)
+	pos := tree.NewPosExt([]int{5})
+	root.ExpandByPosition(pos)
+
+	assert.True(t, root.Expanded) // Root still gets expanded
+	assert.False(t, child.Expanded)
+}
+
+func TestModel_SetCollapsed(t *testing.T) {
+	paths := ExpandedPaths{}
+	child := &Model{Name: "child", Expanded: false, ExpandedFields: &paths}
+	root := &Model{Name: "root", Expanded: false, Children_: []*Model{child}, ExpandedFields: &paths}
+	child.Parent = root
+
+	// Expand the child (collapse=false)
+	child.SetCollapsed(nil, false)
+	assert.True(t, child.Expanded)
+	// Should add paths for both root and child
+	assert.True(t, len(paths) >= 2)
+
+	// Collapse the child
+	child.SetCollapsed(nil, true)
+	assert.False(t, child.Expanded)
+}
+
+func TestModel_SetCollapsed_RootNode(t *testing.T) {
+	paths := ExpandedPaths{}
+	root := &Model{Name: "root", Expanded: false, ExpandedFields: &paths}
+
+	// Expand root
+	root.SetCollapsed(nil, false)
+	assert.True(t, root.Expanded)
+	assert.Equal(t, 1, len(paths))
+
+	// Collapse root
+	root.SetCollapsed(nil, true)
+	assert.False(t, root.Expanded)
+	assert.Equal(t, 0, len(paths))
 }
 
 //======================================================================
