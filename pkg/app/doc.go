@@ -103,11 +103,11 @@ Completed migrations:
   - DarkMode (setDarkModeWithSync, SetDarkMode, InitDarkMode)
   - PacketColors (setPacketColorsWithSync, SetPacketColors, InitPacketColors)
   - Prefetch algorithm (calculateAndSyncPrefetchRequests)
-  - Filter building (convsui delegates to CombineFilters)
+  - Filter building (convsui delegates to CombineFilters, searchbyfilter uses CombineFilters)
   - Controller callbacks (SetupControllerCallbacks in ui/ui.go)
+  - Current packet tracking (OnFocusChanged updates State.CurrentPacket)
 
 Remaining work:
-  - Wire current packet tracking to Controller.State.CurrentPacket
   - Sync tree navigation state (StructPosition, ExpandedNodes)
   - Eventually remove redundant UI globals once migration is complete
 */

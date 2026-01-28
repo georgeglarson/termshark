@@ -2697,6 +2697,11 @@ func setPacketListWidgets(psml iPsmlInfo, app gowid.IApp) {
 			calculateAndSyncPrefetchRequests(row, pktsPerLoad)
 
 			CacheRequestsChan <- struct{}{}
+
+			// Sync current packet number with Controller
+			if jpos, err := packetNumberFromTableRow(row2); err == nil {
+				AppController.State.SetCurrentPacket(jpos.Pos)
+			}
 		}
 
 		// When the focus changes, update the hex and struct view. If they cannot
