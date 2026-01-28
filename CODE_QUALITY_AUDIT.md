@@ -16,10 +16,11 @@
 | Code Complexity | PARTIAL | 1260-line cmain(), 80+ UI globals | ~145 lines extracted |
 | Modernization | COMPLETE | strings.Replace, error wrapping, slices pkg, sort -> slices, go vet clean | All |
 | Bug Fixes | COMPLETE | iota misuse (8 files), WriteGob error handling, redundant code | All |
-| Test Coverage | IN PROGRESS | ~30% coverage, 0% for UI | 2 files added |
+| Test Coverage | IN PROGRESS | ~30% coverage, 0% for UI | 17 packages tested |
 | Type Safety | COMPLETE | interface{} callbacks | Callback type + any |
+| Dependencies | COMPLETE | 7 outdated deps, 1 unused import | All evaluated/fixed |
 
-**Overall Assessment:** Significant modernization and bug fixes completed; testing remains
+**Overall Assessment:** Major modernization complete. Remaining: cmain() extraction, AppState struct, UI tests
 
 ---
 
@@ -247,22 +248,35 @@ var packetListViewHolder *holder.Widget
 
 ---
 
-## 6. Dependencies - PENDING
+## 6. Dependencies - COMPLETE
 
-### 6.1 Outdated/Problematic
+### 6.1 Resolved Dependencies
 
-| Package | Issue | Action |
-|---------|-------|--------|
-| `github.com/pkg/errors` | Deprecated | Remove, use stdlib |
-| `gopkg.in/fsnotify/fsnotify.v1` | Old import path | Update to `github.com/fsnotify/fsnotify` |
-| `gopkg.in/tomb.v1` | Last updated 2014 | Evaluate removal |
-| `github.com/gcla/tail` | Fork from 2019 | Evaluate alternatives |
+| Package | Issue | Resolution |
+|---------|-------|------------|
+| `github.com/pkg/errors` | Deprecated | ✓ REMOVED - using stdlib errors |
+| `gopkg.in/fsnotify/fsnotify.v1` | Old import path | ✓ UPDATED to `github.com/fsnotify/fsnotify` |
+| `shibukawa/configdir` | Unmaintained (2017) | ✓ REPLACED with `adrg/xdg` |
+| `mitchellh/go-homedir` | Superseded | ✓ REPLACED with `os.UserHomeDir()` |
+| `rakyll/statik` | Superseded | ✓ REPLACED with `go:embed` |
+| `tevino/abool` | Superseded | ✓ REPLACED with `sync/atomic.Bool` |
+| `condchan` | Unmaintained | ✓ REPLACED with channels |
 
-### 6.2 Unused Imports
+### 6.2 Intentionally Kept Dependencies
 
-| File | Import | Issue |
-|------|--------|-------|
-| `cmd/termshark/termshark.go:47` | `_ "net/http"` | Unused |
+| Package | Reason for Keeping |
+|---------|-------------------|
+| `gopkg.in/tomb.v1` | Indirect dependency via gcla/tail; no security issues |
+| `github.com/gcla/tail` | Maintainer's own fork with project-specific fixes (Windows only) |
+| `github.com/kballard/go-shellquote` | Stable library, no security issues, shell quoting is solved problem |
+
+### 6.3 Resolved Unused Imports
+
+| File | Import | Resolution |
+|------|--------|------------|
+| `cmd/termshark/termshark.go:47` | `_ "net/http"` | ✓ REMOVED |
+
+See [DEPS_AUDIT.md](DEPS_AUDIT.md) for detailed analysis of each dependency.
 
 ---
 
