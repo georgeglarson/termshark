@@ -11,7 +11,7 @@
 | Category | Status | Issues Found | Fixed |
 |----------|--------|--------------|-------|
 | Command Injection | Secure | 0 | N/A |
-| File Operations | Fixed | 6 | 5 |
+| File Operations | Fixed | 6 | 6 |
 | Input Validation | Fixed | 5 | 5 |
 | Dependencies | Fixed | 2 critical, 3 medium | 2 critical |
 
@@ -53,11 +53,11 @@ Replaced `os.Stat()` + `os.Mkdir()` pattern with atomic `os.MkdirAll()`.
 
 **Commit:** `a552a97` - Fix TOCTOU race conditions in directory creation
 
-### 2.3 Unvalidated CLI Profile Names - PENDING
+### 2.3 Unvalidated CLI Profile Names - FIXED
 
-Profile names from CLI `--profile` argument are used directly in `filepath.Join()` without sanitization. UI-created profiles use `filenamify.Filenamify()` validation, but CLI input bypasses this.
+Profile names from CLI `--profile` argument are now validated using `filenamify.Filenamify()`, matching the validation already used for UI-created profiles.
 
-**Recommendation:** Apply the same `filenamify.Filenamify()` validation to CLI profile arguments.
+**Commit:** `ae5af27` - Validate --profile CLI argument to prevent path traversal
 
 ### 2.4 Temp File Cleanup - FIXED
 
@@ -121,7 +121,7 @@ Updated: Go 1.22
 ### High Priority
 1. ~~Upgrade `sirupsen/logrus` to v1.9.3+~~ DONE
 2. ~~Upgrade Go version in go.mod to 1.21+~~ DONE (upgraded to 1.22)
-3. Validate `--profile` CLI argument with `filenamify.Filenamify()`
+3. ~~Validate `--profile` CLI argument with `filenamify.Filenamify()`~~ DONE
 
 ### Medium Priority
 4. ~~Review and update other outdated dependencies~~ DONE
@@ -138,3 +138,4 @@ Updated: Go 1.22
 | `5ae8376` | Enable temp file cleanup for config viewer |
 | `a552a97` | Fix TOCTOU race conditions in directory creation |
 | `2da7b90` | Upgrade Go to 1.22 and update dependencies |
+| `ae5af27` | Validate --profile CLI argument to prevent path traversal |
