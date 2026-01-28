@@ -335,6 +335,18 @@ func setAutoScrollWithSync(enabled bool) {
 	AppController.State.SetAutoScroll(enabled)
 }
 
+// setDarkModeWithSync sets the DarkMode state in both the global var and the Controller.
+func setDarkModeWithSync(enabled bool) {
+	DarkMode = enabled
+	AppController.State.SetDarkMode(enabled)
+}
+
+// setPacketColorsWithSync sets the PacketColors state in both the global var and the Controller.
+func setPacketColorsWithSync(enabled bool) {
+	PacketColors = enabled
+	AppController.State.SetPacketColors(enabled)
+}
+
 // calculateAndSyncPrefetchRequests uses the Controller's prefetch algorithm and syncs
 // with the CacheRequests global for backward compatibility.
 func calculateAndSyncPrefetchRequests(currentRow, pktsPerLoad int) {
@@ -3282,8 +3294,35 @@ func (w *prefixKeyWidget) UserInput(ev interface{}, size gowid.IRenderSize, focu
 //======================================================================
 
 func SetDarkMode(mode bool) {
-	DarkMode = mode
+	setDarkModeWithSync(mode)
 	profiles.SetConf("main.dark-mode", DarkMode)
+}
+
+// SetPacketColors sets the PacketColors state and persists to config.
+func SetPacketColors(enabled bool) {
+	setPacketColorsWithSync(enabled)
+	profiles.SetConf("main.packet-colors", PacketColors)
+}
+
+// SetAutoScroll sets the AutoScroll state and persists to config.
+func SetAutoScroll(enabled bool) {
+	setAutoScrollWithSync(enabled)
+	profiles.SetConf("main.auto-scroll", AutoScroll)
+}
+
+// InitDarkMode sets the DarkMode state without persisting (for initialization from config).
+func InitDarkMode(mode bool) {
+	setDarkModeWithSync(mode)
+}
+
+// InitPacketColors sets the PacketColors state without persisting (for initialization from config).
+func InitPacketColors(enabled bool) {
+	setPacketColorsWithSync(enabled)
+}
+
+// InitAutoScroll sets the AutoScroll state without persisting (for initialization from config).
+func InitAutoScroll(enabled bool) {
+	setAutoScrollWithSync(enabled)
 }
 
 func UpdateProfileWidget(name string, app gowid.IApp) {
@@ -3612,7 +3651,7 @@ func Build(tty string) (*gowid.App, error) {
 						Key: gowid.MakeKey('c'),
 						CB: func(app gowid.IApp, w gowid.IWidget) {
 							multiMenu1Opener.CloseMenu(generalMenu, app)
-							PacketColors = !PacketColors
+							setPacketColorsWithSync(!PacketColors)
 							profiles.SetConf("main.packet-colors", PacketColors)
 						},
 					},

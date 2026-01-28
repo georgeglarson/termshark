@@ -391,7 +391,7 @@ func (d setCommand) Run(app gowid.IApp, args ...string) error {
 			}
 		case "packet-colors":
 			if b, err = parseOnOff(args[2]); err == nil {
-				PacketColors = b
+				setPacketColorsWithSync(b)
 				profiles.SetConf("main.packet-colors", PacketColors)
 				OpenMessage(fmt.Sprintf("Packet colors are now %s", gwutil.If(b, "on", "off").(string)), appView, app)
 			}

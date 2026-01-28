@@ -655,7 +655,7 @@ func cmain() int {
 	pdmlArgs, psmlArgs, tsharkArgs := loadTsharkArgs(opts.TimestampFormat)
 	if ui.PacketColors && !ui.PacketColorsSupported {
 		log.Warnf("Packet coloring is enabled, but %s does not support --color", tsharkBin)
-		ui.PacketColors = false
+		ui.InitPacketColors(false)
 	}
 	cacheSize, bundleSize := loadCacheSettings()
 
@@ -1352,9 +1352,9 @@ func applyTermOverride() {
 
 // initUIState initializes the UI state from configuration settings.
 func initUIState() {
-	ui.DarkMode = profiles.ConfBool("main.dark-mode", true)
-	ui.AutoScroll = profiles.ConfBool("main.auto-scroll", true)
-	ui.PacketColors = profiles.ConfBool("main.packet-colors", true)
+	ui.InitDarkMode(profiles.ConfBool("main.dark-mode", true))
+	ui.InitAutoScroll(profiles.ConfBool("main.auto-scroll", true))
+	ui.InitPacketColors(profiles.ConfBool("main.packet-colors", true))
 }
 
 // loadTsharkArgs loads the tshark command-line arguments from configuration.
