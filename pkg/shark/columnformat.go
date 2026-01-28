@@ -42,6 +42,8 @@ func (p PsmlField) String() string {
 
 var InvalidCustomColumnError = fmt.Errorf("The custom column is invalid")
 
+var whitespaceRe = regexp.MustCompile(`\s+`)
+
 func (p *PsmlField) FromString(s string) error {
 	fields := strings.Split(s, ":")
 	if len(fields) == 1 {
@@ -239,8 +241,6 @@ func (w *ColumnsFromTshark) InitFromCache() error {
 }
 
 func (w *ColumnsFromTshark) InitNoCache() error {
-	re := regexp.MustCompile("\\s+")
-
 	cmd := exec.Command(termshark.TSharkBin(), []string{"-G", "column-formats"}...)
 
 	out, err := cmd.StdoutPipe()
@@ -254,7 +254,7 @@ func (w *ColumnsFromTshark) InitNoCache() error {
 
 	scanner := bufio.NewScanner(out)
 	for scanner.Scan() {
-		fields := re.Split(scanner.Text(), 2)
+		fields := whitespaceRe.Split(scanner.Text(), 2)
 		if len(fields) == 2 && strings.HasPrefix(fields[0], "%") {
 			w.fields = append(w.fields, PsmlColumnSpec{
 				Field: PsmlField{Token: fields[0]},

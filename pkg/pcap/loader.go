@@ -36,6 +36,9 @@ var PcapOpts Options
 
 var OpsChan chan gowid.RunFunction
 
+var hexByteRe = regexp.MustCompile(`([0-9a-f][0-9a-f] )`)
+var filenameInvalidRe = regexp.MustCompile(`[^a-zA-Z0-9.-]`)
+
 func init() {
 	OpsChan = make(chan gowid.RunFunction, 100)
 }
@@ -1229,7 +1232,6 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb i
 			packets := make([][]byte, 0, c.opt.PacketsPerLoad)
 			issuedKill := false
 			readAllRequiredPcap := false
-			re := regexp.MustCompile(`([0-9a-f][0-9a-f] )`)
 			rd := bufio.NewReader(pcapOut)
 			packet := make([]byte, 0)
 
@@ -1246,7 +1248,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb i
 					break
 				}
 
-				parseResults := re.FindAllStringSubmatch(string(line), -1)
+				parseResults := hexByteRe.FindAllStringSubmatch(string(line), -1)
 
 				if len(parseResults) < 1 {
 					packets = append(packets, packet)
@@ -2349,8 +2351,7 @@ func psmlColorToIColor(col string) gowid.IColor {
 func TempPcapFile(tokens ...string) string {
 	tokensClean := make([]string, 0, len(tokens))
 	for _, token := range tokens {
-		re := regexp.MustCompile(`[^a-zA-Z0-9.-]`)
-		tokensClean = append(tokensClean, re.ReplaceAllString(token, "_"))
+		tokensClean = append(tokensClean, filenameInvalidRe.ReplaceAllString(token, "_"))
 	}
 
 	tokenClean := strings.Join(tokensClean, "-")

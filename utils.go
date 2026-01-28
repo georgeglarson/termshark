@@ -109,6 +109,9 @@ var (
 	ShouldSwitchTerminal bool
 	ShouldSwitchBack     bool
 	unitsRe              *regexp.Regexp = regexp.MustCompile(`^([0-9,]+)\s*(bytes|kB|MB)?`)
+	tsharkVersionRe      *regexp.Regexp = regexp.MustCompile(`^TShark .*?(\d+\.\d+\.\d+)`)
+	interfaceRe          *regexp.Regexp = regexp.MustCompile(`^(?P<index>[0-9]+)\.\s+(?P<name1>[^\s]+)(\s*\((?P<name2>[^)]+)\))?`)
+	argRe                *regexp.Regexp = regexp.MustCompile(`^\$([1-9][0-9]{0,4})$`)
 )
 
 //======================================================================
@@ -143,8 +146,7 @@ func ReverseStringSlice(s []string) {
 var TSharkVersionUnknown = fmt.Errorf("Could not determine version of tshark")
 
 func TSharkVersionFromOutput(output string) (semver.Version, error) {
-	var ver = regexp.MustCompile(`^TShark .*?(\d+\.\d+\.\d+)`)
-	res := ver.FindStringSubmatch(output)
+	res := tsharkVersionRe.FindStringSubmatch(output)
 
 	if len(res) > 0 {
 		if v, err := semver.Make(res[1]); err == nil {
@@ -1098,19 +1100,17 @@ func Interfaces() (map[int][]string, error) {
 }
 
 func interfacesFrom(reader io.Reader) (map[int][]string, error) {
-	re := regexp.MustCompile(`^(?P<index>[0-9]+)\.\s+(?P<name1>[^\s]+)(\s*\((?P<name2>[^)]+)\))?`)
-
 	res := make(map[int][]string)
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		match := re.FindStringSubmatch(line)
+		match := interfaceRe.FindStringSubmatch(line)
 		if len(match) < 2 {
 			return nil, gowid.WithKVs(UnexpectedOutput, map[string]interface{}{"Output": line})
 		}
 		result := make(map[string]string)
-		for i, name := range re.SubexpNames() {
+		for i, name := range interfaceRe.SubexpNames() {
 			if i != 0 && match[i] != "" {
 				result[name] = match[i]
 			}
@@ -1271,11 +1271,10 @@ func RunningRemotely() bool {
 // ["echo", "hello", "world"]
 func ApplyArguments(cmd []string, args []string) ([]string, int) {
 	total := 0
-	re := regexp.MustCompile("^\\$([1-9][0-9]{0,4})$")
 	res := make([]string, len(cmd))
 	for i, c := range cmd {
 		changed := false
-		matches := re.FindStringSubmatch(c)
+		matches := argRe.FindStringSubmatch(c)
 		if len(matches) > 1 {
 			unum, _ := strconv.ParseUint(matches[1], 10, 32)
 			num := int(unum)
