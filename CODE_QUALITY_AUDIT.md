@@ -114,30 +114,42 @@ Note: `pkg/errors` remains as an indirect dependency via `gowid`.
 
 ---
 
-## 4. Test Coverage - AUDITED
+## 4. Test Coverage - IMPROVED (17 packages with tests)
 
 ### 4.1 Coverage by Package
 
 | Package | Coverage | Tests | LOC | Priority |
 |---------|----------|-------|-----|----------|
-| `pkg/lifecycle` | **93.8%** | 4 | ~100 | ✓ Complete |
-| `widgets/number` | **93.5%** | 1 | ~200 | ✓ Complete |
+| `pkg/lifecycle` | **100%** | 5 | ~100 | ✓ Complete |
+| `widgets/number` | **100%** | 5 | ~200 | ✓ Complete |
+| `pkg/format` | **97.1%** | 1 | ~100 | ✓ Complete |
 | `widgets/trackfocus` | **73.3%** | 1 | ~80 | ✓ Good |
-| `pkg/shark/wiresharkcfg` | **49.9%** | 1 | ~1800 | Medium |
+| `pkg/shark/wiresharkcfg` | **57.2%** | 1 | ~1800 | Medium |
+| `pkg/app` | **54.0%** | 10+ | ~800 | Good |
+| `pkg/fields` | **52.7%** | 8 | ~380 | Good |
+| `pkg/streams` | **52.4%** | 4 | ~1200 | Good |
 | `widgets/withscrollbar` | **40.7%** | 1 | ~200 | Low |
-| `widgets/hexdumper` | **20.5%** | 2 | ~600 | Medium |
-| `pkg/format` | **20.0%** | 1 | ~100 | Low |
-| `pkg/streams` | **19.0%** | 4 | ~1200 | Medium |
-| `utils.go` (termshark/v2) | **15.7%** | 13 | ~1300 | High |
-| `pkg/fields` | **13.3%** | 1 | ~200 | Low |
-| `pkg/shark` | **7.8%** | 1 | ~400 | Medium |
-| `pkg/pdmltree` | **7.4%** | 1 | ~200 | Low |
+| `widgets/hexdumper` | **36.7%** | 6 | ~600 | Medium |
+| `utils.go` (termshark/v2) | **30.7%** | 25+ | ~1300 | Medium |
+| `pkg/summary` | **29.7%** | 7 | ~90 | Good |
+| `pkg/pdmltree` | **25.0%** | 20+ | ~420 | Good |
+| `pkg/convs` | **19.0%** | 6 | ~180 | Good |
+| `pkg/shark` | **18.0%** | 5 | ~350 | Medium |
+| `pkg/theme` | **14.0%** | 2 | ~140 | Low |
 | `ui/` | **0.7%** | 1 | ~4400 | Critical |
-| `pkg/pcap` | **0%** | 4* | ~2400 | Critical |
-| `configs/profiles` | **25.7%** | 1 | ~350 | Medium |
+| `pkg/pcap` | **26.4%** | 4+ | ~2400 | Medium |
+| `configs/profiles` | **26.0%** | 1 | ~350 | Medium |
 | `cmd/termshark` | **0%** | 0 | ~1400 | High |
 
-*Note: `pkg/pcap` tests require `-tags tshark` build flag (integration tests)
+**Recent Coverage Improvements:**
+- `pkg/pcap`: 0% → 26.4% (handler tests, loader mocks)
+- `pkg/lifecycle`: 93.8% → 100%
+- `widgets/number`: 93.5% → 100%
+- `pkg/app`: 54% (tree functions fully tested)
+- `pkg/pdmltree`: 25% (comprehensive tests added)
+- `pkg/convs`: 19% → types fully tested
+- `pkg/fields`: 52.7% (dedup, ParseFieldType, LookupField tested)
+- `pkg/shark`: 18% (columnformat tests added)
 
 ### 4.2 Test Files Summary
 
