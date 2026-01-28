@@ -205,6 +205,141 @@ func TestPdml1(t *testing.T) {
 	assert.Equal(t, 13, len(tree.Children_[0].Children_))
 }
 
+func TestEmptyIterator(t *testing.T) {
+	ei := EmptyIterator{}
+
+	assert.False(t, ei.Next())
+
+	// Value should panic
+	assert.Panics(t, func() {
+		ei.Value()
+	})
+}
+
+func TestExpandedPaths_AddRemove(t *testing.T) {
+	var paths ExpandedPaths
+
+	// Add first path
+	added := paths.addExpanded([]string{"tcp", "tcp.port"})
+	assert.True(t, added)
+	assert.Equal(t, 1, len(paths))
+
+	// Add different path
+	added = paths.addExpanded([]string{"udp", "udp.port"})
+	assert.True(t, added)
+	assert.Equal(t, 2, len(paths))
+
+	// Add duplicate path should return false
+	added = paths.addExpanded([]string{"tcp", "tcp.port"})
+	assert.False(t, added)
+	assert.Equal(t, 2, len(paths))
+
+	// Remove existing path
+	removed := paths.removeExpanded([]string{"tcp", "tcp.port"})
+	assert.True(t, removed)
+	assert.Equal(t, 1, len(paths))
+
+	// Remove non-existing path
+	removed = paths.removeExpanded([]string{"tcp", "tcp.port"})
+	assert.False(t, removed)
+	assert.Equal(t, 1, len(paths))
+}
+
+func TestModel_HasChildren(t *testing.T) {
+	// Model with no children
+	m := &Model{}
+	assert.False(t, m.HasChildren())
+
+	// Model with children
+	m.Children_ = []*Model{{UiName: "child"}}
+	assert.True(t, m.HasChildren())
+}
+
+func TestModel_Leaf(t *testing.T) {
+	m := &Model{UiName: "Test Name"}
+	assert.Equal(t, "Test Name", m.Leaf())
+
+	em := (*ExpandedModel)(m)
+	assert.Equal(t, "Test Name", em.Leaf())
+}
+
+func TestModel_IsCollapsed(t *testing.T) {
+	m := &Model{Expanded: false}
+	assert.True(t, m.IsCollapsed())
+
+	m.Expanded = true
+	assert.False(t, m.IsCollapsed())
+}
+
+func TestModel_PathToRoot(t *testing.T) {
+	parent := &Model{Name: "parent"}
+	child := &Model{Name: "child", Parent: parent}
+	grandchild := &Model{Name: "grandchild", Parent: child}
+
+	assert.Equal(t, []string{"parent", "child", "grandchild"}, grandchild.PathToRoot())
+	assert.Equal(t, []string{"parent", "child"}, child.PathToRoot())
+	assert.Equal(t, []string{"parent"}, parent.PathToRoot())
+
+	// nil case
+	var nilModel *Model
+	assert.Equal(t, []string{}, nilModel.PathToRoot())
+}
+
+func TestModel_String(t *testing.T) {
+	m := &Model{UiName: "root"}
+	s := m.String()
+	assert.Contains(t, s, "[root]")
+
+	// With children
+	m.Children_ = []*Model{{UiName: "child"}}
+	s = m.String()
+	assert.Contains(t, s, "[root]")
+	assert.Contains(t, s, "[child]")
+}
+
+func TestIterator(t *testing.T) {
+	child1 := &Model{UiName: "child1"}
+	child2 := &Model{UiName: "child2"}
+	parent := &Model{
+		UiName:    "parent",
+		Expanded:  true,
+		Children_: []*Model{child1, child2},
+	}
+
+	it := parent.Children().(*Iterator)
+
+	// First iteration
+	assert.True(t, it.Next())
+	assert.Equal(t, child1, it.Value())
+
+	// Second iteration
+	assert.True(t, it.Next())
+	assert.Equal(t, child2, it.Value())
+
+	// No more items
+	assert.False(t, it.Next())
+}
+
+func TestModel_Children_Collapsed(t *testing.T) {
+	child := &Model{UiName: "child"}
+	parent := &Model{
+		UiName:    "parent",
+		Expanded:  false,
+		Children_: []*Model{child},
+	}
+
+	// When collapsed, should return EmptyIterator
+	it := parent.Children()
+	_, ok := it.(EmptyIterator)
+	assert.True(t, ok)
+}
+
+func TestDecodePacket_InvalidXML(t *testing.T) {
+	// Invalid XML should return nil
+	result := DecodePacket([]byte("not valid xml"))
+	assert.Nil(t, result)
+}
+
 //======================================================================
 // Local Variables:
 // mode: Go
