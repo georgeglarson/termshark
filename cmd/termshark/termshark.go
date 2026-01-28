@@ -284,33 +284,13 @@ func cmain() int {
 		return res
 	}
 
-	usetty := opts.TtyValue()
-	if usetty != "" {
-		if ttyf, err := os.Open(usetty); err != nil {
-			fmt.Fprintf(os.Stderr, "Could not open terminal %s: %v.\n", usetty, err)
-			return 1
-		} else {
-			if !isatty.IsTerminal(ttyf.Fd()) {
-				fmt.Fprintf(os.Stderr, "%s is not a terminal.\n", usetty)
-				ttyf.Close()
-				return 1
-			}
-			ttyf.Close()
-		}
-	} else {
-		// Always override - in case the user has GOWID_TTY in a shell script (if they're
-		// using the gcla fork of tcell for another application).
-		usetty = "/dev/tty"
+	usetty, err := validateTTY(opts.TtyValue())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v.\n", err)
+		return 1
 	}
 
-	// Allow the user to override the shell's TERM variable this way. Perhaps the user runs
-	// under screen/tmux, and the TERM variable doesn't reflect the fact their preferred
-	// terminal emumlator supports 256 colors.
-	termVar := profiles.ConfString("main.term", "")
-	if termVar != "" {
-		fmt.Fprintf(os.Stderr, "Configuration file overrides TERM setting, using TERM=%s\n", termVar)
-		os.Setenv("TERM", termVar)
-	}
+	applyTermOverride()
 
 	var psrcs []pcap.IPacketSource
 
@@ -1391,6 +1371,34 @@ func createCacheDirs() error {
 	}
 
 	return nil
+}
+
+// validateTTY validates the specified TTY device, returning the path to use.
+// If ttyPath is empty, returns the default "/dev/tty".
+func validateTTY(ttyPath string) (string, error) {
+	if ttyPath != "" {
+		ttyf, err := os.Open(ttyPath)
+		if err != nil {
+			return "", fmt.Errorf("could not open terminal %s: %w", ttyPath, err)
+		}
+		defer ttyf.Close()
+
+		if !isatty.IsTerminal(ttyf.Fd()) {
+			return "", fmt.Errorf("%s is not a terminal", ttyPath)
+		}
+		return ttyPath, nil
+	}
+	// Always override - in case the user has GOWID_TTY in a shell script
+	return "/dev/tty", nil
+}
+
+// applyTermOverride applies the TERM environment variable override from config.
+func applyTermOverride() {
+	termVar := profiles.ConfString("main.term", "")
+	if termVar != "" {
+		fmt.Fprintf(os.Stderr, "Configuration file overrides TERM setting, using TERM=%s\n", termVar)
+		os.Setenv("TERM", termVar)
+	}
 }
 
 //======================================================================

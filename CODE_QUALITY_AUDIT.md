@@ -231,7 +231,12 @@ type HandlerList[T any] []T
    - ~~Migrate all TrackedGo() calls to termshark.Go()~~ DONE
    - ~~Remove package-level Goroutinewg variables~~ DONE
    - ~~Add context awareness to long-running goroutines~~ DONE
-9. Extract `cmain()` into smaller functions
+9. Extract `cmain()` into smaller functions - IN PROGRESS
+   - ~~Extract setupConfigDirs()~~ DONE
+   - ~~Extract setupLogging()~~ DONE
+   - ~~Extract validateTsharkBinary()~~ DONE
+   - ~~Extract checkTsharkColorSupport()~~ DONE
+   - ~~Extract createCacheDirs()~~ DONE
 10. Create `AppState` struct for UI globals
 
 ### Phase 4: Testing (Medium Term)
