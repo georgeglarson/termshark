@@ -313,7 +313,7 @@ func cmain() int {
 	ui.SetLoader(&pcap.PacketLoader{ParentLoader: pcap.NewPcapLoader(pcap.PcapCmds, &pcap.Runner{IApp: state.app}, pcap.PcapOpts)})
 
 	// Populate the filter widget initially - runs asynchronously
-	go ui.FilterWidget.UpdateCompletions(state.app)
+	go ui.GetFilterWidget().UpdateCompletions(state.app)
 
 	ui.SetRunning(false)
 
@@ -363,7 +363,7 @@ func cmain() int {
 
 		doit := func(app gowid.IApp) {
 			app.Run(gowid.RunFunction(func(app gowid.IApp) {
-				ui.FilterWidget.SetValue(state.displayFilter, app)
+				ui.GetFilterWidget().SetValue(state.displayFilter, app)
 			}))
 			ui.RequestLoadPcap(absfile, state.displayFilter, ui.NoGlobalJump, app)
 		}
@@ -398,7 +398,7 @@ func cmain() int {
 
 		ifValid := func(app gowid.IApp) {
 			app.Run(gowid.RunFunction(func(app gowid.IApp) {
-				ui.FilterWidget.SetValue(state.displayFilter, app)
+				ui.GetFilterWidget().SetValue(state.displayFilter, app)
 			}))
 			doLoad(app)
 		}
@@ -1026,18 +1026,7 @@ func (s *appState) cleanup() {
 	}
 
 	// Close widgets
-	if ui.FilterWidget != nil {
-		ui.FilterWidget.Close()
-	}
-	if ui.SearchWidget != nil {
-		ui.SearchWidget.Close(s.app)
-	}
-	if ui.CurrentWormholeWidget != nil {
-		ui.CurrentWormholeWidget.Close()
-	}
-	if ui.CurrentColsWidget != nil {
-		ui.CurrentColsWidget.Close()
-	}
+	ui.CloseWidgets(s.app)
 
 	// Close config watcher
 	if s.watcher != nil {

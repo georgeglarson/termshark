@@ -5,6 +5,7 @@
 package ui
 
 import (
+	"github.com/gcla/gowid"
 	"github.com/gcla/termshark/v2/pkg/pcap"
 	"github.com/gcla/termshark/v2/widgets/filter"
 	"github.com/gcla/termshark/v2/widgets/search"
@@ -187,6 +188,22 @@ func SetWriteToSelected(selected bool) {
 		UI.App.WriteToSelected = selected
 	}
 	WriteToSelected = selected // keep old global in sync during transition
+}
+
+// CloseWidgets closes all widget resources. Call this during application cleanup.
+func CloseWidgets(app gowid.IApp) {
+	if FilterWidget != nil {
+		FilterWidget.Close()
+	}
+	if SearchWidget != nil && app != nil {
+		SearchWidget.Close(app)
+	}
+	if w := getWormholeWidget(); w != nil {
+		w.Close()
+	}
+	if CurrentColsWidget != nil {
+		CurrentColsWidget.Close()
+	}
 }
 
 //======================================================================
