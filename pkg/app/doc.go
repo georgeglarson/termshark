@@ -106,6 +106,8 @@ Completed migrations:
   - Filter building (convsui delegates to CombineFilters, searchbyfilter uses CombineFilters)
   - Controller callbacks (SetupControllerCallbacks in ui/ui.go)
   - Current packet tracking (OnFocusChanged updates State.CurrentPacket)
+  - Current filter tracking (RequestNewFilter, RequestLoadPcap, RequestLoadInterfaces)
+  - Current pcap tracking (RequestLoadPcap updates State.CurrentPcap)
 
 Remaining work:
   - Sync tree navigation state (StructPosition, ExpandedNodes)

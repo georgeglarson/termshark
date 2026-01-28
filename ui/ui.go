@@ -3053,6 +3053,9 @@ func (r copyModePalette) AlterWidget(w gowid.IWidget, app gowid.IApp) gowid.IWid
 //======================================================================
 
 func RequestLoadInterfaces(psrcs []pcap.IPacketSource, captureFilter string, displayFilter string, tmpfile string, app gowid.IApp) {
+	// Sync filter with Controller (interface captures don't have a fixed pcap path)
+	AppController.State.SetCurrentFilter(displayFilter)
+
 	Loader.Renew()
 	Loader.LoadInterfaces(psrcs, captureFilter, displayFilter, tmpfile,
 		pcap.HandlerList{
@@ -3109,6 +3112,9 @@ func RequestLoadPcap(pcapf string, displayFilter string, jump termshark.GlobalJu
 	} else {
 		// no auto-scroll when reading a file
 		setAutoScrollWithSync(false)
+		// Sync pcap and filter with Controller
+		AppController.State.SetCurrentPcap(pcapf)
+		AppController.State.SetCurrentFilter(displayFilter)
 		Loader.LoadPcap(pcapf, displayFilter, handlers, app)
 	}
 }
@@ -3135,6 +3141,8 @@ func RequestNewFilter(displayFilter string, app gowid.IApp) {
 	if Loader.DisplayFilter() == displayFilter {
 		log.Infof("No operation - same filter applied ('%s').", displayFilter)
 	} else {
+		// Sync filter with Controller
+		AppController.State.SetCurrentFilter(displayFilter)
 		Loader.Reload(displayFilter, handlers, app)
 	}
 }
