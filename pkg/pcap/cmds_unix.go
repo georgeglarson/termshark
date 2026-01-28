@@ -10,7 +10,6 @@ import (
 	"syscall"
 
 	"github.com/kballard/go-shellquote"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -25,7 +24,7 @@ func (c *Command) Kill() error {
 	c.Lock()
 	defer c.Unlock()
 	if c.Cmd.Process == nil {
-		return errors.WithStack(ProcessNotStarted{Command: c.Cmd})
+		return ProcessNotStarted{Command: c.Cmd}
 	}
 	log.Infof("Sending SIGKILL to %v: %v", c.Cmd.Process.Pid, shellquote.Join(c.Cmd.Args...))
 	// The PSML tshark process doesn't reliably die with a SIGTERM - not sure why

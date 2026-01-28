@@ -73,7 +73,6 @@ import (
 	"github.com/gcla/termshark/v2/widgets/withscrollbar"
 	"github.com/gdamore/tcell/v2"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -713,7 +712,7 @@ func makeStructNodeDecoration(pos tree.IPos, tr tree.IModel, wmaker tree.IWidget
 		level += 1
 	}
 	if level < 0 {
-		panic(errors.WithStack(gowid.WithKVs(termshark.BadState, map[string]interface{}{"level": level})))
+		panic(gowid.WithKVs(termshark.BadState, map[string]interface{}{"level": level}))
 	}
 
 	pad := strings.Repeat(" ", level*2)
@@ -727,7 +726,7 @@ func makeStructNodeDecoration(pos tree.IPos, tr tree.IModel, wmaker tree.IWidget
 
 	ct, ok := tr.(*pdmltree.Model)
 	if !ok {
-		panic(errors.WithStack(gowid.WithKVs(termshark.BadState, map[string]interface{}{"tree": tr})))
+		panic(gowid.WithKVs(termshark.BadState, map[string]interface{}{"tree": tr}))
 	}
 
 	// Create an empty one here because the selectIf widget needs to have a pointer

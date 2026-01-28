@@ -43,7 +43,6 @@ import (
 	"github.com/gdamore/tcell/v2/terminfo"
 	"github.com/gdamore/tcell/v2/terminfo/dynamic"
 	"github.com/mattn/go-isatty"
-	"github.com/pkg/errors"
 	"github.com/shibukawa/configdir"
 	log "github.com/sirupsen/logrus"
 	"github.com/tevino/abool"
@@ -153,7 +152,7 @@ func TSharkVersionFromOutput(output string) (semver.Version, error) {
 		}
 	}
 
-	return semver.Version{}, errors.WithStack(TSharkVersionUnknown)
+	return semver.Version{}, TSharkVersionUnknown
 }
 
 func TSharkVersion(tshark string) (semver.Version, error) {
@@ -639,18 +638,18 @@ func addToRecent(field string, val string) {
 func LoadOffsetFromConfig(name string) ([]resizable.Offset, error) {
 	offsStr := profiles.ConfString("main."+name, "")
 	if offsStr == "" {
-		return nil, errors.WithStack(gowid.WithKVs(ConfigErr, map[string]interface{}{
+		return nil, gowid.WithKVs(ConfigErr, map[string]interface{}{
 			"name": name,
 			"msg":  "No offsets found",
-		}))
+		})
 	}
 	res := make([]resizable.Offset, 0)
 	err := json.Unmarshal([]byte(offsStr), &res)
 	if err != nil {
-		return nil, errors.WithStack(gowid.WithKVs(ConfigErr, map[string]interface{}{
+		return nil, gowid.WithKVs(ConfigErr, map[string]interface{}{
 			"name": name,
 			"msg":  "Could not unmarshal offsets",
-		}))
+		})
 	}
 	return res, nil
 }
@@ -732,10 +731,10 @@ func LoadGlobalMarks(m map[rune]GlobalJumpPos) error {
 	mappings := make([]globalJumpPosMapping, 0)
 	err := json.Unmarshal([]byte(marksStr), &mappings)
 	if err != nil {
-		return errors.WithStack(gowid.WithKVs(ConfigErr, map[string]interface{}{
+		return gowid.WithKVs(ConfigErr, map[string]interface{}{
 			"name": "marks",
 			"msg":  "Could not unmarshal marks",
-		}))
+		})
 	}
 
 	for _, mapping := range mappings {
@@ -1245,7 +1244,7 @@ func BrowseUrl(url string) error {
 	)
 
 	if len(urlCmd) == 0 {
-		return errors.WithStack(gowid.WithKVs(BadCommand, map[string]interface{}{"message": "browse command is nil"}))
+		return gowid.WithKVs(BadCommand, map[string]interface{}{"message": "browse command is nil"})
 	}
 
 	urlCmdPP, changed := ApplyArguments(urlCmd, []string{url})
@@ -1304,7 +1303,7 @@ func CopyCommand(input io.Reader, cb interface{}) error {
 	)
 
 	if len(copyCmd) == 0 {
-		return errors.WithStack(gowid.WithKVs(BadCommand, map[string]interface{}{"message": "copy command is nil"}))
+		return gowid.WithKVs(BadCommand, map[string]interface{}{"message": "copy command is nil"})
 	}
 
 	cmd := exec.Command(copyCmd[0], copyCmd[1:]...)
@@ -1314,7 +1313,7 @@ func CopyCommand(input io.Reader, cb interface{}) error {
 
 	cmdTimeout := profiles.ConfInt("main.copy-command-timeout", 5)
 	if err := cmd.Start(); err != nil {
-		return errors.WithStack(gowid.WithKVs(BadCommand, map[string]interface{}{"err": err}))
+		return gowid.WithKVs(BadCommand, map[string]interface{}{"err": err})
 	}
 
 	TrackedGo(func() {

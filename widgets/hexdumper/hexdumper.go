@@ -24,7 +24,6 @@ import (
 	"github.com/gcla/termshark/v2/pkg/format"
 	"github.com/gcla/termshark/v2/widgets/renderfocused"
 	"github.com/gdamore/tcell/v2"
-	"github.com/pkg/errors"
 )
 
 //======================================================================
@@ -174,7 +173,7 @@ func (w *Widget) SetData(data []byte, app gowid.IApp) {
 func (w *Widget) InHex() bool {
 	fp := gowid.FocusPath(w.w)
 	if len(fp) < 3 {
-		panic(errors.WithStack(gowid.WithKVs(termshark.BadState, map[string]interface{}{"focus path": fp})))
+		panic(gowid.WithKVs(termshark.BadState, map[string]interface{}{"focus path": fp}))
 	}
 	return fp[0] == 3
 }
@@ -182,7 +181,7 @@ func (w *Widget) InHex() bool {
 func (w *Widget) SetInHex(val bool, app gowid.IApp) {
 	fp := gowid.FocusPath(w.w)
 	if len(fp) < 3 {
-		panic(errors.WithStack(gowid.WithKVs(termshark.BadState, map[string]interface{}{"focus path": fp})))
+		panic(gowid.WithKVs(termshark.BadState, map[string]interface{}{"focus path": fp}))
 	}
 	if val {
 		if fp[0].(int) == 3 {

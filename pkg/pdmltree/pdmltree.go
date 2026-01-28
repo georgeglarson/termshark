@@ -9,6 +9,7 @@ package pdmltree
 import (
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -19,7 +20,6 @@ import (
 	"github.com/gcla/gowid/gwutil"
 	"github.com/gcla/gowid/widgets/tree"
 	"github.com/gcla/termshark/v2/widgets/hexdumper2"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -145,12 +145,12 @@ func (n *Model) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 		case "pos":
 			n.Pos, err = strconv.Atoi(a.Value)
 			if err != nil {
-				return errors.WithStack(err)
+				return err
 			}
 		case "size":
 			n.Size, err = strconv.Atoi(a.Value)
 			if err != nil {
-				return errors.WithStack(err)
+				return err
 			}
 		case "showname":
 			n.UiName = a.Value

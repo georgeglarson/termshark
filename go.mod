@@ -19,7 +19,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mreiferson/go-snappystream v0.2.3
-	github.com/pkg/errors v0.9.1
 	github.com/psanford/wormhole-william v1.0.6-0.20210402190004-049df45b8d5a
 	github.com/rakyll/statik v0.1.7
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
@@ -47,6 +46,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
