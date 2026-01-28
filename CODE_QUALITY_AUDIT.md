@@ -14,11 +14,12 @@
 | Error Handling | COMPLETE | pkg/errors, %v wrapping, type assertions | All |
 | Goroutine Lifecycle | COMPLETE | Global WaitGroup injection | ~40 goroutines |
 | Code Complexity | PARTIAL | 1260-line cmain(), 80+ UI globals | ~145 lines extracted |
-| Modernization | COMPLETE | strings.Replace, error wrapping | All |
+| Modernization | COMPLETE | strings.Replace, error wrapping, slices pkg | All |
+| Bug Fixes | COMPLETE | iota misuse in 8 files | All |
 | Test Coverage | Pending | ~30% coverage, 0% for UI | 0 |
 | Type Safety | Pending | interface{} callbacks | 0 |
 
-**Overall Assessment:** Significant modernization completed; testing and type safety remain
+**Overall Assessment:** Significant modernization and bug fixes completed; testing and type safety remain
 
 ---
 
@@ -288,7 +289,9 @@ type HandlerList[T any] []T
 | `f02aa90` | Use errors.Is() for io.EOF comparisons |
 | `7438996` | Use errors.As() for exec.ExitError type assertions |
 | `8dde9b6` | Modernize error wrapping (%w) and strings.ReplaceAll() |
-| `d01a95e` | Use Go 1.21+ slices package (slices.Contains, slices.Equal) |
+| `eab3250` | Use Go 1.21+ slices package (slices.Contains, slices.Equal) |
+| `a8188ec` | Fix iota bug in FieldType constants |
+| `5d7f362` | Fix iota bugs in multiple const blocks (7 files) |
 
 ---
 
