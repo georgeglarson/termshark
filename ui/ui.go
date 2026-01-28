@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -3265,7 +3266,7 @@ func ApplyCurrentProfile(app gowid.IApp, vp *viper.Viper, vc *viper.Viper) error
 
 	curcols := profiles.ConfStringSliceFrom(vp, profiles.Default(), "main.column-format", []string{})
 	newcols := profiles.ConfStringSliceFrom(vc, profiles.Default(), "main.column-format", []string{})
-	if !reflect.DeepEqual(newcols, curcols) {
+	if !slices.Equal(newcols, curcols) {
 		reload = true
 	}
 

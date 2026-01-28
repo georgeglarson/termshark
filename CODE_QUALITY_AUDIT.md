@@ -201,6 +201,8 @@ var packetListViewHolder *holder.Widget
 | Range over integers | `for i := 0; i < len(s); i++` | `for i := range len(s)` | Pending |
 | Error wrapping | `pkg/errors.WithStack()` | `fmt.Errorf("%w", err)` | DONE |
 | strings.Replace | `strings.Replace(s, o, n, -1)` | `strings.ReplaceAll(s, o, n)` | DONE |
+| slices.Contains | Custom `StringInSlice()` | `slices.Contains()` | DONE |
+| slices.Equal | `reflect.DeepEqual` for slices | `slices.Equal()` | DONE |
 
 ### 7.2 Generics (Go 1.18+)
 
@@ -285,7 +287,8 @@ type HandlerList[T any] []T
 | `b1bcaf3` | Extract configureBase16Colors() |
 | `f02aa90` | Use errors.Is() for io.EOF comparisons |
 | `7438996` | Use errors.As() for exec.ExitError type assertions |
-| `750da92` | Modernize error wrapping (%w) and strings.ReplaceAll() |
+| `8dde9b6` | Modernize error wrapping (%w) and strings.ReplaceAll() |
+| `d01a95e` | Use Go 1.21+ slices package (slices.Contains, slices.Equal) |
 
 ---
 

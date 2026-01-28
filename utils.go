@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -501,13 +502,10 @@ func WriteGob(filePath string, object interface{}) error {
 	return err
 }
 
+// StringInSlice checks if a string exists in a slice.
+// Deprecated: Use slices.Contains directly instead.
 func StringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(list, a)
 }
 
 // Must succeed - use on internal templates

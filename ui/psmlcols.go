@@ -7,7 +7,7 @@ package ui
 
 import (
 	"fmt"
-	"reflect"
+	"slices"
 	"sort"
 
 	"github.com/gcla/gowid"
@@ -302,7 +302,7 @@ func openEditColumns(app gowid.IApp) {
 				curcols := profiles.ConfStringSlice("main.column-format", []string{})
 
 				updated := false
-				if !reflect.DeepEqual(newcols, curcols) {
+				if !slices.Equal(newcols, curcols) {
 					profiles.SetConf("main.column-format-bak", curcols)
 					profiles.SetConf("main.column-format", newcols)
 					updated = true

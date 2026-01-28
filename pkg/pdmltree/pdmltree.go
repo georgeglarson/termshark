@@ -11,7 +11,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -391,7 +391,7 @@ func (p *Model) SetCollapsed(app gowid.IApp, isCollapsed bool) {
 
 func (m *ExpandedPaths) addExpanded(path []string) bool {
 	for _, p := range *m {
-		if reflect.DeepEqual(p, path) {
+		if slices.Equal(p, path) {
 			return false
 		}
 	}
@@ -401,7 +401,7 @@ func (m *ExpandedPaths) addExpanded(path []string) bool {
 
 func (m *ExpandedPaths) removeExpanded(path []string) bool {
 	for i, p := range *m {
-		if reflect.DeepEqual(p, path) {
+		if slices.Equal(p, path) {
 			*m = append((*m)[:i], (*m)[i+1:]...)
 			return true
 		}
