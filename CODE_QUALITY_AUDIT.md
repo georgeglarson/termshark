@@ -131,7 +131,7 @@ Note: `pkg/errors` remains as an indirect dependency via `gowid`.
 
 ### 4.2 Test Quality Issues
 
-- `pkg/streams/loader_test.go:1133`: Uses `context.TODO()` (should be `context.Background()`)
+- ~~`pkg/streams/loader_test.go:1133`: Uses `context.TODO()` (should be `context.Background()`)~~ FIXED
 - No mocks for tshark commands
 - Integration-style tests rather than unit tests
 
