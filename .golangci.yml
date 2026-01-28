@@ -1,0 +1,63 @@
+# golangci-lint configuration for termshark
+# See: https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  # Skip generated files
+  skip-files:
+    - "pkg/shark/wiresharkcfg/parser.go"
+    - "pkg/streams/follow.go"
+
+linters:
+  enable:
+    # Default linters
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    # Additional recommended linters
+    - gofmt
+    - goimports
+    - misspell
+    - unconvert
+    - unparam
+    - gocritic
+
+linters-settings:
+  govet:
+    # Disable composite literal check (too many in gowid code style)
+    disable:
+      - composites
+  errcheck:
+    # Don't check for errors on Close() calls
+    exclude-functions:
+      - (io.Closer).Close
+      - (*os.File).Close
+  gocritic:
+    disabled-checks:
+      - ifElseChain
+      - singleCaseSwitch
+
+issues:
+  # Don't limit the number of issues per linter
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  exclude-rules:
+    # Exclude some linters from running on test files
+    - path: _test\.go
+      linters:
+        - errcheck
+        - unparam
+
+    # Ignore long lines in generated files
+    - path: "pkg/shark/wiresharkcfg/"
+      linters:
+        - lll
+
+    # Allow unkeyed struct literals for gowid widgets (common pattern)
+    - text: "struct literal uses unkeyed fields"
+      linters:
+        - govet
