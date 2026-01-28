@@ -37,6 +37,7 @@ import (
 	"github.com/gcla/gowid/vim"
 	"github.com/gcla/gowid/widgets/table"
 	"github.com/gcla/termshark/v2/configs/profiles"
+	"github.com/gcla/termshark/v2/pkg/lifecycle"
 	"github.com/gcla/termshark/v2/pkg/system"
 	"github.com/gcla/termshark/v2/widgets/resizable"
 	"github.com/gdamore/tcell/v2"
@@ -546,6 +547,23 @@ Loop:
 	}
 }
 
+// globalTracker is the centralized goroutine lifecycle tracker.
+// Set via SetTracker() from main().
+var globalTracker *lifecycle.Tracker
+
+// SetTracker sets the global lifecycle tracker. Call this from main()
+// before starting any goroutines.
+func SetTracker(t *lifecycle.Tracker) {
+	globalTracker = t
+}
+
+// Tracker returns the global lifecycle tracker.
+func Tracker() *lifecycle.Tracker {
+	return globalTracker
+}
+
+// TrackedGo starts a goroutine tracked by the provided WaitGroups.
+// Deprecated: Use Tracker().Go() instead when globalTracker is set.
 func TrackedGo(fn func(), wgs ...*sync.WaitGroup) {
 	for _, wg := range wgs {
 		wg.Add(1)
@@ -556,6 +574,17 @@ func TrackedGo(fn func(), wgs ...*sync.WaitGroup) {
 		}
 		fn()
 	}()
+}
+
+// Go starts a tracked goroutine using the global tracker.
+// This is the preferred way to start goroutines.
+func Go(fn func()) {
+	if globalTracker != nil {
+		globalTracker.Go(fn)
+	} else {
+		// Fallback if tracker not set (shouldn't happen in normal operation)
+		go fn()
+	}
 }
 
 type IProcess interface {
@@ -1316,7 +1345,7 @@ func CopyCommand(input io.Reader, cb interface{}) error {
 		return gowid.WithKVs(BadCommand, map[string]interface{}{"err": err})
 	}
 
-	TrackedGo(func() {
+	Go(func() {
 
 		defer func() {
 			if po, ok := cb.(ICommandDone); ok {

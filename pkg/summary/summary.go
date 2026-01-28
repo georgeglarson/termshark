@@ -33,9 +33,9 @@ func New(source io.Reader) *Reader {
 		source: source,
 	}
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		res.start()
-	}, Goroutinewg)
+	})
 
 	return res
 }

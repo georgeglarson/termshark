@@ -69,14 +69,14 @@ func (w *PacketSearcher) SearchPackets(term search.INeedle, cbs search.ICallback
 
 	// Computationally bound searching goroutine - may have to terminate if it runs out of
 	// packets to search while they're loaded
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		cbs.SearchPacketsFrom(currentPos, startPos, term, app)
-	}, Goroutinewg)
+	})
 
 	// This goroutine exists so that at a regular interval, I can update progress. I want
 	// the main searching goroutine to be doing the computation and not having to cooperate
 	// with a timer interrupt
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 
 		res := search.Result{}
 
@@ -92,9 +92,9 @@ func (w *PacketSearcher) SearchPackets(term search.INeedle, cbs search.ICallback
 				cbs.OnTick(app)
 
 				if resumeAt != -1 {
-					termshark.TrackedGo(func() {
+					termshark.Go(func() {
 						cbs.SearchPacketsFrom(resAt, startPos, term, app)
-					}, Goroutinewg)
+					})
 					resumeAt = -1
 				}
 
@@ -121,7 +121,7 @@ func (w *PacketSearcher) SearchPackets(term search.INeedle, cbs search.ICallback
 				}
 			}
 		}
-	}, Goroutinewg)
+	})
 
 }
 

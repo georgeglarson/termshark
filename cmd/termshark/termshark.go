@@ -57,9 +57,10 @@ func main() {
 	// The tracker provides both a WaitGroup for goroutine tracking and
 	// a context for shutdown signaling.
 	tracker := lifecycle.New()
+	termshark.SetTracker(tracker)
 
 	// Provide the WaitGroup to packages that still use the legacy pattern.
-	// TODO: Gradually migrate these to use tracker.Go() or tracker.GoWithContext()
+	// TODO: Gradually migrate these to use termshark.Go() instead
 	wg := tracker.WaitGroup()
 	filter.Goroutinewg = wg
 	pcap.Goroutinewg = wg

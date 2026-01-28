@@ -238,13 +238,13 @@ func (f *fakeIfaceCmd) Start() error {
 	if err != nil {
 		return err
 	}
-	termshark.TrackedGo(func() {
-		n, err := io.Copy(f.output, f.input)
+	termshark.Go(func() {
+		_, err := io.Copy(f.output, f.input)
 		if err != nil {
 			//panic(err)
 			//log.Infof("GCLA: err is %T", err)
 		}
-	}, Goroutinewg)
+	})
 	return nil
 }
 

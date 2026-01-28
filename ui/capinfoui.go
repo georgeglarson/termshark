@@ -82,7 +82,7 @@ func (t *capinfoParseHandler) BeforeBegin(code pcap.HandlerCode, app gowid.IApp)
 	t.tick = time.NewTicker(time.Duration(200) * time.Millisecond)
 	t.stop = make(chan struct{})
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 	Loop:
 		for {
 			select {
@@ -94,7 +94,7 @@ func (t *capinfoParseHandler) BeforeBegin(code pcap.HandlerCode, app gowid.IApp)
 				break Loop
 			}
 		}
-	}, Goroutinewg)
+	})
 }
 
 func (t *capinfoParseHandler) AfterEnd(code pcap.HandlerCode, app gowid.IApp) {

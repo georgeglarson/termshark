@@ -92,9 +92,9 @@ type IConvsCallbacks interface {
 }
 
 func (c *Loader) StartLoad(pcap string, convs []string, filter string, abs bool, resolve bool, app gowid.IApp, cb IConvsCallbacks) {
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		c.loadConvAsync(pcap, convs, filter, abs, resolve, app, cb)
-	}, Goroutinewg)
+	})
 }
 
 func (c *Loader) loadConvAsync(pcapf string, convs []string, filter string, abs bool, resolve bool, app gowid.IApp, cb IConvsCallbacks) {
@@ -113,7 +113,7 @@ func (c *Loader) loadConvAsync(pcapf string, convs []string, filter string, abs 
 
 	termChan := make(chan error)
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		var err error
 		cmd := c.convsCmd
 		cancelledChan := c.convsCtx.Done()
@@ -158,7 +158,7 @@ func (c *Loader) loadConvAsync(pcapf string, convs []string, filter string, abs 
 				break loop
 			}
 		}
-	}, Goroutinewg)
+	})
 
 	convsOut, err := c.convsCmd.StdoutReader()
 	if err != nil {
@@ -188,9 +188,9 @@ func (c *Loader) loadConvAsync(pcapf string, convs []string, filter string, abs 
 
 	log.Infof("Started command %v with pid %d", c.convsCmd, c.convsCmd.Pid())
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		termChan <- c.convsCmd.Wait()
-	}, Goroutinewg)
+	})
 
 	pid = c.convsCmd.Pid()
 	procChan <- pid

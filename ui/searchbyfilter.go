@@ -189,7 +189,7 @@ func (w *FilterSearchCallbacks) SearchPacketsFrom(ifrom interface{}, istart inte
 			w.curSearchTerm = searchFor
 			w.searchMap[searchFor] = mpval
 
-			termshark.TrackedGo(func() {
+			termshark.Go(func() {
 				// When this returns, the process has finished running, and if it started, Wait()
 				// has been called.
 				err := w.runProcess(mpval.ctx, psmlCmd, app, func(prev int, cur int) {
@@ -218,7 +218,7 @@ func (w *FilterSearchCallbacks) SearchPacketsFrom(ifrom interface{}, istart inte
 				mpval.finished = true
 				mpval.errorFromUser = err
 				mpval.cc.L.Unlock()
-			}, Goroutinewg)
+			})
 		}
 	}
 	w.mapLock.Unlock()
@@ -424,14 +424,14 @@ func (w *FilterSearchCallbacks) runProcess(ctx context.Context, psmlCmd pcap.IPc
 		}
 	}()
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		// Do this in a goroutine because if we try in the for loop below, we might block endlessly
 		// waiting for d.Token() to return, even though the context is cancelled
 		select {
 		case <-ctx.Done():
 			psmlCmd.Kill()
 		}
-	}, Goroutinewg)
+	})
 
 	log.Infof("Started PSML search command %v with pid %d", psmlCmd, psmlCmd.Pid())
 

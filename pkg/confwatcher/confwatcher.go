@@ -38,7 +38,7 @@ func New() (*ConfigWatcher, error) {
 
 	res.closeWait.Add(1)
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		defer func() {
 			res.watcher.Close()
 			close(change)
@@ -57,7 +57,7 @@ func New() (*ConfigWatcher, error) {
 				break Loop
 			}
 		}
-	}, Goroutinewg)
+	})
 
 	if err := watcher.Add(termshark.ConfFile("termshark.toml")); err != nil && !os.IsNotExist(err) {
 		return nil, err
@@ -72,14 +72,14 @@ func (c *ConfigWatcher) Close() {
 	// drain the change channel to ensure the goroutine above can process the close. This
 	// is safe because I know, at this point, there are no other readers because termshark
 	// has exited its select loop.
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		// This might block because the goroutine above might not be blocked sending
 		// to c.change. But then that means the goroutine's for loop above will terminate,
 		// c.change will be closed, and then this goroutine will end. If the above
 		// goroutine is blocked sending to c.change, then this will drain that value,
 		// and again the goroutine above will end.
 		<-c.change
-	}, Goroutinewg)
+	})
 
 	c.closech <- struct{}{}
 	c.closeWait.Wait()

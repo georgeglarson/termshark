@@ -87,7 +87,7 @@ func (t updatePacketViews) BeforeBegin(code pcap.HandlerCode, app gowid.IApp) {
 	setPacketListWidgets(t.Ld, app)
 
 	// Start this after widgets have been cleared, to get focus change
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		fn2 := func() {
 			app.Run(gowid.RunFunction(func(app gowid.IApp) {
 				updatePacketListWithData(Loader, app)
@@ -98,7 +98,7 @@ func (t updatePacketViews) BeforeBegin(code pcap.HandlerCode, app gowid.IApp) {
 			time.Duration(100)*time.Millisecond,
 			time.Duration(2000)*time.Millisecond,
 			10)
-	}, Goroutinewg)
+	})
 }
 
 func (t updatePacketViews) AfterEnd(code pcap.HandlerCode, app gowid.IApp) {
@@ -333,7 +333,7 @@ func (s SetStructWidgets) BeforeBegin(code pcap.HandlerCode, app gowid.IApp) {
 	}
 	s2ch := s.Ld.Stage2FinishedChan
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		fn2 := func() {
 			app.Run(gowid.RunFunction(func(app gowid.IApp) {
 				setLowerWidgets(app)
@@ -344,7 +344,7 @@ func (s SetStructWidgets) BeforeBegin(code pcap.HandlerCode, app gowid.IApp) {
 			time.Duration(100)*time.Millisecond,
 			time.Duration(2000)*time.Millisecond,
 			10)
-	}, Goroutinewg)
+	})
 }
 
 // Close the channel before the callback. When the global loader state is idle,

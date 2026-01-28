@@ -80,9 +80,9 @@ type ICapinfoCallbacks interface {
 }
 
 func (c *Loader) StartLoad(pcap string, app gowid.IApp, cb ICapinfoCallbacks) {
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		c.loadCapinfoAsync(pcap, app, cb)
-	}, Goroutinewg)
+	})
 }
 
 func (c *Loader) loadCapinfoAsync(pcapf string, app gowid.IApp, cb ICapinfoCallbacks) {
@@ -101,7 +101,7 @@ func (c *Loader) loadCapinfoAsync(pcapf string, app gowid.IApp, cb ICapinfoCallb
 
 	termChan := make(chan error)
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		var err error
 		cmd := c.capinfoCmd
 		cancelledChan := c.capinfoCtx.Done()
@@ -146,7 +146,7 @@ func (c *Loader) loadCapinfoAsync(pcapf string, app gowid.IApp, cb ICapinfoCallb
 				break loop
 			}
 		}
-	}, Goroutinewg)
+	})
 
 	capinfoOut, err := c.capinfoCmd.StdoutReader()
 	if err != nil {
@@ -176,9 +176,9 @@ func (c *Loader) loadCapinfoAsync(pcapf string, app gowid.IApp, cb ICapinfoCallb
 
 	log.Infof("Started capinfo command %v with pid %d", c.capinfoCmd, c.capinfoCmd.Pid())
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		termChan <- c.capinfoCmd.Wait()
-	}, Goroutinewg)
+	})
 
 	pid = c.capinfoCmd.Pid()
 	procChan <- pid

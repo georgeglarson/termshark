@@ -225,7 +225,7 @@ func (t *streamParseHandler) BeforeBegin(code pcap.HandlerCode, app gowid.IApp) 
 	t.pktIndices = make(chan int, 1000)
 
 	// Start this after widgets have been cleared, to get focus change
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		fn := func() {
 			app.Run(gowid.RunFunction(func(app gowid.IApp) {
 				t.drainChunks()
@@ -242,9 +242,9 @@ func (t *streamParseHandler) BeforeBegin(code pcap.HandlerCode, app gowid.IApp) 
 			time.Duration(200)*time.Millisecond,
 			time.Duration(200)*time.Millisecond,
 			10)
-	}, Goroutinewg)
+	})
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		fn := func() {
 			app.Run(gowid.RunFunction(func(app gowid.IApp) {
 				t.drainPacketIndices()
@@ -255,9 +255,9 @@ func (t *streamParseHandler) BeforeBegin(code pcap.HandlerCode, app gowid.IApp) 
 			time.Duration(200)*time.Millisecond,
 			time.Duration(200)*time.Millisecond,
 			10)
-	}, Goroutinewg)
+	})
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 	Loop:
 		for {
 			select {
@@ -269,7 +269,7 @@ func (t *streamParseHandler) BeforeBegin(code pcap.HandlerCode, app gowid.IApp) 
 				break Loop
 			}
 		}
-	}, Goroutinewg)
+	})
 }
 
 func (t *streamParseHandler) AfterIndexEnd(success bool) {

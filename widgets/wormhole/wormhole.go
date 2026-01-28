@@ -147,7 +147,7 @@ func newWidget(filename string, app gowid.IApp, w *Widget, opts ...Options) erro
 			w.totalBytes = totalBytes
 
 			w.once.Do(func() {
-				termshark.TrackedGo(func() {
+				termshark.Go(func() {
 					fn2 := func() {
 						app.Run(gowid.RunFunction(func(app gowid.IApp) {
 							w.progLock.Lock()
@@ -166,7 +166,7 @@ func newWidget(filename string, app gowid.IApp, w *Widget, opts ...Options) erro
 						time.Duration(500)*time.Millisecond,
 						time.Duration(500)*time.Millisecond,
 						1)
-				}, Goroutinewg)
+				})
 			})
 		}),
 	)
@@ -250,7 +250,7 @@ func newWidget(filename string, app gowid.IApp, w *Widget, opts ...Options) erro
 		),
 	)
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		// should always terminate because either status will complete or
 		// the stop button will call cancel leading to this state change
 		select {
@@ -283,7 +283,7 @@ func newWidget(filename string, app gowid.IApp, w *Widget, opts ...Options) erro
 			}))
 		}
 
-	}, Goroutinewg)
+	})
 
 	w.Widget = w.view1
 

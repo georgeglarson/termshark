@@ -287,7 +287,7 @@ func New(name string, opt Options) *Widget {
 	validator.SetEmpty(emptycb)
 
 	// Save up filter changes, send latest over when process is ready, discard ones in between
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		send := false
 		var latest *filtStruct
 	CL2:
@@ -311,11 +311,11 @@ func New(name string, opt Options) *Widget {
 				validator.Kill()
 			}
 		}
-	}, Goroutinewg)
+	})
 
 	// Every time it gets an event, it means run the process. Another goroutine takes care of consolidating
 	// events. Stops when channel is closed
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 	CL:
 		for {
 			// Tell other goroutine we are ready for more - each time round the loop. This makes sure
@@ -338,7 +338,7 @@ func New(name string, opt Options) *Widget {
 				validator.Validate(fs.txt)
 			}
 		}
-	}, Goroutinewg)
+	})
 
 	ed.OnTextSet(gowid.MakeWidgetCallback("cb2", gowid.WidgetChangedFunction(func(app gowid.IApp, ew gowid.IWidget) {
 		res.UpdateCompletions(app)

@@ -104,13 +104,13 @@ type IIndexerCallbacks interface {
 func (c *Loader) StartLoad(pcap string, proto string, idx int, app gowid.IApp, cb IIndexerCallbacks) {
 	c.SuppressErrors = false
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		c.loadStreamReassemblyAsync(pcap, proto, idx, app, cb)
-	}, Goroutinewg)
+	})
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		c.startStreamIndexerAsync(pcap, proto, idx, app, cb)
-	}, Goroutinewg)
+	})
 }
 
 type ISavedData interface {
@@ -134,7 +134,7 @@ func (c *Loader) loadStreamReassemblyAsync(pcapf string, proto string, idx int, 
 
 	termChan := make(chan error)
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		var err error
 		origCmd := c.streamCmd
 		cancelled := c.streamCtx.Done()
@@ -179,7 +179,7 @@ func (c *Loader) loadStreamReassemblyAsync(pcapf string, proto string, idx int, 
 				break loop
 			}
 		}
-	}, Goroutinewg)
+	})
 
 	streamOut, err := c.streamCmd.StdoutReader()
 	if err != nil {
@@ -250,7 +250,7 @@ func (c *Loader) startStreamIndexerAsync(pcapf string, proto string, idx int, ap
 
 	procWaitChan := make(chan error, 1)
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		var err error
 		cancelledChan := c.indexerCtx.Done()
 		procChan := procChan
@@ -297,7 +297,7 @@ func (c *Loader) startStreamIndexerAsync(pcapf string, proto string, idx int, ap
 			}
 
 		}
-	}, Goroutinewg)
+	})
 
 	defer func() {
 		cb.AfterIndexEnd(res)

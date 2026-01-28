@@ -128,7 +128,7 @@ func IsTerminalLegible(app gowid.IApp) {
 
 	message := holder.New(tw(secs))
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 	Loop:
 		for {
 			select {
@@ -152,7 +152,7 @@ func IsTerminalLegible(app gowid.IApp) {
 				break Loop
 			}
 		}
-	}, Goroutinewg)
+	})
 
 	legibleTerm = dialog.New(
 		framed.NewSpace(message),

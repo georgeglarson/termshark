@@ -802,7 +802,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb i
 	eidx := -1
 
 	// Determine this in main goroutine
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 
 		ps.MainRun(gowid.RunFunction(func(app gowid.IApp) {
 			HandleBegin(PdmlCode, app, cb)
@@ -839,7 +839,9 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb i
 		//
 		// Goroutine to set mapping between table rows and frame numbers
 		//
-		termshark.TrackedGo(func() {
+		c.stage2Wg.Add(1)
+		termshark.Go(func() {
+			defer c.stage2Wg.Done()
 			select {
 			case <-ps.StartStage2ChanFn():
 				break
@@ -910,7 +912,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb i
 			pdmlCmd = ps.Commands().Pdml(c.PcapPdml, displayFilterStr)
 			pcapCmd = ps.Commands().Pcap(c.PcapPcap, displayFilterStr)
 
-		}, &c.stage2Wg, Goroutinewg)
+		})
 
 		//======================================================================
 
@@ -926,7 +928,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb i
 		//
 		// Goroutine to track pdml and pcap process lifetimes
 		//
-		termshark.TrackedGo(func() {
+		termshark.Go(func() {
 			select {
 			case <-c.startChan:
 			case <-c.stage2Ctx.Done():
@@ -1040,14 +1042,16 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb i
 					break loop
 				}
 			}
-		}, Goroutinewg)
+		})
 
 		//======================================================================
 
 		//
 		// Goroutine to run pdml process
 		//
-		termshark.TrackedGo(func() {
+		c.stage2Wg.Add(1)
+		termshark.Go(func() {
+			defer c.stage2Wg.Done()
 			// Wait for stage 2 to be kicked off (potentially by psml load, then mapping table row to frame num); or
 			// quit if that happens first
 			select {
@@ -1176,14 +1180,16 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb i
 					c.highestCachedRow = row
 				}
 			}))
-		}, &c.stage2Wg, Goroutinewg)
+		})
 
 		//======================================================================
 
 		//
 		// Goroutine to run pcap process
 		//
-		termshark.TrackedGo(func() {
+		c.stage2Wg.Add(1)
+		termshark.Go(func() {
+			defer c.stage2Wg.Done()
 			// Wait for stage 2 to be kicked off (potentially by psml load, then mapping table row to frame num); or
 			// quit if that happens first
 			select {
@@ -1287,9 +1293,9 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb i
 			}
 			ps.updateCacheEntryWithPcap(row, packets, markComplete)
 
-		}, &c.stage2Wg, Goroutinewg)
+		})
 
-	}, Goroutinewg)
+	})
 
 }
 
@@ -1437,7 +1443,7 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 
 	//======================================================================
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 
 		e.MainRun(gowid.RunFunction(func(app gowid.IApp) {
 			HandleBegin(PsmlCode, app, cb)
@@ -1529,7 +1535,7 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 
 		//======================================================================
 		// Goroutine to track process state changes
-		termshark.TrackedGo(func() {
+		termshark.Go(func() {
 			cancelledChan := p.psmlCtx.Done()
 			intCancelledChan := intPsmlCtx.Done()
 
@@ -1587,7 +1593,7 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 				}
 			}
 
-		}, Goroutinewg)
+		})
 
 		//======================================================================
 
@@ -1652,7 +1658,7 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 			// tshark -i > tmp
 			// tail -f tmp | tshark -i - -t psml
 			// ^^^^^^^^^^^
-			termshark.TrackedGo(func() {
+			termshark.Go(func() {
 				cancelledChan := p.tailCtx.Done()
 
 				var err error
@@ -1708,7 +1714,7 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 						break loop
 					}
 				}
-			}, Goroutinewg)
+			})
 
 			//======================================================================
 
@@ -1734,9 +1740,9 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 				return
 			}
 
-			termshark.TrackedGo(func() {
+			termshark.Go(func() {
 				tailTermChan <- p.tailCmd.Wait()
-			}, Goroutinewg)
+			})
 
 			tailPid = p.tailCmd.Pid()
 			tailPidChan <- tailPid
@@ -1898,7 +1904,7 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 			}
 		}
 
-	}, Goroutinewg)
+	})
 
 }
 
@@ -2106,14 +2112,14 @@ func (i *InterfaceLoader) loadIfacesSync(e iIfaceLoaderEnv, cb interface{}, app 
 	log.Infof("Started Iface command %v with pid %d", i.ifaceCmd, i.ifaceCmd.Pid())
 
 	// Do this in a goroutine because the function is expected to return quickly
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		ifaceTermChan <- i.ifaceCmd.Wait()
-	}, Goroutinewg)
+	})
 
 	//======================================================================
 	// Process goroutine
 
-	termshark.TrackedGo(func() {
+	termshark.Go(func() {
 		defer func() {
 			// if psrc is a PipeSource, then we open /dev/fd/3 in termshark, and reroute descriptor
 			// stdin to number 3 when termshark starts. So to kill the process writing in, we need
@@ -2211,7 +2217,7 @@ func (i *InterfaceLoader) loadIfacesSync(e iIfaceLoaderEnv, cb interface{}, app 
 		i.Unlock()
 
 		i.checkAllBytesRead(e, cb, app)
-	}, Goroutinewg)
+	})
 
 	//======================================================================
 
