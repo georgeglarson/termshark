@@ -18,20 +18,38 @@ import (
 
 //======================================================================
 
+// CurrentWormholeWidget is deprecated: use UI.Features.CurrentWormholeWidget
 var CurrentWormholeWidget *wormhole.Widget
 
+// getWormholeWidget returns the current wormhole widget from UIState or the old global.
+func getWormholeWidget() *wormhole.Widget {
+	if UI != nil && UI.Features != nil && UI.Features.CurrentWormholeWidget != nil {
+		return UI.Features.CurrentWormholeWidget
+	}
+	return CurrentWormholeWidget
+}
+
+// setWormholeWidget sets the wormhole widget in both UIState and the old global.
+func setWormholeWidget(w *wormhole.Widget) {
+	if UI != nil && UI.Features != nil {
+		UI.Features.CurrentWormholeWidget = w
+	}
+	CurrentWormholeWidget = w // keep old global in sync during transition
+}
+
 func openWormhole(app gowid.IApp) {
+	wormholeWidget := getWormholeWidget()
 
 	var numWords int
-	if CurrentWormholeWidget == nil {
+	if wormholeWidget == nil {
 		numWords = profiles.ConfInt("main.wormhole-length", 2)
 	} else {
-		numWords = CurrentWormholeWidget.CodeLength()
+		numWords = wormholeWidget.CodeLength()
 	}
 
-	if CurrentWormholeWidget == nil {
+	if wormholeWidget == nil {
 		var err error
-		CurrentWormholeWidget, err = wormhole.New(Loader.PcapPdml, app, wormhole.Options{
+		wormholeWidget, err = wormhole.New(Loader.PcapPdml, app, wormhole.Options{
 			ErrorHandler: func(err error, app gowid.IApp) {
 				msg := fmt.Sprintf("Problem sending pcap: %v", err)
 				log.Error(msg)
@@ -47,11 +65,12 @@ func openWormhole(app gowid.IApp) {
 			OpenError(msg, app)
 			return
 		}
+		setWormholeWidget(wormholeWidget)
 	}
 
 	wormholeDialog := dialog.New(
 		framed.NewSpace(
-			CurrentWormholeWidget,
+			wormholeWidget,
 		),
 		dialog.Options{
 			Buttons:         []dialog.Button{dialog.CloseD},

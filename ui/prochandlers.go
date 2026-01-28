@@ -225,10 +225,10 @@ type ClearWormholeState struct{}
 var _ pcap.INewSource = ClearWormholeState{}
 
 func (t ClearWormholeState) OnNewSource(code pcap.HandlerCode, app gowid.IApp) {
-	if CurrentWormholeWidget != nil {
-		CurrentWormholeWidget.Close()
+	if w := getWormholeWidget(); w != nil {
+		w.Close()
 	}
-	CurrentWormholeWidget = nil
+	setWormholeWidget(nil)
 }
 
 //======================================================================

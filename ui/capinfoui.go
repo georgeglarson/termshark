@@ -18,10 +18,62 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// CapinfoLoader is deprecated: use UI.Features.CapinfoLoader
 var CapinfoLoader *capinfo.Loader
 
+// CapinfoData is deprecated: use UI.Features.CapinfoData
 var CapinfoData string
+
+// CapinfoTime is deprecated: use UI.Features.CapinfoTime
 var CapinfoTime time.Time
+
+// getCapinfoLoader returns the capinfo loader from UIState or the old global.
+func getCapinfoLoader() *capinfo.Loader {
+	if UI != nil && UI.Features != nil && UI.Features.CapinfoLoader != nil {
+		return UI.Features.CapinfoLoader
+	}
+	return CapinfoLoader
+}
+
+// setCapinfoLoader sets the capinfo loader in both UIState and the old global.
+func setCapinfoLoader(l *capinfo.Loader) {
+	if UI != nil && UI.Features != nil {
+		UI.Features.CapinfoLoader = l
+	}
+	CapinfoLoader = l
+}
+
+// getCapinfoData returns the capinfo data from UIState or the old global.
+func getCapinfoData() string {
+	if UI != nil && UI.Features != nil && UI.Features.CapinfoData != "" {
+		return UI.Features.CapinfoData
+	}
+	return CapinfoData
+}
+
+// setCapinfoData sets the capinfo data in both UIState and the old global.
+func setCapinfoData(data string) {
+	if UI != nil && UI.Features != nil {
+		UI.Features.CapinfoData = data
+	}
+	CapinfoData = data
+}
+
+// getCapinfoTime returns the capinfo time from UIState or the old global.
+func getCapinfoTime() time.Time {
+	if UI != nil && UI.Features != nil && !UI.Features.CapinfoTime.IsZero() {
+		return UI.Features.CapinfoTime
+	}
+	return CapinfoTime
+}
+
+// setCapinfoTime sets the capinfo time in both UIState and the old global.
+func setCapinfoTime(t time.Time) {
+	if UI != nil && UI.Features != nil {
+		UI.Features.CapinfoTime = t
+	}
+	CapinfoTime = t
+}
 
 //======================================================================
 
@@ -32,18 +84,19 @@ func startCapinfo(app gowid.IApp) {
 	}
 
 	fi, err := os.Stat(Loader.PcapPdml)
-	if err != nil || CapinfoTime.Before(fi.ModTime()) {
-		CapinfoLoader = capinfo.NewLoader(capinfo.MakeCommands(), Loader.Context())
+	if err != nil || getCapinfoTime().Before(fi.ModTime()) {
+		loader := capinfo.NewLoader(capinfo.MakeCommands(), Loader.Context())
+		setCapinfoLoader(loader)
 
 		handler := capinfoParseHandler{}
 
-		CapinfoLoader.StartLoad(
+		loader.StartLoad(
 			Loader.PcapPdml,
 			app,
 			&handler,
 		)
 	} else {
-		OpenMessageForCopy(CapinfoData, appView, app)
+		OpenMessageForCopy(getCapinfoData(), appView, app)
 	}
 }
 
@@ -60,12 +113,12 @@ var _ pcap.IBeforeBegin = (*capinfoParseHandler)(nil)
 var _ pcap.IAfterEnd = (*capinfoParseHandler)(nil)
 
 func (t *capinfoParseHandler) OnCapinfoData(data string) {
-	CapinfoData = strings.ReplaceAll(data, "\r\n", "\n") // For windows...
+	setCapinfoData(strings.ReplaceAll(data, "\r\n", "\n")) // For windows...
 	fi, err := os.Stat(Loader.PcapPdml)
 	if err != nil {
 		log.Warnf("Could not read mtime from pcap %s: %v", Loader.PcapPdml, err)
 	} else {
-		CapinfoTime = fi.ModTime()
+		setCapinfoTime(fi.ModTime())
 	}
 }
 
@@ -110,7 +163,7 @@ func (t *capinfoParseHandler) AfterEnd(code pcap.HandlerCode, app gowid.IApp) {
 			ClosePleaseWait(app)
 		}
 
-		OpenMessageForCopy(CapinfoData, appView, app)
+		OpenMessageForCopy(getCapinfoData(), appView, app)
 	}))
 	close(t.stop)
 }
@@ -118,7 +171,7 @@ func (t *capinfoParseHandler) AfterEnd(code pcap.HandlerCode, app gowid.IApp) {
 //======================================================================
 
 func clearCapinfoState() {
-	CapinfoTime = time.Time{}
+	setCapinfoTime(time.Time{})
 }
 
 //======================================================================

@@ -3437,6 +3437,8 @@ func ApplyCurrentTheme(app gowid.IApp) {
 //======================================================================
 
 func Build(tty string) (*gowid.App, error) {
+	// Initialize the UIState container for the new state management system
+	UI = NewUIState()
 
 	var err error
 	var app *gowid.App
