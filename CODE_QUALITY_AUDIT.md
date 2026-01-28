@@ -239,7 +239,10 @@ type HandlerList[T any] []T
    - ~~Extract createCacheDirs()~~ DONE
    - ~~Extract validateTTY()~~ DONE
    - ~~Extract applyTermOverride()~~ DONE
-   - Current cmain() size: ~1167 lines (down from ~1260)
+   - ~~Extract initUIState()~~ DONE
+   - ~~Extract loadTsharkArgs()~~ DONE
+   - ~~Extract loadCacheSettings()~~ DONE
+   - Current cmain() size: ~1150 lines (down from ~1260)
 10. Create `AppState` struct for UI globals
 
 ### Phase 4: Testing (Medium Term)
