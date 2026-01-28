@@ -2711,8 +2711,7 @@ func getHexWidgetToDisplay(row int) *hexdumper2.Widget {
 			srca := ws.(pcap.CacheEntry).Pcap
 			if len(srca) > row%pktsPerLoad {
 				src := srca[row%pktsPerLoad]
-				b := make([]byte, len(src))
-				copy(b, src)
+				b := slices.Clone(src)
 
 				layers := getLayersFromStructWidget(row, 0)
 				res2 = hexdumper2.New(b, hexdumper2.Options{
