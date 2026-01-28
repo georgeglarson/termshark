@@ -7,6 +7,7 @@ package streams
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -331,7 +332,7 @@ func decodeStreamXml(streamOut io.Reader, proto string, ctx context.Context, cb 
 		}
 		t, tokenErr := d.Token()
 		if tokenErr != nil {
-			if tokenErr == io.EOF {
+			if errors.Is(tokenErr, io.EOF) {
 				res = true
 				break
 			}

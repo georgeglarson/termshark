@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -1109,7 +1110,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb i
 						pdmlCancelFn()
 						HandleError(PdmlCode, app, err, cb)
 					}
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						readAllRequiredPdml = true
 					}
 					break
@@ -1239,7 +1240,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb i
 						err = fmt.Errorf("Could not read PCAP packet: %v", err)
 						HandleError(PdmlCode, app, err, cb)
 					}
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						readAllRequiredPcap = true
 					}
 					break

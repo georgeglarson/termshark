@@ -8,6 +8,7 @@ package ui
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -459,7 +460,7 @@ func (w *FilterSearchCallbacks) runProcess(ctx context.Context, psmlCmd pcap.IPc
 	for {
 		err = ctx.Err()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				err = nil
 			}
 			addLast = false
@@ -468,7 +469,7 @@ func (w *FilterSearchCallbacks) runProcess(ctx context.Context, psmlCmd pcap.IPc
 		var tok xml.Token
 		tok, err = d.Token()
 		if err != nil {
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				err = fmt.Errorf("Could not read PSML data: %v", err)
 				addLast = false
 			} else {
