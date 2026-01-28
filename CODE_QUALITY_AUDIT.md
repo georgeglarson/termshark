@@ -90,14 +90,24 @@ Note: `pkg/errors` remains as an indirect dependency via `gowid`.
   - `widgets/wormhole/` (2 calls)
   - `pkg/pcap/` (11 calls + 1 in test)
 
+**Context awareness added to goroutines:**
+- `pkg/confwatcher/confwatcher.go` - file watcher loop
+- `ui/capinfoui.go` - spinner ticker
+- `ui/convscallbacks.go` - spinner ticker
+- `ui/searchalg.go` - search progress loop
+- `ui/streamui.go` - stream chunks ticker
+- `ui/switchterm.go` - term dialog countdown
+- `utils.go` - `RunOnDoubleTicker()` helper
+- `widgets/filter/filter.go` - filter validation loops
+
 **Remaining work:**
-- Add context awareness to long-running goroutines
-- Consider deprecating `TrackedGo()` function
+- Consider deprecating `TrackedGo()` function (replaced by `termshark.Go()`)
 
 **Commits:**
 - `f4cceb5` - Add lifecycle package for centralized goroutine management
 - `e028f99` - Migrate TrackedGo calls to termshark.Go()
-- (pending) - Remove unused Goroutinewg package variables
+- `7a71c2b` - Remove unused Goroutinewg package variables
+- `b4346aa` - Add context awareness to goroutines for graceful shutdown
 
 ---
 
@@ -215,12 +225,12 @@ type HandlerList[T any] []T
 6. ~~Migrate to stdlib error wrapping~~ DONE
 7. Add `errors.Is()`/`errors.As()` where appropriate
 
-### Phase 3: Architecture (Medium Term)
-8. ~~Refactor goroutine lifecycle to use context/errgroup~~ MOSTLY COMPLETE
+### Phase 3: Architecture (Medium Term) - IN PROGRESS
+8. ~~Refactor goroutine lifecycle to use context/errgroup~~ COMPLETE
    - ~~Create lifecycle.Tracker~~ DONE
    - ~~Migrate all TrackedGo() calls to termshark.Go()~~ DONE
    - ~~Remove package-level Goroutinewg variables~~ DONE
-   - Add context awareness to long-running goroutines (pending)
+   - ~~Add context awareness to long-running goroutines~~ DONE
 9. Extract `cmain()` into smaller functions
 10. Create `AppState` struct for UI globals
 
