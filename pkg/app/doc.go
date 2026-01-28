@@ -90,5 +90,25 @@ This package extracts logic from the following ui/ globals and functions:
 
 The UI layer should gradually migrate to using the Controller instead of
 direct global variable access.
+
+# Current Migration Status
+
+The migration is implemented incrementally using "sync helpers" that update
+both the old globals and the new Controller state in parallel. This ensures
+backward compatibility while allowing gradual migration.
+
+Completed migrations:
+  - Mark operations (setLocalMarkWithSync, setGlobalMarkWithSync)
+  - AutoScroll (setAutoScrollWithSync, SetAutoScroll, InitAutoScroll)
+  - DarkMode (setDarkModeWithSync, SetDarkMode, InitDarkMode)
+  - PacketColors (setPacketColorsWithSync, SetPacketColors, InitPacketColors)
+  - Prefetch algorithm (calculateAndSyncPrefetchRequests)
+  - Filter building (convsui delegates to CombineFilters)
+  - Controller callbacks (SetupControllerCallbacks in ui/ui.go)
+
+Remaining work:
+  - Wire current packet tracking to Controller.State.CurrentPacket
+  - Sync tree navigation state (StructPosition, ExpandedNodes)
+  - Eventually remove redundant UI globals once migration is complete
 */
 package app
