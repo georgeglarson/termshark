@@ -386,7 +386,7 @@ func (w *Widget) getPartialsCompletions(checkOffer bool, app gowid.IApp) []parti
 	} else {
 		// This is the first word matching
 		keys := make([]string, 0, len(w.actions))
-		for k, _ := range w.actions {
+		for k := range w.actions {
 			keys = append(keys, k)
 		}
 		slices.Sort(keys)

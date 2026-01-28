@@ -124,7 +124,7 @@ func rebuildPsmlFieldListBox(app gowid.IApp) (int, int) {
 	colsMenuItems := make([]menuutil.SimpleMenuItem, 0)
 
 	columnNames := make([]string, 0)
-	for k, _ := range shark.AllowedColumnFormats {
+	for k := range shark.AllowedColumnFormats {
 		columnNames = append(columnNames, k)
 	}
 	slices.Sort(columnNames)

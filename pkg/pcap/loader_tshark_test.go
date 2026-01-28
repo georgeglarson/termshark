@@ -34,7 +34,7 @@ func init() {
 func TestRealProcs(t *testing.T) {
 	loader := NewPcapLoader(Commands{})
 	// Make sure we can re-use the same loader, because that's what termshark does
-	for _, _ = range []int{1, 2, 3} {
+	for range 3 {
 		assert.NotEqual(t, nil, loader)
 
 		// Save now because when psml load finishes, a new one is created

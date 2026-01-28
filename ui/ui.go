@@ -2474,7 +2474,7 @@ func makePacketListModel(psml iPsmlInfo, app gowid.IApp) *psmlmodel.Model {
 	cols := shark.GetPsmlColumnFormatCached()
 
 	if len(expandingModel.Comparators) > 0 {
-		for i, _ := range expandingModel.Comparators {
+		for i := range expandingModel.Comparators {
 			if i < len(widths) && i < len(cols) {
 				if field, ok := shark.AllowedColumnFormats[cols[i].Field.Token]; ok {
 					if field.Comparator != nil {

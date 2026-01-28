@@ -355,13 +355,13 @@ loop:
 	}
 
 	if !failed {
-		for k, _ := range cur {
+		for k := range cur {
 			if strings.HasPrefix(k, fields[len(fields)-1]) {
 				res = append(res, strings.Join(append(prefs, k), "."))
 			}
 		}
 	}
-	for k, _ := range t.ser.Protocols {
+	for k := range t.ser.Protocols {
 		if strings.HasPrefix(k, field) {
 			res = append(res, k)
 		}

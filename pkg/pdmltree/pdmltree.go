@@ -345,7 +345,7 @@ func (p *Model) stringAt(level int) string {
 		//x[i] = t.(*ModelExt).String2(level + 1)
 		x[i] = t.stringAt(level + 1)
 	}
-	for i, _ := range x {
+	for i := range x {
 		x[i] = strings.Repeat(" ", 2*level) + x[i]
 	}
 	if len(x) == 0 {
