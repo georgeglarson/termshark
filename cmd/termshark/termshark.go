@@ -13,7 +13,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/gcla/termshark/v2/pkg/confwatcher"
 	"github.com/gcla/termshark/v2/pkg/convs"
 	"github.com/gcla/termshark/v2/pkg/fields"
+	"github.com/gcla/termshark/v2/pkg/lifecycle"
 	"github.com/gcla/termshark/v2/pkg/pcap"
 	"github.com/gcla/termshark/v2/pkg/shark"
 	"github.com/gcla/termshark/v2/pkg/streams"
@@ -53,22 +53,26 @@ import (
 // the correct exit code. Go's main() prototype does not provide for returning
 // a value.
 func main() {
-	// TODO - fix this later. goroutinewg is used every time a
-	// goroutine is started, to ensure we don't terminate until all are
-	// stopped. Any exception is a bug.
-	var ensureGoroutinesStopWG sync.WaitGroup
-	filter.Goroutinewg = &ensureGoroutinesStopWG
-	pcap.Goroutinewg = &ensureGoroutinesStopWG
-	streams.Goroutinewg = &ensureGoroutinesStopWG
-	capinfo.Goroutinewg = &ensureGoroutinesStopWG
-	convs.Goroutinewg = &ensureGoroutinesStopWG
-	ui.Goroutinewg = &ensureGoroutinesStopWG
-	wormhole.Goroutinewg = &ensureGoroutinesStopWG
-	summary.Goroutinewg = &ensureGoroutinesStopWG
-	confwatcher.Goroutinewg = &ensureGoroutinesStopWG
+	// Create a central lifecycle tracker for all goroutines.
+	// The tracker provides both a WaitGroup for goroutine tracking and
+	// a context for shutdown signaling.
+	tracker := lifecycle.New()
+
+	// Provide the WaitGroup to packages that still use the legacy pattern.
+	// TODO: Gradually migrate these to use tracker.Go() or tracker.GoWithContext()
+	wg := tracker.WaitGroup()
+	filter.Goroutinewg = wg
+	pcap.Goroutinewg = wg
+	streams.Goroutinewg = wg
+	capinfo.Goroutinewg = wg
+	convs.Goroutinewg = wg
+	ui.Goroutinewg = wg
+	wormhole.Goroutinewg = wg
+	summary.Goroutinewg = wg
+	confwatcher.Goroutinewg = wg
 
 	res := cmain()
-	ensureGoroutinesStopWG.Wait()
+	tracker.Wait()
 
 	if !termshark.ShouldSwitchTerminal && !termshark.ShouldSwitchBack {
 		os.Exit(res)
