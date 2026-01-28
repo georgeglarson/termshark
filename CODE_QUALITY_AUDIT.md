@@ -35,12 +35,14 @@ All `io/ioutil` usages replaced with modern equivalents:
 
 **Commit:** `5aacbe6` - Replace deprecated io/ioutil with modern equivalents
 
-### 1.2 Deprecated Import Paths
+### 1.2 Deprecated Import Paths - PARTIAL
 
-| Current | Replacement |
-|---------|-------------|
-| `gopkg.in/fsnotify/fsnotify.v1` | `github.com/fsnotify/fsnotify` |
-| `gopkg.in/tomb.v1` | Consider removal or update |
+| Current | Replacement | Status |
+|---------|-------------|--------|
+| `gopkg.in/fsnotify/fsnotify.v1` | `github.com/fsnotify/fsnotify` | FIXED |
+| `gopkg.in/tomb.v1` | Consider removal or update | Pending |
+
+**Commit:** `53277dd` - Update fsnotify import to modern path
 
 ---
 
@@ -202,7 +204,7 @@ type HandlerList[T any] []T
 
 ### Phase 1: Quick Wins (Immediate)
 1. ~~Replace `io/ioutil` with modern equivalents~~ DONE
-2. Update `gopkg.in/fsnotify/fsnotify.v1` import path
+2. ~~Update `gopkg.in/fsnotify/fsnotify.v1` import path~~ DONE
 3. Remove unused imports
 4. Add golangci-lint configuration
 
@@ -232,6 +234,7 @@ type HandlerList[T any] []T
 | Commit | Description |
 |--------|-------------|
 | `5aacbe6` | Replace deprecated io/ioutil with modern equivalents |
+| `53277dd` | Update fsnotify import to modern path |
 
 ---
 
