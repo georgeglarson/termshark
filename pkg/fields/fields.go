@@ -9,7 +9,7 @@ import (
 	"encoding/gob"
 	"os"
 	"os/exec"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 
@@ -367,7 +367,7 @@ loop:
 		}
 	}
 
-	sort.Strings(res)
+	slices.Sort(res)
 	res = dedup(res)
 
 	cb.Call(res)

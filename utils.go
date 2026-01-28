@@ -24,7 +24,6 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -492,14 +491,19 @@ func ReadGob(filePath string, object interface{}) error {
 
 func WriteGob(filePath string, object interface{}) error {
 	file, err := os.Create(filePath)
-	if err == nil {
-		defer file.Close()
-		gzipper := gzip.NewWriter(file)
-		defer gzipper.Close()
-		encoder := gob.NewEncoder(gzipper)
-		err = encoder.Encode(object)
+	if err != nil {
+		return err
 	}
-	return err
+	defer file.Close()
+
+	gzipper := gzip.NewWriter(file)
+	encoder := gob.NewEncoder(gzipper)
+	if err := encoder.Encode(object); err != nil {
+		gzipper.Close() // attempt to close, but return encode error
+		return err
+	}
+	// gzipper.Close() flushes data and can fail - must check this error
+	return gzipper.Close()
 }
 
 // StringInSlice checks if a string exists in a slice.
@@ -744,7 +748,7 @@ func KeyValueErrorString(err gowid.KeyValueError) string {
 	for k := range err.KeyVals {
 		ks = append(ks, k)
 	}
-	sort.Sort(sort.StringSlice(ks))
+	slices.Sort(ks)
 	for _, k := range ks {
 		kvs = append(kvs, fmt.Sprintf("%v: %v", k, err.KeyVals[k]))
 	}
@@ -892,7 +896,7 @@ func (s ConvPktsCompare) Less(i, j string) bool {
 	if len(mi) <= 2 {
 		return false
 	}
-	mx, err := strconv.ParseUint(strings.Replace(mi[1], ",", "", -1), 10, 64)
+	mx, err := strconv.ParseUint(strings.ReplaceAll(mi[1], ",", ""), 10, 64)
 	if err != nil {
 		return false
 	}
@@ -905,7 +909,7 @@ func (s ConvPktsCompare) Less(i, j string) bool {
 	if len(mj) <= 2 {
 		return false
 	}
-	my, err := strconv.ParseUint(strings.Replace(mj[1], ",", "", -1), 10, 64)
+	my, err := strconv.ParseUint(strings.ReplaceAll(mj[1], ",", ""), 10, 64)
 	if err != nil {
 		return false
 	}
@@ -955,8 +959,8 @@ func PrunePcapCache() error {
 		return err
 	}
 
-	sort.Slice(fileInfos, func(i, j int) bool {
-		return fileInfos[i].ModTime().Before(fileInfos[j].ModTime())
+	slices.SortFunc(fileInfos, func(a, b os.FileInfo) int {
+		return a.ModTime().Compare(b.ModTime())
 	})
 
 	filesRemoved := 0

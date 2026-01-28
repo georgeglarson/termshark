@@ -6,9 +6,9 @@
 package ui
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
-	"sort"
 
 	"github.com/gcla/gowid"
 	"github.com/gcla/gowid/widgets/button"
@@ -51,22 +51,6 @@ var colFieldsMenuListBoxHolder *holder.Widget
 
 //======================================================================
 
-// psmlColumnInfoArraySortLong allows for sorting an array of PsmlColumnInfo by the
-// longer name - for use in the long-name drop down menu
-type psmlColumnInfoArraySortLong []shark.PsmlColumnInfo
-
-func (a psmlColumnInfoArraySortLong) Len() int {
-	return len(a)
-}
-func (a psmlColumnInfoArraySortLong) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-func (a psmlColumnInfoArraySortLong) Less(i, j int) bool {
-	return a[i].Long < a[j].Long
-}
-
-//======================================================================
-
 func buildNamesMenu(app gowid.IApp) {
 	colNamesMenuListBoxHolder = holder.New(null.New())
 
@@ -106,12 +90,14 @@ func buildFieldsMenu(app gowid.IApp) {
 func rebuildPsmlNamesListBox(p *psmlColumnsModel, app gowid.IApp) (int, int) {
 	colsMenuItems := make([]menuutil.SimpleMenuItem, 0)
 
-	specs := make(psmlColumnInfoArraySortLong, 0)
+	specs := make([]shark.PsmlColumnInfo, 0)
 
 	for _, v := range shark.AllowedColumnFormats {
 		specs = append(specs, v)
 	}
-	sort.Sort(specs)
+	slices.SortFunc(specs, func(a, b shark.PsmlColumnInfo) int {
+		return cmp.Compare(a.Long, b.Long)
+	})
 
 	for _, spec := range specs {
 		specCopy := spec
@@ -141,7 +127,7 @@ func rebuildPsmlFieldListBox(app gowid.IApp) (int, int) {
 	for k, _ := range shark.AllowedColumnFormats {
 		columnNames = append(columnNames, k)
 	}
-	sort.Strings(columnNames)
+	slices.Sort(columnNames)
 
 	for _, cname := range columnNames {
 		cnameCopy := cname

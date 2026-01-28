@@ -14,8 +14,8 @@
 | Error Handling | COMPLETE | pkg/errors, %v wrapping, type assertions | All |
 | Goroutine Lifecycle | COMPLETE | Global WaitGroup injection | ~40 goroutines |
 | Code Complexity | PARTIAL | 1260-line cmain(), 80+ UI globals | ~145 lines extracted |
-| Modernization | COMPLETE | strings.Replace, error wrapping, slices pkg | All |
-| Bug Fixes | COMPLETE | iota misuse in 8 files | All |
+| Modernization | COMPLETE | strings.Replace, error wrapping, slices pkg, sort -> slices | All |
+| Bug Fixes | COMPLETE | iota misuse (8 files), WriteGob error handling, redundant code | All |
 | Test Coverage | Pending | ~30% coverage, 0% for UI | 0 |
 | Type Safety | Pending | interface{} callbacks | 0 |
 
@@ -204,6 +204,8 @@ var packetListViewHolder *holder.Widget
 | strings.Replace | `strings.Replace(s, o, n, -1)` | `strings.ReplaceAll(s, o, n)` | DONE |
 | slices.Contains | Custom `StringInSlice()` | `slices.Contains()` | DONE |
 | slices.Equal | `reflect.DeepEqual` for slices | `slices.Equal()` | DONE |
+| sort.Strings | `sort.Strings(s)` | `slices.Sort(s)` | DONE |
+| sort.Slice | `sort.Slice(s, less)` | `slices.SortFunc(s, cmp)` | DONE |
 
 ### 7.2 Generics (Go 1.18+)
 

@@ -7,7 +7,7 @@ package minibuffer
 
 import (
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/gcla/gowid"
@@ -389,7 +389,7 @@ func (w *Widget) getPartialsCompletions(checkOffer bool, app gowid.IApp) []parti
 		for k, _ := range w.actions {
 			keys = append(keys, k)
 		}
-		sort.Strings(keys)
+		slices.Sort(keys)
 		for _, keyV := range keys {
 			key := keyV
 			act := w.actions[key]

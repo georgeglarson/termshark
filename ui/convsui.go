@@ -694,14 +694,10 @@ func ComputeFilterCombOp(comb FilterCombinator, newFilter string, curFilter stri
 	case AndSelected:
 		if curFilter != "" {
 			newFilter = fmt.Sprintf("%s && (%s)", curFilter, newFilter)
-		} else {
-			newFilter = fmt.Sprintf("%s", newFilter)
 		}
 	case OrSelected:
 		if curFilter != "" {
 			newFilter = fmt.Sprintf("%s || (%s)", curFilter, newFilter)
-		} else {
-			newFilter = fmt.Sprintf("%s", newFilter)
 		}
 	case AndNotSelected:
 		if curFilter != "" {
