@@ -64,36 +64,29 @@ Note: `pkg/errors` remains as an indirect dependency via `gowid`.
 
 ---
 
-## 3. Goroutine Lifecycle - PENDING
+## 3. Goroutine Lifecycle - IN PROGRESS
 
-### 3.1 Global WaitGroup Injection (Anti-pattern)
+### 3.1 Global WaitGroup Injection (Anti-pattern) - FOUNDATION LAID
 
-**Location:** `cmd/termshark/termshark.go:57-69`
+**Original pattern:** `cmd/termshark/termshark.go:57-69`
 
-```go
-var ensureGoroutinesStopWG sync.WaitGroup
-filter.Goroutinewg = &ensureGoroutinesStopWG
-pcap.Goroutinewg = &ensureGoroutinesStopWG
-streams.Goroutinewg = &ensureGoroutinesStopWG
-// ... 8 packages total
-```
+**Solution:** Created `pkg/lifecycle.Tracker` that provides:
+- Centralized goroutine tracking via WaitGroup
+- Context-based shutdown signaling
+- `Go()` and `GoWithContext()` methods for modern pattern
+- `WaitGroup()` for backward compatibility
 
-**Affected packages:**
-- `widgets/filter/filter.go:45`
-- `ui/ui.go:83`
-- `pkg/pcap/loader.go:44`
-- `pkg/convs/loader.go:22`
-- `pkg/capinfo/loader.go:22`
-- `pkg/summary/summary.go:89`
-- `pkg/streams/loader.go:24`
-- `pkg/confwatcher/confwatcher.go:94`
+**Current state:**
+- `lifecycle.Tracker` created and tested
+- `main()` uses Tracker, provides WaitGroup to legacy code
+- Legacy packages still use injected WaitGroup (compatible)
 
-**Problems:**
-- Makes testing difficult
-- Violates encapsulation
-- Fragile shutdown (missed goroutine = hang)
+**Remaining work:**
+- Gradually migrate `TrackedGo()` calls to `tracker.Go()`
+- Add context awareness to long-running goroutines
+- Remove package-level Goroutinewg variables
 
-**Recommendation:** Use `context.WithCancel()` + `golang.org/x/sync/errgroup`
+**Commit:** `f4cceb5` - Add lifecycle package for centralized goroutine management
 
 ---
 
@@ -212,7 +205,7 @@ type HandlerList[T any] []T
 7. Add `errors.Is()`/`errors.As()` where appropriate
 
 ### Phase 3: Architecture (Medium Term)
-8. Refactor goroutine lifecycle to use context/errgroup
+8. ~~Refactor goroutine lifecycle to use context/errgroup~~ IN PROGRESS (foundation laid)
 9. Extract `cmain()` into smaller functions
 10. Create `AppState` struct for UI globals
 
@@ -236,6 +229,7 @@ type HandlerList[T any] []T
 | `7e3fcf5` | Remove redundant blank import of net/http |
 | `950e8ad` | Add golangci-lint configuration |
 | `92cb2a9` | Remove direct usage of deprecated github.com/pkg/errors |
+| `f4cceb5` | Add lifecycle package for centralized goroutine management |
 
 ---
 
