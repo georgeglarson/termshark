@@ -229,7 +229,7 @@ func CopyToAndUse(name string) error {
 	dir = filepath.Join(dir, name)
 
 	if err := os.MkdirAll(dir, 0700); err != nil {
-		return fmt.Errorf("Unexpected error making dir %s: %v", dir, err)
+		return fmt.Errorf("Unexpected error making dir %s: %w", dir, err)
 	}
 
 	vProfile.SetConfigFile(filepath.Join(dir, "termshark.toml"))
@@ -291,7 +291,7 @@ func Delete(name string) error {
 	// Use Lstat to check the entry without following symlinks
 	fi, err := os.Lstat(dir)
 	if err != nil {
-		return fmt.Errorf("Profile dir %s not found: %v", dir, err)
+		return fmt.Errorf("Profile dir %s not found: %w", dir, err)
 	}
 	// Refuse to delete symlinks to prevent symlink-based attacks
 	if fi.Mode()&os.ModeSymlink != 0 {
@@ -300,7 +300,7 @@ func Delete(name string) error {
 
 	err = os.RemoveAll(dir)
 	if err != nil {
-		return fmt.Errorf("Unexpected error deleting profile dir %s: %v", dir, err)
+		return fmt.Errorf("Unexpected error deleting profile dir %s: %w", dir, err)
 	}
 
 	return nil
@@ -325,7 +325,7 @@ func Use(name string) error {
 	dir = filepath.Join(dir, name)
 
 	if err := os.MkdirAll(dir, 0700); err != nil {
-		return fmt.Errorf("Unexpected error making dir %s: %v", dir, err)
+		return fmt.Errorf("Unexpected error making dir %s: %w", dir, err)
 	}
 
 	if err := readConfig(vNew, dir, "termshark", false); err != nil {

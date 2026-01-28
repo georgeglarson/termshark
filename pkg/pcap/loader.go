@@ -1084,7 +1084,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb i
 
 			err = pdmlCmd.Start()
 			if err != nil {
-				err = fmt.Errorf("Error starting PDML process %v: %v", pdmlCmd, err)
+				err = fmt.Errorf("Error starting PDML process %v: %w", pdmlCmd, err)
 				HandleError(PdmlCode, app, err, cb)
 				return
 			}
@@ -1105,7 +1105,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb i
 				tok, err := d.Token()
 				if err != nil {
 					if !issuedKill && unexpectedPdmlError(err) {
-						err = fmt.Errorf("Could not read PDML data: %v", err)
+						err = fmt.Errorf("Could not read PDML data: %w", err)
 						issuedKill = true
 						pdmlCancelFn()
 						HandleError(PdmlCode, app, err, cb)
@@ -1122,7 +1122,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb i
 						err := d.DecodeElement(&packet, &tok)
 						if err != nil {
 							if !issuedKill && unexpectedPdmlError(err) {
-								err = fmt.Errorf("Could not decode PDML data: %v", err)
+								err = fmt.Errorf("Could not decode PDML data: %w", err)
 								issuedKill = true
 								pdmlCancelFn()
 								HandleError(PdmlCode, app, err, cb)
@@ -1216,7 +1216,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb i
 			err = pcapCmd.Start()
 			if err != nil {
 				// e.g. on the pi
-				err = fmt.Errorf("Error starting PCAP process %v: %v", pcapCmd, err)
+				err = fmt.Errorf("Error starting PCAP process %v: %w", pcapCmd, err)
 				HandleError(PdmlCode, app, err, cb)
 				return
 			}
@@ -1237,7 +1237,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb i
 				line, err := rd.ReadString('\n')
 				if err != nil {
 					if !issuedKill && unexpectedPcapError(err) {
-						err = fmt.Errorf("Could not read PCAP packet: %v", err)
+						err = fmt.Errorf("Could not read PCAP packet: %w", err)
 						HandleError(PdmlCode, app, err, cb)
 					}
 					if errors.Is(err, io.EOF) {
@@ -1266,7 +1266,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb i
 					for _, parsedByte := range parseResults[1:] {
 						b, err := strconv.ParseUint(string(parsedByte[0][0:2]), 16, 8)
 						if err != nil {
-							err = fmt.Errorf("Could not read PCAP packet: %v", err)
+							err = fmt.Errorf("Could not read PCAP packet: %w", err)
 							if !issuedKill {
 								HandleError(PdmlCode, app, err, cb)
 							}
@@ -1329,7 +1329,7 @@ OuterLoop:
 		// tail -F across all supported platforms? (e.g. Windows)
 		watcher, err := fsnotify.NewWatcher()
 		if err != nil {
-			err = fmt.Errorf("Could not create FS watch: %v", err)
+			err = fmt.Errorf("Could not create FS watch: %w", err)
 			errFn(err)
 			return
 		}
@@ -1337,13 +1337,13 @@ OuterLoop:
 
 		file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0644)
 		if err != nil {
-			err = fmt.Errorf("Could not touch temporary pcap file %s: %v", filename, err)
+			err = fmt.Errorf("Could not touch temporary pcap file %s: %w", filename, err)
 			errFn(err)
 		}
 		file.Close()
 
 		if err := watcher.Add(filename); err != nil {
-			err = fmt.Errorf("Could not set up watcher for %s: %v", filename, err)
+			err = fmt.Errorf("Could not set up watcher for %s: %w", filename, err)
 			errFn(err)
 			return
 		}
@@ -1374,7 +1374,7 @@ OuterLoop:
 					}
 				}
 			case err := <-watcher.Errors:
-				err = fmt.Errorf("Unexpected watcher error for %s: %v", filename, err)
+				err = fmt.Errorf("Unexpected watcher error for %s: %w", filename, err)
 				errFn(err)
 				return
 			case <-ctx.Done():
@@ -1493,7 +1493,7 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 			//
 			fifoPipeReader, fifoPipeWriter, err = os.Pipe()
 			if err != nil {
-				err = fmt.Errorf("Could not create pipe: %v", err)
+				err = fmt.Errorf("Could not create pipe: %w", err)
 				HandleError(PsmlCode, app, err, cb)
 				intPsmlCancelFn()
 				return
@@ -1600,7 +1600,7 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 
 		psmlOut, err = p.PsmlCmd.StdoutReader()
 		if err != nil {
-			err = fmt.Errorf("Could not access pipe output: %v", err)
+			err = fmt.Errorf("Could not access pipe output: %w", err)
 			HandleError(PsmlCode, app, err, cb)
 			intPsmlCancelFn()
 			return
@@ -1608,7 +1608,7 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 
 		err = p.PsmlCmd.Start()
 		if err != nil {
-			err = fmt.Errorf("Error starting PSML command %v: %v", p.PsmlCmd, err)
+			err = fmt.Errorf("Error starting PSML command %v: %w", p.PsmlCmd, err)
 			HandleError(PsmlCode, app, err, cb)
 			intPsmlCancelFn()
 			return
@@ -1735,7 +1735,7 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 
 			err = p.tailCmd.Start()
 			if err != nil {
-				err = fmt.Errorf("Could not start tail command %v: %v", p.tailCmd, err)
+				err = fmt.Errorf("Could not start tail command %v: %w", p.tailCmd, err)
 				HandleError(PsmlCode, app, err, cb)
 				intPsmlCancelFn()
 				p.tailCancelFn() // needed to end the goroutine, end if tailcmd has not started
@@ -1797,7 +1797,7 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 			if err != nil {
 				// gcla later todo - LoadWasCancelled is checked outside of the main goroutine here
 				if err != io.EOF && !e.LoadWasCancelled() {
-					err = fmt.Errorf("Could not read PSML data: %v", err)
+					err = fmt.Errorf("Could not read PSML data: %w", err)
 					HandleError(PsmlCode, app, err, cb)
 				}
 				break
@@ -2102,7 +2102,7 @@ func (i *InterfaceLoader) loadIfacesSync(e iIfaceLoaderEnv, cb interface{}, app 
 
 	err := i.ifaceCmd.Start()
 	if err != nil {
-		err = fmt.Errorf("Error starting interface reader %v: %v", i.ifaceCmd, err)
+		err = fmt.Errorf("Error starting interface reader %v: %w", i.ifaceCmd, err)
 		HandleError(IfaceCode, app, err, cb)
 		return
 	}

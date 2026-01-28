@@ -60,7 +60,7 @@ var _ pcap.IBeforeBegin = (*capinfoParseHandler)(nil)
 var _ pcap.IAfterEnd = (*capinfoParseHandler)(nil)
 
 func (t *capinfoParseHandler) OnCapinfoData(data string) {
-	CapinfoData = strings.Replace(data, "\r\n", "\n", -1) // For windows...
+	CapinfoData = strings.ReplaceAll(data, "\r\n", "\n") // For windows...
 	fi, err := os.Stat(Loader.PcapPdml)
 	if err != nil {
 		log.Warnf("Could not read mtime from pcap %s: %v", Loader.PcapPdml, err)

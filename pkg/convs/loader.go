@@ -178,7 +178,7 @@ func (c *Loader) loadConvAsync(pcapf string, convs []string, filter string, abs 
 
 	err = c.convsCmd.Start()
 	if err != nil {
-		err = fmt.Errorf("Error starting %v: %v", c.convsCmd, err)
+		err = fmt.Errorf("Error starting %v: %w", c.convsCmd, err)
 		pcap.HandleError(pcap.ConvCode, app, err, cb)
 		return
 	}

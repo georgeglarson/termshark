@@ -194,10 +194,11 @@ var packetListViewHolder *holder.Widget
 
 ### 7.1 Go 1.22+ Features
 
-| Feature | Current Pattern | Modern Pattern |
-|---------|-----------------|----------------|
-| Range over integers | `for i := 0; i < len(s); i++` | `for i := range len(s)` |
-| Error wrapping | `pkg/errors.WithStack()` | `fmt.Errorf("%w", err)` |
+| Feature | Current Pattern | Modern Pattern | Status |
+|---------|-----------------|----------------|--------|
+| Range over integers | `for i := 0; i < len(s); i++` | `for i := range len(s)` | Pending |
+| Error wrapping | `pkg/errors.WithStack()` | `fmt.Errorf("%w", err)` | DONE |
+| strings.Replace | `strings.Replace(s, o, n, -1)` | `strings.ReplaceAll(s, o, n)` | DONE |
 
 ### 7.2 Generics (Go 1.18+)
 
@@ -223,9 +224,13 @@ type HandlerList[T any] []T
 ### Phase 2: Error Handling (Short Term) - COMPLETE
 5. ~~Remove `github.com/pkg/errors` dependency~~ DONE (direct usage removed)
 6. ~~Migrate to stdlib error wrapping~~ DONE
+   - All `fmt.Errorf` with `%v` for errors migrated to `%w`
+   - Files updated: pkg/pcap/loader.go, pkg/streams/loader.go, pkg/convs/loader.go,
+     pkg/capinfo/loader.go, pkg/theme/utils.go, pkg/system/picker_android.go,
+     configs/profiles/profiles.go, ui/ui.go, ui/searchbyfilter.go
 7. ~~Add `errors.Is()`/`errors.As()` where appropriate~~ DONE
    - 5 `io.EOF` comparisons migrated to `errors.Is()`
-   - 9 `*exec.ExitError` type assertions migrated to `errors.As()`
+   - 11 `*exec.ExitError` and `*exec.Error` type assertions migrated to `errors.As()`
 
 ### Phase 3: Architecture (Medium Term) - IN PROGRESS
 8. ~~Refactor goroutine lifecycle to use context/errgroup~~ COMPLETE
@@ -278,6 +283,7 @@ type HandlerList[T any] []T
 | `b1bcaf3` | Extract configureBase16Colors() |
 | `f02aa90` | Use errors.Is() for io.EOF comparisons |
 | `7438996` | Use errors.As() for exec.ExitError type assertions |
+| `750da92` | Modernize error wrapping (%w) and strings.ReplaceAll() |
 
 ---
 

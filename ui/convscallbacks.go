@@ -34,7 +34,7 @@ var _ pcap.IBeforeBegin = (*convsParseHandler)(nil)
 var _ pcap.IAfterEnd = (*convsParseHandler)(nil)
 
 func (t *convsParseHandler) OnData(data string) {
-	data = strings.Replace(data, "\r\n", "\n", -1) // For windows...
+	data = strings.ReplaceAll(data, "\r\n", "\n") // For windows...
 
 	if t.ondata != nil {
 		t.app.Run(gowid.RunFunction(func(app gowid.IApp) {

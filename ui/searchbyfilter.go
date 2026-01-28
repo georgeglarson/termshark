@@ -470,7 +470,7 @@ func (w *FilterSearchCallbacks) runProcess(ctx context.Context, psmlCmd pcap.IPc
 		tok, err = d.Token()
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
-				err = fmt.Errorf("Could not read PSML data: %v", err)
+				err = fmt.Errorf("Could not read PSML data: %w", err)
 				addLast = false
 			} else {
 				// Don't show IO errors to the user

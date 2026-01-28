@@ -1772,7 +1772,7 @@ func clearOffsets(app gowid.IApp) {
 func packetNumberFromCurrentTableRow() (termshark.JumpPos, error) {
 	tablePos, err := packetListView.FocusXY() // e.g. table position 5
 	if err != nil {
-		return termshark.JumpPos{}, fmt.Errorf("No packet in focus: %v", err)
+		return termshark.JumpPos{}, fmt.Errorf("No packet in focus: %w", err)
 	}
 	return packetNumberFromTableRow(tablePos.Row)
 }
@@ -1812,7 +1812,7 @@ func packetNumberFromTableRow(tableRow int) (termshark.JumpPos, error) {
 
 	packetNum, err := strconv.Atoi(Loader.PsmlData()[packetRowId][0])
 	if err != nil {
-		return termshark.JumpPos{}, fmt.Errorf("Unexpected error determining no. of packet %d: %v.", tableRow, err)
+		return termshark.JumpPos{}, fmt.Errorf("Unexpected error determining no. of packet %d: %w.", tableRow, err)
 	}
 
 	return termshark.JumpPos{

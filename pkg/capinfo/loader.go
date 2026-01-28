@@ -166,7 +166,7 @@ func (c *Loader) loadCapinfoAsync(pcapf string, app gowid.IApp, cb ICapinfoCallb
 
 	err = c.capinfoCmd.Start()
 	if err != nil {
-		err = fmt.Errorf("Error starting capinfo %v: %v", c.capinfoCmd, err)
+		err = fmt.Errorf("Error starting capinfo %v: %w", c.capinfoCmd, err)
 		pcap.HandleError(pcap.CapinfoCode, app, err, cb)
 		return
 	}

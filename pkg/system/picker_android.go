@@ -5,6 +5,7 @@
 package system
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -22,25 +23,24 @@ func PickFile() (string, error) {
 	tsabs := path.Join(tsdir, tsfile)
 
 	if err := os.Remove(tsabs); err != nil && !os.IsNotExist(err) {
-		return "", fmt.Errorf("Could not remove previous temporary termux file %s: %v", tsabs, err)
+		return "", fmt.Errorf("Could not remove previous temporary termux file %s: %w", tsabs, err)
 	}
 
 	if _, err := exec.Command("termux-storage-get", tsabs).Output(); err != nil {
-		exerr, ok := err.(*exec.Error)
-		if ok && (exerr.Err == exec.ErrNotFound) {
+		var exerr *exec.Error
+		if errors.As(err, &exerr) && errors.Is(exerr.Err, exec.ErrNotFound) {
 			return "", NoTermuxApi
-		} else {
-			return "", fmt.Errorf("Could not select input for termshark: %v", err)
 		}
+		return "", fmt.Errorf("Could not select input for termshark: %w", err)
 	}
 
 	if iwatcher, err := fsnotify.NewWatcher(); err != nil {
-		return "", fmt.Errorf("Could not start filesystem watcher: %v\n", err)
+		return "", fmt.Errorf("Could not start filesystem watcher: %w\n", err)
 	} else {
 		defer iwatcher.Close()
 
 		if err := iwatcher.Add(tsdir); err != nil { //&& !os.IsNotExist(err) {
-			return "", fmt.Errorf("Could not set up file watcher for %s: %v\n", tsfile, err)
+			return "", fmt.Errorf("Could not set up file watcher for %s: %w\n", tsfile, err)
 		}
 
 		// Don't time it - the user might be tied up with the file picker for a while. No real way to tell...
@@ -56,7 +56,7 @@ func PickFile() (string, error) {
 				}
 
 			case err := <-iwatcher.Errors:
-				return "", fmt.Errorf("File watcher error for %s: %v", tsfile, err)
+				return "", fmt.Errorf("File watcher error for %s: %w", tsfile, err)
 			}
 		}
 
@@ -66,12 +66,11 @@ func PickFile() (string, error) {
 
 func PickFileError(e string) error {
 	if _, err := exec.Command("termux-toast", e).Output(); err != nil {
-		exerr, ok := err.(*exec.Error)
-		if ok && (exerr.Err == exec.ErrNotFound) {
+		var exerr *exec.Error
+		if errors.As(err, &exerr) && errors.Is(exerr.Err, exec.ErrNotFound) {
 			return NoTermuxApi
-		} else {
-			return fmt.Errorf("Error running termux-toast: %v", err)
 		}
+		return fmt.Errorf("Error running termux-toast: %w", err)
 	}
 	return nil
 }

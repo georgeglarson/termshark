@@ -195,7 +195,7 @@ func (c *Loader) loadStreamReassemblyAsync(pcapf string, proto string, idx int, 
 
 	err = c.streamCmd.Start()
 	if err != nil {
-		err = fmt.Errorf("Error starting stream reassembly %v: %v", c.streamCmd, err)
+		err = fmt.Errorf("Error starting stream reassembly %v: %w", c.streamCmd, err)
 		pcap.HandleError(pcap.StreamCode, app, err, cb)
 		return
 	}
@@ -303,7 +303,7 @@ func (c *Loader) startStreamIndexerAsync(pcapf string, proto string, idx int, ap
 
 	err = c.indexerCmd.Start()
 	if err != nil {
-		err = fmt.Errorf("Error starting stream indexer %v: %v", c.indexerCmd, err)
+		err = fmt.Errorf("Error starting stream indexer %v: %w", c.indexerCmd, err)
 		pcap.HandleError(pcap.StreamCode, app, err, cb)
 		return
 	}

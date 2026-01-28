@@ -941,10 +941,10 @@ func (w *ConvsUiWidget) OnData(data string, app gowid.IApp) {
 			continue
 		}
 
-		line = strings.Replace(line, " bytes", "", -1)
-		line = strings.Replace(line, "bytes", "", -1)
-		line = strings.Replace(line, " kB", "kB", -1)
-		line = strings.Replace(line, " MB", "MB", -1)
+		line = strings.ReplaceAll(line, " bytes", "")
+		line = strings.ReplaceAll(line, "bytes", "")
+		line = strings.ReplaceAll(line, " kB", "kB")
+		line = strings.ReplaceAll(line, " MB", "MB")
 		r = strings.NewReader(line)
 		n, err = fmt.Fscanf(r, "%s <-> %s %s %s %s %s %s %s %s %s",
 			&addra,
@@ -959,12 +959,12 @@ func (w *ConvsUiWidget) OnData(data string, app gowid.IApp) {
 			&durn,
 		)
 		if err == nil && n == 10 {
-			bytesto = strings.Replace(bytesto, "kB", " kB", -1)
-			bytesfrom = strings.Replace(bytesfrom, "kB", " kB", -1)
-			bytes = strings.Replace(bytes, "kB", " kB", -1)
-			bytesto = strings.Replace(bytesto, "MB", " MB", -1)
-			bytesfrom = strings.Replace(bytesfrom, "MB", " MB", -1)
-			bytes = strings.Replace(bytes, "MB", " MB", -1)
+			bytesto = strings.ReplaceAll(bytesto, "kB", " kB")
+			bytesfrom = strings.ReplaceAll(bytesfrom, "kB", " kB")
+			bytes = strings.ReplaceAll(bytes, "kB", " kB")
+			bytesto = strings.ReplaceAll(bytesto, "MB", " MB")
+			bytesfrom = strings.ReplaceAll(bytesfrom, "MB", " MB")
+			bytes = strings.ReplaceAll(bytes, "MB", " MB")
 			if ports {
 				pa := strings.Split(addra, ":")
 				pb := strings.Split(addrb, ":")

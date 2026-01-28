@@ -130,7 +130,7 @@ func Load(name string, app gowid.IApp) error {
 	// Fall back to built-in themes
 	statikFS, err := fs.New()
 	if err != nil {
-		return fmt.Errorf("in mode %v: %v", app.GetColorMode(), err)
+		return fmt.Errorf("in mode %v: %w", app.GetColorMode(), err)
 	}
 
 	for _, m := range modes {
