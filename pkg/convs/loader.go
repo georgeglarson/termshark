@@ -7,6 +7,7 @@ package convs
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 
@@ -128,7 +129,8 @@ func (c *Loader) loadConvAsync(pcapf string, convs []string, filter string, abs 
 			case err = <-termChan:
 				state = pcap.Terminated
 				if !c.SuppressErrors && err != nil {
-					if _, ok := err.(*exec.ExitError); ok {
+					var exerr *exec.ExitError
+					if errors.As(err, &exerr) {
 						pcap.HandleError(pcap.ConvCode, app, pcap.MakeUsefulError(c.convsCmd, err), cb)
 					}
 				}

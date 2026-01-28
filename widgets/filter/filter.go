@@ -9,6 +9,7 @@ package filter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -786,7 +787,8 @@ func (f *DisplayFilterValidator) Validate(filter string) {
 		}
 	} else {
 		killed := true
-		if exiterr, ok := err.(*exec.ExitError); ok {
+		var exiterr *exec.ExitError
+		if errors.As(err, &exiterr) {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 				if status.ExitStatus() == 2 {
 					killed = false

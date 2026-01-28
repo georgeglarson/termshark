@@ -7,6 +7,7 @@ package capinfo
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 
@@ -116,7 +117,8 @@ func (c *Loader) loadCapinfoAsync(pcapf string, app gowid.IApp, cb ICapinfoCallb
 			case err = <-termChan:
 				state = pcap.Terminated
 				if !c.SuppressErrors && err != nil {
-					if _, ok := err.(*exec.ExitError); ok {
+					var exerr *exec.ExitError
+					if errors.As(err, &exerr) {
 						pcap.HandleError(pcap.CapinfoCode, app, pcap.MakeUsefulError(c.capinfoCmd, err), cb)
 					}
 				}

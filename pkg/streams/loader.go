@@ -150,7 +150,8 @@ func (c *Loader) loadStreamReassemblyAsync(pcapf string, proto string, idx int, 
 			case err = <-termChan:
 				state = pcap.Terminated
 				if !c.SuppressErrors && err != nil {
-					if _, ok := err.(*exec.ExitError); ok {
+					var exerr *exec.ExitError
+					if errors.As(err, &exerr) {
 						pcap.HandleError(pcap.StreamCode, app, pcap.MakeUsefulError(c.streamCmd, err), cb)
 					}
 				}
@@ -265,7 +266,8 @@ func (c *Loader) startStreamIndexerAsync(pcapf string, proto string, idx int, ap
 			case err = <-procWaitChan:
 				state = pcap.Terminated
 				if !c.SuppressErrors && err != nil {
-					if _, ok := err.(*exec.ExitError); ok {
+					var exerr *exec.ExitError
+					if errors.As(err, &exerr) {
 						pcap.HandleError(pcap.StreamCode, app, pcap.MakeUsefulError(c.indexerCmd, err), cb)
 					}
 				}

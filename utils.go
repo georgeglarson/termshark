@@ -13,6 +13,7 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -238,7 +239,8 @@ func RunForStderr(prog string, args []string, env []string, stderr io.Writer) (i
 	cmd.Stderr = stderr
 	err = cmd.Run()
 	if err != nil {
-		if exerr, ok := err.(*exec.ExitError); ok {
+		var exerr *exec.ExitError
+		if errors.As(err, &exerr) {
 			ws := exerr.Sys().(syscall.WaitStatus)
 			exitCode = ws.ExitStatus()
 		}

@@ -1562,7 +1562,8 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 					state = Terminated
 					if !p.psmlStoppedDeliberately_ {
 						if err != nil {
-							if _, ok := err.(*exec.ExitError); ok {
+							var exerr *exec.ExitError
+							if errors.As(err, &exerr) {
 								HandleError(PsmlCode, app, MakeUsefulError(psmlCmd, err), cb)
 							}
 						}
@@ -1686,7 +1687,8 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 						fifoPipeWriter.Close()
 						if !p.psmlStoppedDeliberately_ && !e.TailStoppedDeliberately() {
 							if err != nil {
-								if _, ok := err.(*exec.ExitError); ok {
+								var exerr *exec.ExitError
+								if errors.As(err, &exerr) {
 									HandleError(PsmlCode, app, MakeUsefulError(tailCmd, err), cb)
 								}
 							}
@@ -2158,7 +2160,8 @@ func (i *InterfaceLoader) loadIfacesSync(e iIfaceLoaderEnv, cb interface{}, app 
 			case err = <-ifaceTermChan:
 				state = Terminated
 				if !e.PsmlStoppedDeliberately() && err != nil {
-					if _, ok := err.(*exec.ExitError); ok {
+					var exerr *exec.ExitError
+					if errors.As(err, &exerr) {
 						// This could be if termshark is started like this: cat nosuchfile.pcap | termshark -i -
 						// Then dumpcap will be started with /dev/fd/3 as its stdin, but will fail with EOF and
 						// exit status 1.
