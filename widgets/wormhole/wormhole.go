@@ -33,8 +33,6 @@ import (
 
 //======================================================================
 
-var Goroutinewg *sync.WaitGroup
-
 type state uint
 
 const (

@@ -90,10 +90,6 @@ func (c *ConfigWatcher) ConfigChanged() <-chan struct{} {
 }
 
 //======================================================================
-
-var Goroutinewg *sync.WaitGroup
-
-//======================================================================
 // Local Variables:
 // mode: Go
 // fill-column: 78

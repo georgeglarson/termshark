@@ -40,10 +40,6 @@ import (
 
 //======================================================================
 
-// This is a debugging aid - I use it to ensure goroutines stop as expected. If they don't
-// the main program will hang at termination.
-var Goroutinewg *sync.WaitGroup
-
 var fixed gowid.RenderFixed
 
 type filtStruct struct {

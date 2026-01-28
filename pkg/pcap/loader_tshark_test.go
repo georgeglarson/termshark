@@ -12,21 +12,20 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/gcla/termshark/v2"
+	"github.com/gcla/termshark/v2/pkg/lifecycle"
 
 	"github.com/stretchr/testify/assert"
 )
 
 //======================================================================
 
-var ensureGoroutinesStopWG2 sync.WaitGroup
-
 func init() {
-	Goroutinewg = &ensureGoroutinesStopWG2
+	// Set up lifecycle tracker for tests so that termshark.Go() works
+	termshark.SetTracker(lifecycle.New())
 }
 
 //======================================================================

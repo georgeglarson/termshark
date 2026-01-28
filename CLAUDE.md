@@ -76,7 +76,7 @@ Viper-based profile management. TOML configuration files stored in XDG-compliant
 
 ## Key Patterns
 
-**Goroutine coordination:** A shared `sync.WaitGroup` is passed to all packages (`Goroutinewg`) to ensure clean shutdown.
+**Goroutine coordination:** A centralized `lifecycle.Tracker` manages all goroutines via `termshark.Go()`. The tracker provides both a WaitGroup for synchronization and a context for shutdown signaling.
 
 **Command execution:** All tshark/dumpcap commands use `exec.Command()` with array arguments (never shell strings) to prevent injection.
 

@@ -83,12 +83,6 @@ func (h *Reader) start() {
 }
 
 //======================================================================
-
-// This is a debugging aid - I use it to ensure goroutines stop as expected. If they don't
-// the main program will hang at termination.
-var Goroutinewg *sync.WaitGroup
-
-//======================================================================
 // Local Variables:
 // mode: Go
 // fill-column: 78

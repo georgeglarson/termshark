@@ -9,17 +9,12 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"sync"
 
 	"github.com/gcla/gowid"
 	"github.com/gcla/termshark/v2"
 	"github.com/gcla/termshark/v2/pkg/pcap"
 	log "github.com/sirupsen/logrus"
 )
-
-//======================================================================
-
-var Goroutinewg *sync.WaitGroup
 
 //======================================================================
 

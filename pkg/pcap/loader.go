@@ -41,7 +41,6 @@ func init() {
 
 //======================================================================
 
-var Goroutinewg *sync.WaitGroup
 
 type RunFn func()
 

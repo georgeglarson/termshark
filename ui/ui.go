@@ -79,8 +79,6 @@ import (
 
 //======================================================================
 
-var Goroutinewg *sync.WaitGroup
-
 type WidgetOwner int
 
 const (

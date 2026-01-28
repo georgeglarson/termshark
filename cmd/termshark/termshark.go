@@ -21,22 +21,17 @@ import (
 	"github.com/gcla/gowid"
 	"github.com/gcla/termshark/v2"
 	"github.com/gcla/termshark/v2/configs/profiles"
-	"github.com/gcla/termshark/v2/pkg/capinfo"
 	"github.com/gcla/termshark/v2/pkg/cli"
 	"github.com/gcla/termshark/v2/pkg/confwatcher"
-	"github.com/gcla/termshark/v2/pkg/convs"
 	"github.com/gcla/termshark/v2/pkg/fields"
 	"github.com/gcla/termshark/v2/pkg/lifecycle"
 	"github.com/gcla/termshark/v2/pkg/pcap"
 	"github.com/gcla/termshark/v2/pkg/shark"
-	"github.com/gcla/termshark/v2/pkg/streams"
-	"github.com/gcla/termshark/v2/pkg/summary"
 	"github.com/gcla/termshark/v2/pkg/system"
 	"github.com/gcla/termshark/v2/pkg/tailfile"
 	"github.com/gcla/termshark/v2/pkg/tty"
 	"github.com/gcla/termshark/v2/ui"
 	"github.com/gcla/termshark/v2/widgets/filter"
-	"github.com/gcla/termshark/v2/widgets/wormhole"
 	"github.com/gdamore/tcell/v2"
 	flags "github.com/jessevdk/go-flags"
 	"github.com/mattn/go-isatty"
@@ -58,19 +53,6 @@ func main() {
 	// a context for shutdown signaling.
 	tracker := lifecycle.New()
 	termshark.SetTracker(tracker)
-
-	// Provide the WaitGroup to packages that still use the legacy pattern.
-	// TODO: Gradually migrate these to use termshark.Go() instead
-	wg := tracker.WaitGroup()
-	filter.Goroutinewg = wg
-	pcap.Goroutinewg = wg
-	streams.Goroutinewg = wg
-	capinfo.Goroutinewg = wg
-	convs.Goroutinewg = wg
-	ui.Goroutinewg = wg
-	wormhole.Goroutinewg = wg
-	summary.Goroutinewg = wg
-	confwatcher.Goroutinewg = wg
 
 	res := cmain()
 	tracker.Wait()
