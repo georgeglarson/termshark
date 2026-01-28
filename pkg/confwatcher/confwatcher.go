@@ -10,7 +10,7 @@ import (
 
 	"github.com/gcla/termshark/v2"
 	log "github.com/sirupsen/logrus"
-	fsnotify "gopkg.in/fsnotify/fsnotify.v1"
+	"github.com/fsnotify/fsnotify"
 )
 
 //======================================================================

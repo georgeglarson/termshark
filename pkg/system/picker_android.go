@@ -10,7 +10,7 @@ import (
 	"os/exec"
 	"path"
 
-	fsnotify "gopkg.in/fsnotify/fsnotify.v1"
+	"github.com/fsnotify/fsnotify"
 )
 
 var NoPicker error = fmt.Errorf("No file picker available") // not running on termux

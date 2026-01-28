@@ -7,6 +7,7 @@ require (
 	github.com/antchfx/xmlquery v1.4.3
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/flytam/filenamify v1.1.0
+	github.com/fsnotify/fsnotify v1.7.0
 	github.com/gcla/deep v1.0.2
 	github.com/gcla/gowid v1.4.1-0.20221101015339-ce29e21d2804
 	github.com/gcla/tail v1.0.1-0.20190505190527-650e90873359
@@ -28,7 +29,6 @@ require (
 	github.com/tevino/abool v1.2.0
 	gitlab.com/jonas.jasas/condchan v0.0.0-20190210165812-36637ad2b5bc
 	golang.org/x/sys v0.28.0
-	gopkg.in/fsnotify/fsnotify.v1 v1.4.7
 )
 
 require (
@@ -36,7 +36,6 @@ require (
 	github.com/araddon/dateparse v0.0.0-20210207001429-0eec95c9db7e // indirect
 	github.com/creack/pty v1.1.15 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gdamore/encoding v1.0.0 // indirect
 	github.com/gin-gonic/gin v1.7.0 // indirect
 	github.com/go-test/deep v1.0.2 // indirect
@@ -64,6 +63,7 @@ require (
 	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/term v0.27.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
+	gopkg.in/fsnotify/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
