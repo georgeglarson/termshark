@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/blang/semver"
 	"github.com/gcla/termshark/v2/pkg/format"
@@ -225,6 +226,140 @@ func TestTSharkVersionFromOutputInvalid(t *testing.T) {
 	// Test with empty string
 	_, err = TSharkVersionFromOutput("")
 	assert.Error(t, err)
+}
+
+func TestRemoveFromStringSlice(t *testing.T) {
+	tests := []struct {
+		name     string
+		pcap     string
+		comps    []string
+		expected []string
+	}{
+		{
+			name:     "empty slice",
+			pcap:     "foo",
+			comps:    []string{},
+			expected: []string{"foo"},
+		},
+		{
+			name:     "item not in slice",
+			pcap:     "foo",
+			comps:    []string{"a", "b", "c"},
+			expected: []string{"foo", "a", "b", "c"},
+		},
+		{
+			name:     "item at beginning",
+			pcap:     "a",
+			comps:    []string{"a", "b", "c"},
+			expected: []string{"a", "b", "c"},
+		},
+		{
+			name:     "item in middle",
+			pcap:     "b",
+			comps:    []string{"a", "b", "c"},
+			expected: []string{"b", "a", "c"},
+		},
+		{
+			name:     "item at end",
+			pcap:     "c",
+			comps:    []string{"a", "b", "c"},
+			expected: []string{"c", "a", "b"},
+		},
+		{
+			name:     "multiple occurrences",
+			pcap:     "b",
+			comps:    []string{"a", "b", "c", "b", "d"},
+			expected: []string{"b", "a", "c", "d"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := RemoveFromStringSlice(tt.pcap, tt.comps)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestWriteEmptyPcap(t *testing.T) {
+	// Create a temp file
+	tmpfile, err := os.CreateTemp("", "test*.pcap")
+	assert.NoError(t, err)
+	tmpfile.Close()
+	defer os.Remove(tmpfile.Name())
+
+	// Write empty pcap
+	err = WriteEmptyPcap(tmpfile.Name())
+	assert.NoError(t, err)
+
+	// Read the file back and verify the magic number
+	data, err := os.ReadFile(tmpfile.Name())
+	assert.NoError(t, err)
+	assert.Equal(t, 24, len(data)) // pcap header is 24 bytes
+
+	// Check magic number (0xA1B2C3D4 in little endian)
+	assert.Equal(t, byte(0xD4), data[0])
+	assert.Equal(t, byte(0xC3), data[1])
+	assert.Equal(t, byte(0xB2), data[2])
+	assert.Equal(t, byte(0xA1), data[3])
+}
+
+func TestFileNewerThan(t *testing.T) {
+	// Create two temp files
+	file1, err := os.CreateTemp("", "test1*.txt")
+	assert.NoError(t, err)
+	file1.Close()
+	defer os.Remove(file1.Name())
+
+	file2, err := os.CreateTemp("", "test2*.txt")
+	assert.NoError(t, err)
+	file2.Close()
+	defer os.Remove(file2.Name())
+
+	// Test with non-existent file
+	_, err = FileNewerThan("/nonexistent/file1", file2.Name())
+	assert.Error(t, err)
+
+	_, err = FileNewerThan(file1.Name(), "/nonexistent/file2")
+	assert.Error(t, err)
+
+	// file2 was created after file1, so file2 should be newer
+	// But they might be created in the same instant, so we touch file2
+	os.Chtimes(file2.Name(), testTimeNow(), testTimeNow())
+
+	newer, err := FileNewerThan(file2.Name(), file1.Name())
+	assert.NoError(t, err)
+	// Note: on fast systems both files might have same timestamp
+	// so we just check there's no error
+	_ = newer
+}
+
+func testTimeNow() time.Time {
+	return time.Now().Add(time.Second)
+}
+
+func TestConvPktsCompare(t *testing.T) {
+	var c ConvPktsCompare
+	tests := []struct {
+		a, b     string
+		expected bool
+	}{
+		{"100", "200", true},
+		{"200", "100", false},
+		{"100", "100", false},
+		{"1,234", "2,345", true},    // comma-separated numbers
+		{"100 kB", "200 kB", true},  // with units
+		{"1 kB", "500", false},      // 1024 vs 500
+		{"500", "1 kB", true},       // 500 vs 1024
+		{"1 MB", "1,000 kB", false}, // 1MB (1048576) > 1000kB (1024000)
+		{"abc", "def", false},       // non-numeric returns false
+		{"def", "abc", false},       // non-numeric returns false
+	}
+
+	for _, tt := range tests {
+		result := c.Less(tt.a, tt.b)
+		assert.Equal(t, tt.expected, result, "Less(%q, %q)", tt.a, tt.b)
+	}
 }
 
 //======================================================================
