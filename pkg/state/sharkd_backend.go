@@ -204,8 +204,10 @@ func (b *SharkdBackend) GetStatus(ctx context.Context) (*Status, error) {
 // GetPackets returns packet summaries.
 func (b *SharkdBackend) GetPackets(ctx context.Context, filter string, start, count int) ([]PacketSummary, error) {
 	params := map[string]interface{}{
-		"skip":  start,
 		"limit": count,
+	}
+	if start > 0 {
+		params["skip"] = start
 	}
 	if filter != "" {
 		params["filter"] = filter
@@ -286,18 +288,24 @@ type sharkdTreeNode struct {
 	Field    string           `json:"f,omitempty"`
 	Severity string           `json:"s,omitempty"`
 	Type     string           `json:"t,omitempty"`
-	Position int              `json:"h,omitempty"` // offset
-	Size     int              `json:"i,omitempty"` // size
+	HexRange json.RawMessage  `json:"h,omitempty"` // [offset, size] or [offset, size, bit_offset, bit_size]
 	Children []sharkdTreeNode `json:"n,omitempty"`
 }
 
 // convertTreeNode converts a sharkd tree node to our ProtocolNode.
 func convertTreeNode(n sharkdTreeNode) ProtocolNode {
 	node := ProtocolNode{
-		Label:    n.Label,
-		Field:    n.Field,
-		Position: n.Position,
-		Size:     n.Size,
+		Label: n.Label,
+		Field: n.Field,
+	}
+
+	// Parse hex range: "h" can be an array [offset, size, ...]
+	if len(n.HexRange) > 0 {
+		var hexRange []int
+		if err := json.Unmarshal(n.HexRange, &hexRange); err == nil && len(hexRange) >= 2 {
+			node.Position = hexRange[0]
+			node.Size = hexRange[1]
+		}
 	}
 
 	if len(n.Children) > 0 {
