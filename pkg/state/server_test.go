@@ -552,3 +552,202 @@ func TestServer_Stop_NoListeners(t *testing.T) {
 	err := server.Stop()
 	assert.NoError(t, err)
 }
+
+func TestNewServerWithRegistry(t *testing.T) {
+	registry := NewRegistry(RegistryConfig{})
+	defer registry.Close()
+
+	server := NewServerWithRegistry(registry, ServerConfig{
+		HTTPAddr: "127.0.0.1:0",
+	})
+
+	assert.NotNil(t, server)
+	assert.Equal(t, registry, server.Registry())
+	assert.Nil(t, server.manager) // No default manager when using registry
+}
+
+func TestServer_Dispatch_SessionsList(t *testing.T) {
+	registry := NewRegistry(RegistryConfig{})
+	defer registry.Close()
+
+	server := NewServerWithRegistry(registry, ServerConfig{})
+	client := &clientConn{server: server}
+
+	// Empty list initially
+	result, err := client.dispatch("sessions.list", nil)
+	assert.NoError(t, err)
+	sessions := result.([]SessionInfo)
+	assert.Empty(t, sessions)
+}
+
+func TestServer_Dispatch_SessionsCreate(t *testing.T) {
+	registry := NewRegistry(RegistryConfig{})
+	defer registry.Close()
+
+	server := NewServerWithRegistry(registry, ServerConfig{})
+	client := &clientConn{server: server}
+
+	result, err := client.dispatch("sessions.create", map[string]interface{}{
+		"name": "test-session",
+	})
+	assert.NoError(t, err)
+
+	info := result.(SessionInfo)
+	assert.Equal(t, "test-session", info.Name)
+	assert.NotEmpty(t, info.ID)
+}
+
+func TestServer_Dispatch_SessionsJoin(t *testing.T) {
+	registry := NewRegistry(RegistryConfig{})
+	defer registry.Close()
+
+	server := NewServerWithRegistry(registry, ServerConfig{})
+	client := &clientConn{server: server}
+
+	// Create a session first
+	session, _ := registry.CreateSession("join-test")
+
+	// Join the session
+	result, err := client.dispatch("sessions.join", map[string]interface{}{
+		"id": session.ID,
+	})
+	assert.NoError(t, err)
+
+	info := result.(SessionInfo)
+	assert.Equal(t, session.ID, info.ID)
+	assert.NotNil(t, client.session)
+}
+
+func TestServer_Dispatch_SessionsJoin_NotFound(t *testing.T) {
+	registry := NewRegistry(RegistryConfig{})
+	defer registry.Close()
+
+	server := NewServerWithRegistry(registry, ServerConfig{})
+	client := &clientConn{server: server}
+
+	_, err := client.dispatch("sessions.join", map[string]interface{}{
+		"id": "nonexistent",
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestServer_Dispatch_SessionsLeave(t *testing.T) {
+	registry := NewRegistry(RegistryConfig{})
+	defer registry.Close()
+
+	server := NewServerWithRegistry(registry, ServerConfig{})
+	client := &clientConn{server: server}
+
+	// Create and join a session
+	session, _ := registry.CreateSession("leave-test")
+	client.dispatch("sessions.join", map[string]interface{}{"id": session.ID})
+
+	// Leave the session
+	result, err := client.dispatch("sessions.leave", nil)
+	assert.NoError(t, err)
+
+	leftResult := result.(map[string]bool)
+	assert.True(t, leftResult["left"])
+	assert.Nil(t, client.session)
+}
+
+func TestServer_Dispatch_SessionsLeave_NotInSession(t *testing.T) {
+	registry := NewRegistry(RegistryConfig{})
+	defer registry.Close()
+
+	server := NewServerWithRegistry(registry, ServerConfig{})
+	client := &clientConn{server: server}
+
+	_, err := client.dispatch("sessions.leave", nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not in a session")
+}
+
+func TestServer_Dispatch_SessionsInfo(t *testing.T) {
+	registry := NewRegistry(RegistryConfig{})
+	defer registry.Close()
+
+	server := NewServerWithRegistry(registry, ServerConfig{})
+	client := &clientConn{server: server}
+
+	// Create a session
+	session, _ := registry.CreateSession("info-test")
+
+	// Get info by ID
+	result, err := client.dispatch("sessions.info", map[string]interface{}{
+		"id": session.ID,
+	})
+	assert.NoError(t, err)
+
+	info := result.(SessionInfo)
+	assert.Equal(t, "info-test", info.Name)
+}
+
+func TestServer_Dispatch_SessionsInfo_CurrentSession(t *testing.T) {
+	registry := NewRegistry(RegistryConfig{})
+	defer registry.Close()
+
+	server := NewServerWithRegistry(registry, ServerConfig{})
+	client := &clientConn{server: server}
+
+	// Create and join a session
+	session, _ := registry.CreateSession("current-info")
+	client.dispatch("sessions.join", map[string]interface{}{"id": session.ID})
+
+	// Get info without ID (returns current session)
+	result, err := client.dispatch("sessions.info", map[string]interface{}{})
+	assert.NoError(t, err)
+
+	info := result.(SessionInfo)
+	assert.Equal(t, "current-info", info.Name)
+}
+
+func TestServer_Dispatch_SessionsDelete(t *testing.T) {
+	registry := NewRegistry(RegistryConfig{})
+	defer registry.Close()
+
+	server := NewServerWithRegistry(registry, ServerConfig{})
+	client := &clientConn{server: server}
+
+	// Create a session
+	session, _ := registry.CreateSession("to-delete")
+
+	// Delete it
+	result, err := client.dispatch("sessions.delete", map[string]interface{}{
+		"id": session.ID,
+	})
+	assert.NoError(t, err)
+
+	deleteResult := result.(map[string]bool)
+	assert.True(t, deleteResult["deleted"])
+	assert.Equal(t, 0, registry.SessionCount())
+}
+
+func TestServer_Dispatch_NoSession(t *testing.T) {
+	registry := NewRegistry(RegistryConfig{})
+	defer registry.Close()
+
+	server := NewServerWithRegistry(registry, ServerConfig{})
+	client := &clientConn{server: server}
+
+	// Try to get status without joining a session
+	_, err := client.dispatch("session.status", nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no session active")
+}
+
+func TestServer_ClientCount(t *testing.T) {
+	backend := &mockBackend{}
+	manager := NewManager(backend)
+
+	server := NewServer(manager, ServerConfig{})
+
+	assert.Equal(t, 0, server.ClientCount())
+
+	// Add a client manually
+	client := &clientConn{server: server}
+	server.addClient(client)
+
+	assert.Equal(t, 1, server.ClientCount())
+}

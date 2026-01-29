@@ -22,6 +22,7 @@ import (
 // It supports both Unix socket (for terminal UI) and WebSocket (for web UI).
 type Server struct {
 	manager    *Manager
+	registry   *Registry
 	unixPath   string
 	httpAddr   string
 	unixLn     net.Listener
@@ -35,12 +36,13 @@ type Server struct {
 
 // clientConn represents a connected client.
 type clientConn struct {
-	ws       *websocket.Conn
-	unix     net.Conn
-	server   *Server
-	subCh    <-chan StateChange
-	unsubFn  func()
-	sendMu   sync.Mutex
+	ws        *websocket.Conn
+	unix      net.Conn
+	server    *Server
+	session   *ManagedSession // Session this client belongs to (if using registry)
+	subCh     <-chan StateChange
+	unsubFn   func()
+	sendMu    sync.Mutex
 }
 
 // ServerConfig configures the server.
@@ -56,6 +58,24 @@ func NewServer(manager *Manager, config ServerConfig) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Server{
 		manager:  manager,
+		unixPath: config.UnixSocket,
+		httpAddr: config.HTTPAddr,
+		upgrader: websocket.Upgrader{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			CheckOrigin:     func(r *http.Request) bool { return true },
+		},
+		clients: make(map[*clientConn]bool),
+		ctx:     ctx,
+		cancel:  cancel,
+	}
+}
+
+// NewServerWithRegistry creates a JSON-RPC server that supports multiple sessions.
+func NewServerWithRegistry(registry *Registry, config ServerConfig) *Server {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Server{
+		registry: registry,
 		unixPath: config.UnixSocket,
 		httpAddr: config.HTTPAddr,
 		upgrader: websocket.Upgrader{
@@ -201,11 +221,28 @@ func (s *Server) removeClient(client *clientConn) {
 	delete(s.clients, client)
 	s.mu.Unlock()
 
+	// Also remove from managed session if applicable
+	if client.session != nil {
+		client.session.RemoveClient(client)
+	}
+
 	if client.unsubFn != nil {
 		client.unsubFn()
 	}
 
 	log.Info("Client disconnected")
+}
+
+// ClientCount returns the number of connected clients.
+func (s *Server) ClientCount() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.clients)
+}
+
+// Registry returns the session registry, if any.
+func (s *Server) Registry() *Registry {
+	return s.registry
 }
 
 // close closes the client connection.
@@ -284,8 +321,6 @@ func (c *clientConn) handleRequest(req jsonRPCRequest) jsonRPCResponse {
 
 // dispatch routes the request to the appropriate handler.
 func (c *clientConn) dispatch(method string, params interface{}) (interface{}, error) {
-	m := c.server.manager
-
 	// Convert params to map if needed
 	var p map[string]interface{}
 	if params != nil {
@@ -297,6 +332,87 @@ func (c *clientConn) dispatch(method string, params interface{}) (interface{}, e
 			b, _ := json.Marshal(params)
 			json.Unmarshal(b, &p)
 		}
+	}
+
+	// Handle registry/session management methods first
+	if c.server.registry != nil {
+		switch method {
+		case "sessions.list":
+			return c.server.registry.ListSessions(), nil
+
+		case "sessions.create":
+			name, _ := p["name"].(string)
+			session, err := c.server.registry.CreateSession(name)
+			if err != nil {
+				return nil, err
+			}
+			return session.Info(), nil
+
+		case "sessions.join":
+			sessionID, _ := p["id"].(string)
+			if sessionID == "" {
+				return nil, fmt.Errorf("session id required")
+			}
+			session, ok := c.server.registry.GetSession(sessionID)
+			if !ok {
+				return nil, fmt.Errorf("session not found: %s", sessionID)
+			}
+			// Leave current session if any
+			if c.session != nil {
+				c.session.RemoveClient(c)
+				if c.unsubFn != nil {
+					c.unsubFn()
+				}
+			}
+			// Join new session
+			c.session = session
+			session.AddClient(c)
+			c.subCh, c.unsubFn = session.Manager.Subscribe(100)
+			go c.forwardStateChanges()
+			return session.Info(), nil
+
+		case "sessions.leave":
+			if c.session == nil {
+				return nil, fmt.Errorf("not in a session")
+			}
+			c.session.RemoveClient(c)
+			if c.unsubFn != nil {
+				c.unsubFn()
+			}
+			c.session = nil
+			return map[string]bool{"left": true}, nil
+
+		case "sessions.info":
+			sessionID, _ := p["id"].(string)
+			if sessionID == "" {
+				// Return info about current session
+				if c.session != nil {
+					return c.session.Info(), nil
+				}
+				return nil, fmt.Errorf("not in a session and no id provided")
+			}
+			session, ok := c.server.registry.GetSession(sessionID)
+			if !ok {
+				return nil, fmt.Errorf("session not found: %s", sessionID)
+			}
+			return session.Info(), nil
+
+		case "sessions.delete":
+			sessionID, _ := p["id"].(string)
+			if sessionID == "" {
+				return nil, fmt.Errorf("session id required")
+			}
+			if err := c.server.registry.DeleteSession(sessionID); err != nil {
+				return nil, err
+			}
+			return map[string]bool{"deleted": true}, nil
+		}
+	}
+
+	// Get the manager for session-specific operations
+	m := c.getManager()
+	if m == nil {
+		return nil, fmt.Errorf("no session active - use sessions.join first")
 	}
 
 	switch method {
@@ -351,6 +467,16 @@ func (c *clientConn) dispatch(method string, params interface{}) (interface{}, e
 	default:
 		return nil, fmt.Errorf("unknown method: %s", method)
 	}
+}
+
+// getManager returns the manager for this client's session.
+func (c *clientConn) getManager() *Manager {
+	// If client is in a managed session, use that manager
+	if c.session != nil {
+		return c.session.Manager
+	}
+	// Otherwise use the server's default manager
+	return c.server.manager
 }
 
 // getFloat gets a float64 from a map with a default value.
