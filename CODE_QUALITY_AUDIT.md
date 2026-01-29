@@ -139,12 +139,13 @@ Note: `pkg/errors` remains as an indirect dependency via `gowid`.
 | `pkg/theme` | **14.0%** | 2 | ~140 | Low |
 | `ui/` | **0.7%** | 1 | ~4400 | Critical |
 | `pkg/pcap` | **26.4%** | 4+ | ~2400 | Medium |
-| `configs/profiles` | **26.0%** | 1 | ~350 | Medium |
+| `configs/profiles` | **39.0%** | 22 | ~350 | Good |
 | `cmd/termshark` | **0%** | 0 | ~1400 | High |
 
 **Recent Coverage Improvements:**
 - `pkg/pcap`: 0% → 26.4% (handler tests, loader mocks)
 - `pkg/lifecycle`: 93.8% → 100%
+- `configs/profiles`: 26% → 39% (nil viper handling, precedence, edge cases)
 - `widgets/number`: 93.5% → 100%
 - `pkg/app`: 54% (tree functions fully tested)
 - `pkg/pdmltree`: 25% (comprehensive tests added)
@@ -411,7 +412,7 @@ type HandlerList[T any] []T
 10. Create `AppState` struct for UI globals
 
 ### Phase 4: Testing (Medium Term)
-11. Add tests for configuration loading
+11. ~~Add tests for configuration loading~~ DONE (configs/profiles 26% → 39%)
 12. Add tests for loader state machine
 13. Add integration tests with mock tshark
 
