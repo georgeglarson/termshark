@@ -859,6 +859,138 @@ func TestHandleManagerRequest_Follow(t *testing.T) {
 	assert.Contains(t, payload, "d")
 }
 
+func TestSubscription(t *testing.T) {
+	backend := &mockBackend{
+		status: &state.Status{PacketCount: 10},
+	}
+	manager := state.NewManager(backend)
+	server := NewServerWithManager("127.0.0.1:18096", manager)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start server
+	serverErr := make(chan error, 1)
+	go func() {
+		serverErr <- server.Start(ctx)
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+
+	// Connect via WebSocket
+	wsURL := "ws://127.0.0.1:18096/ws"
+	ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Skipf("Could not connect to WebSocket: %v", err)
+		return
+	}
+	defer ws.Close()
+
+	// Test subscribe
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "subscribe",
+		Params:  map[string]interface{}{"event": "packets.update"},
+	}
+	err = ws.WriteJSON(req)
+	require.NoError(t, err)
+
+	var resp JSONRPCResponse
+	err = ws.ReadJSON(&resp)
+	require.NoError(t, err)
+	assert.Nil(t, resp.Error)
+	assert.Contains(t, string(resp.Result), "ok")
+
+	// Test unsubscribe
+	req = JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      2,
+		Method:  "unsubscribe",
+		Params:  map[string]interface{}{"event": "packets.update"},
+	}
+	err = ws.WriteJSON(req)
+	require.NoError(t, err)
+
+	err = ws.ReadJSON(&resp)
+	require.NoError(t, err)
+	assert.Nil(t, resp.Error)
+	assert.Contains(t, string(resp.Result), "ok")
+
+	// Test subscribe without event parameter
+	req = JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      3,
+		Method:  "subscribe",
+		Params:  map[string]interface{}{},
+	}
+	err = ws.WriteJSON(req)
+	require.NoError(t, err)
+
+	err = ws.ReadJSON(&resp)
+	require.NoError(t, err)
+	assert.NotNil(t, resp.Error)
+	assert.Contains(t, resp.Error.Message, "event parameter required")
+}
+
+func TestBroadcast(t *testing.T) {
+	backend := &mockBackend{
+		status: &state.Status{PacketCount: 10},
+	}
+	manager := state.NewManager(backend)
+	server := NewServerWithManager("127.0.0.1:18097", manager)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start server
+	serverErr := make(chan error, 1)
+	go func() {
+		serverErr <- server.Start(ctx)
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+
+	// Connect via WebSocket
+	wsURL := "ws://127.0.0.1:18097/ws"
+	ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Skipf("Could not connect to WebSocket: %v", err)
+		return
+	}
+	defer ws.Close()
+
+	// Subscribe to packets.update
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "subscribe",
+		Params:  map[string]interface{}{"event": "packets.update"},
+	}
+	err = ws.WriteJSON(req)
+	require.NoError(t, err)
+
+	var resp JSONRPCResponse
+	err = ws.ReadJSON(&resp)
+	require.NoError(t, err)
+	assert.Nil(t, resp.Error)
+
+	// Broadcast an update
+	server.NotifyPacketUpdate(100)
+
+	// Read the push notification
+	ws.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_, message, err := ws.ReadMessage()
+	require.NoError(t, err)
+
+	var notification map[string]interface{}
+	err = json.Unmarshal(message, &notification)
+	require.NoError(t, err)
+	assert.Equal(t, "packets.update", notification["method"])
+	params := notification["params"].(map[string]interface{})
+	assert.Equal(t, float64(100), params["count"])
+}
+
 func TestServerWebSocketWithRegistry(t *testing.T) {
 	registry := state.NewRegistry(state.RegistryConfig{})
 	server := NewServerWithRegistry("127.0.0.1:18095", registry)

@@ -7,6 +7,7 @@ class SharkdClient {
         this.pendingRequests = new Map();
         this.onStatusChange = null;
         this.supportsRegistry = false;
+        this.eventHandlers = new Map(); // For push notifications
     }
 
     connect() {
@@ -40,6 +41,17 @@ class SharkdClient {
 
         this.ws.onmessage = (event) => {
             const response = JSON.parse(event.data);
+
+            // Check if this is a push notification (no id field)
+            if (response.method && !response.id) {
+                const handler = this.eventHandlers.get(response.method);
+                if (handler) {
+                    handler(response.params);
+                }
+                return;
+            }
+
+            // Regular RPC response
             const pending = this.pendingRequests.get(response.id);
             if (pending) {
                 this.pendingRequests.delete(response.id);
@@ -50,6 +62,18 @@ class SharkdClient {
                 }
             }
         };
+    }
+
+    // Subscribe to push notifications
+    async subscribe(event, handler) {
+        this.eventHandlers.set(event, handler);
+        return this.call('subscribe', { event: event });
+    }
+
+    // Unsubscribe from push notifications
+    async unsubscribe(event) {
+        this.eventHandlers.delete(event);
+        return this.call('unsubscribe', { event: event });
     }
 
     async call(method, params = {}) {
@@ -898,6 +922,9 @@ class App {
             }, 100);
         });
 
+        // Subscribe to push notifications
+        await this.setupPushNotifications();
+
         // Check if server supports session registry
         const hasRegistry = await this.client.checkRegistrySupport();
 
@@ -975,6 +1002,28 @@ class App {
             }
         } catch (error) {
             console.error('Failed to get status:', error);
+        }
+    }
+
+    async setupPushNotifications() {
+        try {
+            // Subscribe to packet updates
+            await this.client.subscribe('packets.update', (params) => {
+                console.log('Packet update:', params.count);
+                // Refresh frames when packet count changes
+                this.loadFrames();
+            });
+
+            // Subscribe to capture state changes
+            await this.client.subscribe('capture.state', (params) => {
+                console.log('Capture state:', params);
+                if (this.captureControls) {
+                    this.captureControls.setCapturingState(params.capturing);
+                }
+            });
+        } catch (error) {
+            // Push notifications not supported, fall back to polling
+            console.log('Push notifications not available:', error.message);
         }
     }
 

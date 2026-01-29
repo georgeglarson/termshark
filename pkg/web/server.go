@@ -40,7 +40,17 @@ type Server struct {
 
 // clientState tracks per-connection state
 type clientState struct {
-	session *state.ManagedSession
+	session       *state.ManagedSession
+	conn          *websocket.Conn
+	subscriptions map[string]bool // Event types this client is subscribed to
+	mu            sync.RWMutex
+}
+
+// PushNotification is a server-initiated notification sent to clients.
+type PushNotification struct {
+	JSONRPC string      `json:"jsonrpc"`
+	Method  string      `json:"method"`
+	Params  interface{} `json:"params,omitempty"`
 }
 
 // NewServer creates a new web server with a SharkdClient.
@@ -150,7 +160,10 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	clientSt := &clientState{}
+	clientSt := &clientState{
+		conn:          conn,
+		subscriptions: make(map[string]bool),
+	}
 	s.mu.Lock()
 	s.clients[conn] = clientSt
 	s.mu.Unlock()
@@ -181,6 +194,37 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		var req JSONRPCRequest
 		if err := json.Unmarshal(message, &req); err != nil {
 			s.sendError(conn, 0, -32700, "Parse error")
+			continue
+		}
+
+		// Handle subscription methods first (available for all clients)
+		if req.Method == "subscribe" || req.Method == "unsubscribe" {
+			var p map[string]interface{}
+			if req.Params != nil {
+				switch v := req.Params.(type) {
+				case map[string]interface{}:
+					p = v
+				default:
+					b, _ := json.Marshal(req.Params)
+					json.Unmarshal(b, &p)
+				}
+			}
+			event, _ := p["event"].(string)
+			if event == "" {
+				s.sendError(conn, req.ID, -32602, "event parameter required")
+				continue
+			}
+			if req.Method == "subscribe" {
+				clientSt.Subscribe(event)
+			} else {
+				clientSt.Unsubscribe(event)
+			}
+			resp := JSONRPCResponse{
+				JSONRPC: "2.0",
+				ID:      req.ID,
+				Result:  json.RawMessage(`{"status":"ok"}`),
+			}
+			conn.WriteJSON(resp)
 			continue
 		}
 
@@ -773,4 +817,96 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 // Addr returns the server address.
 func (s *Server) Addr() string {
 	return s.addr
+}
+
+// Broadcast sends a push notification to all connected clients subscribed to the event.
+func (s *Server) Broadcast(event string, params interface{}) {
+	notification := PushNotification{
+		JSONRPC: "2.0",
+		Method:  event,
+		Params:  params,
+	}
+
+	s.mu.RLock()
+	clients := make([]*clientState, 0, len(s.clients))
+	for _, client := range s.clients {
+		clients = append(clients, client)
+	}
+	s.mu.RUnlock()
+
+	for _, client := range clients {
+		client.mu.RLock()
+		subscribed := client.subscriptions[event]
+		conn := client.conn
+		client.mu.RUnlock()
+
+		if subscribed && conn != nil {
+			go func(c *websocket.Conn) {
+				c.WriteJSON(notification)
+			}(conn)
+		}
+	}
+}
+
+// BroadcastToSession sends a push notification to all clients in a specific session.
+func (s *Server) BroadcastToSession(session *state.ManagedSession, event string, params interface{}) {
+	notification := PushNotification{
+		JSONRPC: "2.0",
+		Method:  event,
+		Params:  params,
+	}
+
+	s.mu.RLock()
+	clients := make([]*clientState, 0)
+	for _, client := range s.clients {
+		if client.session == session {
+			clients = append(clients, client)
+		}
+	}
+	s.mu.RUnlock()
+
+	for _, client := range clients {
+		client.mu.RLock()
+		subscribed := client.subscriptions[event]
+		conn := client.conn
+		client.mu.RUnlock()
+
+		if subscribed && conn != nil {
+			go func(c *websocket.Conn) {
+				c.WriteJSON(notification)
+			}(conn)
+		}
+	}
+}
+
+// Subscribe adds an event subscription for a client.
+func (cs *clientState) Subscribe(event string) {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	if cs.subscriptions == nil {
+		cs.subscriptions = make(map[string]bool)
+	}
+	cs.subscriptions[event] = true
+}
+
+// Unsubscribe removes an event subscription for a client.
+func (cs *clientState) Unsubscribe(event string) {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	delete(cs.subscriptions, event)
+}
+
+// NotifyPacketUpdate sends a packet count update to subscribed clients.
+func (s *Server) NotifyPacketUpdate(packetCount int) {
+	s.Broadcast("packets.update", map[string]interface{}{
+		"count": packetCount,
+	})
+}
+
+// NotifyCaptureState sends a capture state change to subscribed clients.
+func (s *Server) NotifyCaptureState(capturing bool, iface string) {
+	s.Broadcast("capture.state", map[string]interface{}{
+		"capturing": capturing,
+		"interface": iface,
+	})
 }
