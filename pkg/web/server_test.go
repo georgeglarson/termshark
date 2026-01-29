@@ -1168,6 +1168,569 @@ func TestHandleDownload(t *testing.T) {
 	})
 }
 
+func TestHandleManagerRequestWithManager_Frames(t *testing.T) {
+	backend := &mockBackend{
+		status: &state.Status{PacketCount: 3},
+		packets: []state.PacketSummary{
+			{Number: 1, Columns: []string{"1", "0.000", "10.0.0.1"}, BGColor: "#ff0000", FGColor: "#ffffff"},
+			{Number: 2, Columns: []string{"2", "0.001", "10.0.0.2"}},
+			{Number: 3, Columns: []string{"3", "0.002", "10.0.0.3"}},
+		},
+	}
+	manager := state.NewManager(backend)
+	server := NewServerWithManager("127.0.0.1:0", manager)
+
+	// Test frames with skip and limit
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "frames",
+		Params:  map[string]interface{}{"skip": float64(0), "limit": float64(100)},
+	}
+	result, err := server.handleManagerRequestWithManager(req, manager)
+	require.NoError(t, err)
+
+	var frames []map[string]interface{}
+	err = json.Unmarshal(result, &frames)
+	require.NoError(t, err)
+	assert.Len(t, frames, 3)
+
+	// Verify frame structure
+	assert.Equal(t, float64(1), frames[0]["num"])
+	assert.Equal(t, []interface{}{"1", "0.000", "10.0.0.1"}, frames[0]["c"])
+	// Verify colors are included when present
+	assert.Equal(t, "#ff0000", frames[0]["bg"])
+	assert.Equal(t, "#ffffff", frames[0]["fg"])
+	// Verify colors are omitted when empty
+	_, hasBg := frames[1]["bg"]
+	_, hasFg := frames[1]["fg"]
+	assert.False(t, hasBg)
+	assert.False(t, hasFg)
+}
+
+func TestHandleManagerRequestWithManager_Frame(t *testing.T) {
+	backend := &mockBackend{
+		status: &state.Status{PacketCount: 10},
+		packetDetail: &state.PacketDetail{
+			Number: 1,
+			Tree: []state.ProtocolNode{
+				{
+					Label:    "Ethernet II",
+					Field:    "eth",
+					Position: 0,
+					Size:     14,
+					Children: []state.ProtocolNode{
+						{Label: "Destination", Field: "eth.dst", Position: 0, Size: 6},
+					},
+				},
+			},
+			Bytes: []byte{0xde, 0xad, 0xbe, 0xef},
+		},
+	}
+	manager := state.NewManager(backend)
+	server := NewServerWithManager("127.0.0.1:0", manager)
+
+	// Test frame detail
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "frame",
+		Params:  map[string]interface{}{"frame": float64(1), "proto": true, "bytes": true},
+	}
+	result, err := server.handleManagerRequestWithManager(req, manager)
+	require.NoError(t, err)
+
+	var frameData map[string]interface{}
+	err = json.Unmarshal(result, &frameData)
+	require.NoError(t, err)
+
+	// Verify tree
+	tree := frameData["tree"].([]interface{})
+	require.Len(t, tree, 1)
+	node := tree[0].(map[string]interface{})
+	assert.Equal(t, "Ethernet II", node["l"])
+	assert.Equal(t, "eth", node["f"])
+	// Children
+	children := node["n"].([]interface{})
+	require.Len(t, children, 1)
+	child := children[0].(map[string]interface{})
+	assert.Equal(t, "Destination", child["l"])
+
+	// Verify bytes (base64 of 0xdeadbeef)
+	assert.Equal(t, "3q2+7w==", frameData["bytes"])
+
+	// Test frame without number
+	req = JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      2,
+		Method:  "frame",
+		Params:  map[string]interface{}{},
+	}
+	_, err = server.handleManagerRequestWithManager(req, manager)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "frame number required")
+}
+
+func TestHandleManagerRequestWithManager_Follow(t *testing.T) {
+	streamPayload := []byte("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
+	backend := &mockBackend{
+		status:     &state.Status{PacketCount: 10},
+		streamData: streamPayload,
+	}
+	manager := state.NewManager(backend)
+	server := NewServerWithManager("127.0.0.1:0", manager)
+
+	// Test follow with valid params
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "follow",
+		Params:  map[string]interface{}{"follow": "tcp", "stream": float64(0)},
+	}
+	result, err := server.handleManagerRequestWithManager(req, manager)
+	require.NoError(t, err)
+
+	var followData map[string]interface{}
+	err = json.Unmarshal(result, &followData)
+	require.NoError(t, err)
+
+	payloads := followData["payloads"].([]interface{})
+	require.Len(t, payloads, 1)
+	payload := payloads[0].(map[string]interface{})
+	assert.Contains(t, payload, "d")
+
+	// Test follow without protocol
+	req = JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      2,
+		Method:  "follow",
+		Params:  map[string]interface{}{},
+	}
+	_, err = server.handleManagerRequestWithManager(req, manager)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "protocol required")
+}
+
+func TestHandleManagerRequestWithManager_Check(t *testing.T) {
+	backend := &mockBackend{
+		status:      &state.Status{PacketCount: 10},
+		filterValid: false,
+	}
+	manager := state.NewManager(backend)
+	server := NewServerWithManager("127.0.0.1:0", manager)
+
+	// Test invalid filter
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "check",
+		Params:  map[string]interface{}{"filter": "bad filter ==="},
+	}
+	result, err := server.handleManagerRequestWithManager(req, manager)
+	require.NoError(t, err)
+
+	var checkResp map[string]bool
+	err = json.Unmarshal(result, &checkResp)
+	require.NoError(t, err)
+	assert.False(t, checkResp["ok"])
+}
+
+func TestHandleManagerRequestWithManager_SetFilter(t *testing.T) {
+	backend := &mockBackend{
+		status:      &state.Status{PacketCount: 10},
+		filterValid: true,
+	}
+	manager := state.NewManager(backend)
+	server := NewServerWithManager("127.0.0.1:0", manager)
+
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "setfilter",
+		Params:  map[string]interface{}{"filter": "tcp.port == 80"},
+	}
+	result, err := server.handleManagerRequestWithManager(req, manager)
+	require.NoError(t, err)
+
+	var status map[string]string
+	err = json.Unmarshal(result, &status)
+	require.NoError(t, err)
+	assert.Equal(t, "ok", status["status"])
+}
+
+func TestHandleManagerRequestWithManager_Load(t *testing.T) {
+	backend := &mockBackend{
+		status: &state.Status{PacketCount: 100},
+	}
+	manager := state.NewManager(backend)
+	server := NewServerWithManager("127.0.0.1:0", manager)
+
+	// Test load without path
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "load",
+		Params:  map[string]interface{}{},
+	}
+	_, err := server.handleManagerRequestWithManager(req, manager)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "file path required")
+
+	// Test load with path
+	req = JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      2,
+		Method:  "load",
+		Params:  map[string]interface{}{"file": "/tmp/test.pcap"},
+	}
+	result, err := server.handleManagerRequestWithManager(req, manager)
+	require.NoError(t, err)
+
+	var loadResp map[string]string
+	err = json.Unmarshal(result, &loadResp)
+	require.NoError(t, err)
+	assert.Equal(t, "ok", loadResp["status"])
+}
+
+func TestHandleManagerRequest_Frames(t *testing.T) {
+	backend := &mockBackend{
+		status: &state.Status{PacketCount: 2},
+		packets: []state.PacketSummary{
+			{Number: 1, Columns: []string{"1", "0.000", "10.0.0.1"}, BGColor: "#aaa"},
+			{Number: 2, Columns: []string{"2", "0.001", "10.0.0.2"}, FGColor: "#bbb"},
+		},
+	}
+	manager := state.NewManager(backend)
+	server := NewServerWithManager("127.0.0.1:0", manager)
+
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "frames",
+		Params:  map[string]interface{}{"limit": float64(50)},
+	}
+	result, err := server.handleManagerRequest(req)
+	require.NoError(t, err)
+
+	var frames []map[string]interface{}
+	err = json.Unmarshal(result, &frames)
+	require.NoError(t, err)
+	assert.Len(t, frames, 2)
+	assert.Equal(t, float64(1), frames[0]["num"])
+	assert.Equal(t, "#aaa", frames[0]["bg"])
+	_, hasFg0 := frames[0]["fg"]
+	assert.False(t, hasFg0)
+	assert.Equal(t, "#bbb", frames[1]["fg"])
+}
+
+func TestHandleManagerRequest_FrameDetail(t *testing.T) {
+	backend := &mockBackend{
+		status: &state.Status{PacketCount: 10},
+		packetDetail: &state.PacketDetail{
+			Number: 5,
+			Tree:   []state.ProtocolNode{{Label: "IP", Field: "ip", Position: 14, Size: 20}},
+			Bytes:  []byte{0xca, 0xfe},
+		},
+	}
+	manager := state.NewManager(backend)
+	server := NewServerWithManager("127.0.0.1:0", manager)
+
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "frame",
+		Params:  map[string]interface{}{"frame": float64(5)},
+	}
+	result, err := server.handleManagerRequest(req)
+	require.NoError(t, err)
+
+	var frameData map[string]interface{}
+	err = json.Unmarshal(result, &frameData)
+	require.NoError(t, err)
+	assert.NotNil(t, frameData["tree"])
+	assert.Equal(t, "yv4=", frameData["bytes"]) // base64 of 0xcafe
+}
+
+func TestHandleManagerRequest_FollowStream(t *testing.T) {
+	backend := &mockBackend{
+		status:     &state.Status{PacketCount: 10},
+		streamData: []byte("HTTP/1.1 200 OK\r\n\r\nHello"),
+	}
+	manager := state.NewManager(backend)
+	server := NewServerWithManager("127.0.0.1:0", manager)
+
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "follow",
+		Params:  map[string]interface{}{"follow": "tcp", "stream": float64(1)},
+	}
+	result, err := server.handleManagerRequest(req)
+	require.NoError(t, err)
+
+	var followData map[string]interface{}
+	err = json.Unmarshal(result, &followData)
+	require.NoError(t, err)
+	payloads := followData["payloads"].([]interface{})
+	assert.Len(t, payloads, 1)
+
+	// Without protocol
+	req = JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      2,
+		Method:  "follow",
+		Params:  map[string]interface{}{},
+	}
+	_, err = server.handleManagerRequest(req)
+	assert.Error(t, err)
+}
+
+func TestHandleManagerRequest_Check(t *testing.T) {
+	backend := &mockBackend{
+		status:      &state.Status{PacketCount: 10},
+		filterValid: true,
+	}
+	manager := state.NewManager(backend)
+	server := NewServerWithManager("127.0.0.1:0", manager)
+
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "check",
+		Params:  map[string]interface{}{"filter": "tcp"},
+	}
+	result, err := server.handleManagerRequest(req)
+	require.NoError(t, err)
+
+	var checkResp map[string]bool
+	err = json.Unmarshal(result, &checkResp)
+	require.NoError(t, err)
+	assert.True(t, checkResp["ok"])
+}
+
+func TestHandleManagerRequest_StatusWithBackendError(t *testing.T) {
+	// Manager.GetStatus() swallows backend errors and returns session state
+	backend := &mockBackend{
+		err: assert.AnError,
+	}
+	manager := state.NewManager(backend)
+	server := NewServerWithManager("127.0.0.1:0", manager)
+
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "status",
+	}
+	result, err := server.handleManagerRequest(req)
+	require.NoError(t, err)
+
+	// Should still return status from session (with zero values)
+	var status map[string]interface{}
+	json.Unmarshal(result, &status)
+	assert.Equal(t, float64(0), status["frames"])
+}
+
+func TestHandleLoadFile(t *testing.T) {
+	t.Run("wrong method", func(t *testing.T) {
+		backend := &mockBackend{status: &state.Status{}}
+		manager := state.NewManager(backend)
+		server := NewServerWithManager(":0", manager)
+
+		req := httptest.NewRequest("GET", "/api/load", nil)
+		w := httptest.NewRecorder()
+		server.handleLoadFile(w, req)
+		assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+	})
+
+	t.Run("empty body", func(t *testing.T) {
+		backend := &mockBackend{status: &state.Status{}}
+		manager := state.NewManager(backend)
+		server := NewServerWithManager(":0", manager)
+
+		req := httptest.NewRequest("POST", "/api/load", strings.NewReader("{}"))
+		w := httptest.NewRecorder()
+		server.handleLoadFile(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("invalid json", func(t *testing.T) {
+		backend := &mockBackend{status: &state.Status{}}
+		manager := state.NewManager(backend)
+		server := NewServerWithManager(":0", manager)
+
+		req := httptest.NewRequest("POST", "/api/load", strings.NewReader("not json"))
+		w := httptest.NewRecorder()
+		server.handleLoadFile(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("valid load", func(t *testing.T) {
+		backend := &mockBackend{status: &state.Status{PacketCount: 10}}
+		manager := state.NewManager(backend)
+		server := NewServerWithManager(":0", manager)
+
+		req := httptest.NewRequest("POST", "/api/load", strings.NewReader(`{"file":"/tmp/test.pcap"}`))
+		w := httptest.NewRecorder()
+		server.handleLoadFile(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Contains(t, w.Body.String(), "ok")
+	})
+
+	t.Run("load error", func(t *testing.T) {
+		backend := &mockBackend{
+			status: &state.Status{},
+			err:    assert.AnError,
+		}
+		manager := state.NewManager(backend)
+		server := NewServerWithManager(":0", manager)
+
+		req := httptest.NewRequest("POST", "/api/load", strings.NewReader(`{"file":"/bad/path.pcap"}`))
+		w := httptest.NewRecorder()
+		server.handleLoadFile(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+}
+
+func TestNotifyCaptureState(t *testing.T) {
+	backend := &mockBackend{status: &state.Status{PacketCount: 10}}
+	manager := state.NewManager(backend)
+	server := NewServerWithManager("127.0.0.1:18098", manager)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		server.Start(ctx)
+	}()
+	time.Sleep(200 * time.Millisecond)
+
+	// Connect and subscribe to capture.state
+	wsURL := "ws://127.0.0.1:18098/ws"
+	ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Skipf("Could not connect: %v", err)
+	}
+	defer ws.Close()
+
+	subReq := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "subscribe",
+		Params:  map[string]interface{}{"event": "capture.state"},
+	}
+	ws.WriteJSON(subReq)
+	var resp JSONRPCResponse
+	ws.ReadJSON(&resp)
+	require.Nil(t, resp.Error)
+
+	// Send capture state notification
+	server.NotifyCaptureState(true, "eth0")
+
+	ws.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_, message, err := ws.ReadMessage()
+	require.NoError(t, err)
+
+	var notification map[string]interface{}
+	err = json.Unmarshal(message, &notification)
+	require.NoError(t, err)
+	assert.Equal(t, "capture.state", notification["method"])
+	params := notification["params"].(map[string]interface{})
+	assert.Equal(t, true, params["capturing"])
+	assert.Equal(t, "eth0", params["interface"])
+}
+
+func TestBroadcastToSession(t *testing.T) {
+	registry := state.NewRegistry(state.RegistryConfig{})
+	server := NewServerWithRegistry("127.0.0.1:18099", registry)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		server.Start(ctx)
+	}()
+	time.Sleep(200 * time.Millisecond)
+
+	wsURL := "ws://127.0.0.1:18099/ws"
+
+	// Connect client 1 and join a session
+	ws1, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Skipf("Could not connect: %v", err)
+	}
+	defer ws1.Close()
+
+	// Create and join a session
+	ws1.WriteJSON(JSONRPCRequest{JSONRPC: "2.0", ID: 1, Method: "sessions.create", Params: map[string]interface{}{"name": "broadcast-test"}})
+	var resp JSONRPCResponse
+	ws1.ReadJSON(&resp)
+	var session map[string]interface{}
+	json.Unmarshal(resp.Result, &session)
+	sessionID := session["id"].(string)
+
+	ws1.WriteJSON(JSONRPCRequest{JSONRPC: "2.0", ID: 2, Method: "sessions.join", Params: map[string]interface{}{"id": sessionID}})
+	ws1.ReadJSON(&resp)
+
+	// Subscribe to event
+	ws1.WriteJSON(JSONRPCRequest{JSONRPC: "2.0", ID: 3, Method: "subscribe", Params: map[string]interface{}{"event": "test.event"}})
+	ws1.ReadJSON(&resp)
+
+	// Connect client 2 (not in session) and subscribe to same event
+	ws2, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	require.NoError(t, err)
+	defer ws2.Close()
+
+	ws2.WriteJSON(JSONRPCRequest{JSONRPC: "2.0", ID: 1, Method: "subscribe", Params: map[string]interface{}{"event": "test.event"}})
+	ws2.ReadJSON(&resp)
+
+	// Get the managed session to broadcast to
+	managedSession, found := registry.GetSession(sessionID)
+	require.True(t, found)
+
+	// Broadcast to session only
+	server.BroadcastToSession(managedSession, "test.event", map[string]string{"msg": "hello"})
+
+	// Client 1 (in session) should receive
+	ws1.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_, message, err := ws1.ReadMessage()
+	require.NoError(t, err)
+	var notification map[string]interface{}
+	json.Unmarshal(message, &notification)
+	assert.Equal(t, "test.event", notification["method"])
+
+	// Client 2 (not in session) should NOT receive - verify timeout
+	ws2.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	_, _, err = ws2.ReadMessage()
+	assert.Error(t, err) // Should timeout
+}
+
+func TestHandleManagerRequest_ParamsConversion(t *testing.T) {
+	// Test that non-map params are converted via JSON round-trip
+	backend := &mockBackend{
+		status:      &state.Status{PacketCount: 10},
+		filterValid: true,
+	}
+	manager := state.NewManager(backend)
+	server := NewServerWithManager("127.0.0.1:0", manager)
+
+	// Send params as a struct (non-map type) to exercise the default case
+	type customParams struct {
+		Filter string `json:"filter"`
+	}
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "check",
+		Params:  customParams{Filter: "tcp"},
+	}
+	result, err := server.handleManagerRequest(req)
+	require.NoError(t, err)
+
+	var checkResp map[string]bool
+	json.Unmarshal(result, &checkResp)
+	assert.True(t, checkResp["ok"])
+}
+
 // createTempPcap creates a minimal valid pcap file for testing
 func createTempPcap(t *testing.T) (string, error) {
 	t.Helper()

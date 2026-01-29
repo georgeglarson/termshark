@@ -288,3 +288,72 @@ func TestManager_Close_NilBackend(t *testing.T) {
 	err := m.Close()
 	assert.NoError(t, err)
 }
+
+func TestManager_FollowStream(t *testing.T) {
+	streamData := []byte("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
+	backend := &mockFollowBackend{
+		mockBackend: mockBackend{},
+		streamData:  streamData,
+	}
+	m := NewManager(backend)
+
+	data, err := m.FollowStream("tcp", 0)
+	assert.NoError(t, err)
+	assert.Equal(t, streamData, data)
+}
+
+func TestManager_FollowStream_Error(t *testing.T) {
+	backend := &mockFollowBackend{
+		mockBackend: mockBackend{},
+		streamError: errors.New("stream not found"),
+	}
+	m := NewManager(backend)
+
+	_, err := m.FollowStream("tcp", 99)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "stream not found")
+}
+
+func TestManager_FollowStream_NilBackend(t *testing.T) {
+	m := NewManager(nil)
+
+	_, err := m.FollowStream("tcp", 0)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no backend available")
+}
+
+// mockFollowBackend extends mockBackend with configurable FollowStream
+type mockFollowBackend struct {
+	mockBackend
+	streamData  []byte
+	streamError error
+}
+
+func (m *mockFollowBackend) FollowStream(ctx context.Context, protocol string, streamIndex int) ([]byte, error) {
+	if m.streamError != nil {
+		return nil, m.streamError
+	}
+	return m.streamData, nil
+}
+
+func TestManager_StopCapture_WhenNotCapturing(t *testing.T) {
+	backend := &mockBackend{}
+	m := NewManager(backend)
+
+	err := m.StopCapture()
+	assert.NoError(t, err)
+}
+
+func TestManager_IsCapturing_Initial(t *testing.T) {
+	backend := &mockBackend{}
+	m := NewManager(backend)
+
+	assert.False(t, m.IsCapturing())
+}
+
+func TestManager_GetCaptureFile_NoCapture(t *testing.T) {
+	backend := &mockBackend{}
+	m := NewManager(backend)
+
+	assert.Equal(t, "", m.GetCaptureFile())
+}
