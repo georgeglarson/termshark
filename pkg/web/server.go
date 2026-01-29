@@ -372,7 +372,18 @@ func (s *Server) handleManagerRequestWithManager(req JSONRPCRequest, manager *st
 
 	switch req.Method {
 	case "status":
-		result, err = manager.GetStatus()
+		status, statusErr := manager.GetStatus()
+		if statusErr != nil {
+			err = statusErr
+		} else {
+			// Return sharkd-compatible format for frontend
+			result = map[string]interface{}{
+				"frames":   status.PacketCount,
+				"duration": status.Duration,
+				"columns":  status.Columns,
+				"filename": status.Source,
+			}
+		}
 
 	case "load":
 		path, _ := p["file"].(string)
@@ -524,7 +535,17 @@ func (s *Server) handleManagerRequest(req JSONRPCRequest) (json.RawMessage, erro
 
 	switch req.Method {
 	case "status":
-		result, err = s.manager.GetStatus()
+		status, statusErr := s.manager.GetStatus()
+		if statusErr != nil {
+			err = statusErr
+		} else {
+			result = map[string]interface{}{
+				"frames":   status.PacketCount,
+				"duration": status.Duration,
+				"columns":  status.Columns,
+				"filename": status.Source,
+			}
+		}
 
 	case "load":
 		path, _ := p["file"].(string)

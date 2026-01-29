@@ -532,10 +532,11 @@ func TestHandleManagerRequestWithManager(t *testing.T) {
 	statusResult, err := server.handleManagerRequestWithManager(statusReq, manager)
 	require.NoError(t, err)
 
-	var status state.Status
+	var status map[string]interface{}
 	err = json.Unmarshal(statusResult, &status)
 	require.NoError(t, err)
-	assert.Equal(t, 100, status.PacketCount)
+	assert.Equal(t, float64(100), status["frames"])
+	assert.Equal(t, []interface{}{"No.", "Time", "Source"}, status["columns"])
 
 	// Test frames
 	framesReq := JSONRPCRequest{
