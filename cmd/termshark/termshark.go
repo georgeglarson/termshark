@@ -1173,7 +1173,7 @@ func resolveInterfaceNames(psrcs []pcap.IPacketSource) ([]pcap.IPacketSource, er
 			if systemInterfaces == nil {
 				systemInterfaces, err = termshark.Interfaces()
 				if err != nil {
-					return nil, fmt.Errorf("could not enumerate network interfaces: %v", err)
+					return nil, fmt.Errorf("could not enumerate network interfaces: %v\n\nTo capture packets, run with sudo:\n  sudo termshark -i <interface>\n\nOr analyze an existing pcap file:\n  termshark -r <file.pcap>", err)
 				}
 			}
 
