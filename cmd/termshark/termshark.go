@@ -31,7 +31,7 @@ import (
 	"github.com/gcla/termshark/v2/pkg/lifecycle"
 	"github.com/gcla/termshark/v2/pkg/pcap"
 	"github.com/gcla/termshark/v2/pkg/shark"
-	"github.com/gcla/termshark/v2/pkg/state"
+	statemgr "github.com/gcla/termshark/v2/pkg/state"
 	"github.com/gcla/termshark/v2/pkg/system"
 	"github.com/gcla/termshark/v2/pkg/tailfile"
 	"github.com/gcla/termshark/v2/pkg/tty"
@@ -345,6 +345,17 @@ func cmain() int {
 	// This is a global. The type supports swapping out the real loader by embedding it via
 	// pointer, but I assume this only happens in the main goroutine.
 	ui.SetLoader(&pcap.PacketLoader{ParentLoader: pcap.NewPcapLoader(pcap.PcapCmds, &pcap.Runner{IApp: state.app}, pcap.PcapOpts)})
+
+	// Set up unified state manager (Phase 2)
+	// This creates a TsharkBackend that wraps the existing loader, allowing
+	// the state manager to track terminal UI state alongside web UI state.
+	state.stateBackend = statemgr.NewTsharkBackend()
+	state.stateBackend.SetLoader(pcap.NewPacketLoaderAdapter(ui.GetLoader()))
+	state.stateManager = statemgr.NewManager(state.stateBackend)
+	defer state.stateManager.Close()
+
+	// Start periodic sync of loader state to manager
+	go syncLoaderToManager(state.stateBackend, state.stateManager)
 
 	// Populate the filter widget initially - runs asynchronously
 	go ui.GetFilterWidget().UpdateCompletions(state.app)
@@ -931,6 +942,10 @@ type appState struct {
 
 	// Config watcher
 	watcher *confwatcher.ConfigWatcher
+
+	// Unified state management (Phase 2)
+	stateManager *statemgr.Manager
+	stateBackend *statemgr.TsharkBackend
 }
 
 // newAppState creates a new appState with default values.
@@ -1536,7 +1551,7 @@ func runWebServer(addr string, psrcs []pcap.IPacketSource) int {
 	}()
 
 	// Create sharkd backend using the unified state package
-	backend, err := state.NewSharkdBackend(ctx)
+	backend, err := statemgr.NewSharkdBackend(ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to start sharkd: %v\n", err)
 		fmt.Fprintln(os.Stderr, "Make sure sharkd is installed (usually part of wireshark-common).")
@@ -1545,7 +1560,7 @@ func runWebServer(addr string, psrcs []pcap.IPacketSource) int {
 	defer backend.Close()
 
 	// Create state manager
-	manager := state.NewManager(backend)
+	manager := statemgr.NewManager(backend)
 	defer manager.Close()
 
 	// Handle packet sources
@@ -1625,7 +1640,7 @@ func startWebCapture(ctx context.Context, iface string, outFile string) (*exec.C
 }
 
 // refreshCaptureFile periodically reloads the capture file to get new packets.
-func refreshCaptureFile(ctx context.Context, manager *state.Manager, tmpFile string) {
+func refreshCaptureFile(ctx context.Context, manager *statemgr.Manager, tmpFile string) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
@@ -1637,6 +1652,21 @@ func refreshCaptureFile(ctx context.Context, manager *state.Manager, tmpFile str
 			// Reload to get new packets
 			manager.LoadFile(tmpFile)
 		}
+	}
+}
+
+// syncLoaderToManager periodically syncs the PacketLoader state to the state.Manager.
+// This runs in the background for the terminal UI to keep state consistent.
+func syncLoaderToManager(backend *statemgr.TsharkBackend, manager *statemgr.Manager) {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if !ui.IsRunning() {
+			return
+		}
+		// Sync loader state to backend, which updates the manager
+		backend.Sync()
 	}
 }
 
