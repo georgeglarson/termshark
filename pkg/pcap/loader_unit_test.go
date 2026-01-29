@@ -885,6 +885,359 @@ func TestMockCallbacks_TracksAllCalls(t *testing.T) {
 }
 
 //======================================================================
+// State Flag Tests
+//======================================================================
+
+func TestParentLoader_PsmlStoppedDeliberately(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
+
+	assert.False(t, loader.PsmlStoppedDeliberately())
+
+	loader.psmlStoppedDeliberately_ = true
+	assert.True(t, loader.PsmlStoppedDeliberately())
+}
+
+func TestParentLoader_TailStoppedDeliberately(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
+
+	assert.False(t, loader.TailStoppedDeliberately())
+
+	loader.tailStoppedDeliberately = true
+	assert.True(t, loader.TailStoppedDeliberately())
+}
+
+func TestParentLoader_LoadWasCancelled(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
+
+	assert.False(t, loader.LoadWasCancelled())
+
+	loader.loadWasCancelled = true
+	assert.True(t, loader.LoadWasCancelled())
+}
+
+//======================================================================
+// Accessor Method Tests
+//======================================================================
+
+func TestParentLoader_Commands(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
+
+	assert.Equal(t, cmds, loader.Commands())
+}
+
+func TestParentLoader_Context(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
+
+	ctx := loader.Context()
+	assert.NotNil(t, ctx)
+
+	// Context should not be cancelled initially
+	select {
+	case <-ctx.Done():
+		t.Error("context should not be cancelled initially")
+	default:
+		// Expected
+	}
+}
+
+func TestParentLoader_MainRun(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(false) // Collect functions
+	loader := NewPcapLoader(cmds, runner)
+
+	called := false
+	loader.MainRun(func(app gowid.IApp) {
+		called = true
+	})
+
+	// Function should be queued, not executed yet
+	assert.False(t, called)
+	assert.Equal(t, 1, runner.PendingCount())
+
+	// Execute pending functions
+	runner.RunPending(nil)
+	assert.True(t, called)
+}
+
+//======================================================================
+// Stop Method Tests
+//======================================================================
+
+func TestParentLoader_StopLoadPsmlAndIface(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
+
+	// Set up an interface loader
+	loader.RenewIfaceLoader()
+
+	// Initially not stopped
+	assert.False(t, loader.psmlStoppedDeliberately_)
+	assert.False(t, loader.loadWasCancelled)
+
+	// Call stop
+	loader.StopLoadPsmlAndIface(nil)
+
+	// Should set flags
+	assert.True(t, loader.psmlStoppedDeliberately_)
+	assert.True(t, loader.loadWasCancelled)
+}
+
+//======================================================================
+// Context Cancellation Tests
+//======================================================================
+
+func TestParentLoader_ContextCancelledOnCloseMain(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
+
+	ctx := loader.Context()
+
+	// Context should not be cancelled initially
+	select {
+	case <-ctx.Done():
+		t.Error("context should not be cancelled initially")
+	default:
+		// Expected
+	}
+
+	// Close main
+	loader.CloseMain()
+
+	// Context should now be cancelled
+	select {
+	case <-ctx.Done():
+		// Expected
+	default:
+		t.Error("context should be cancelled after CloseMain")
+	}
+}
+
+//======================================================================
+// PacketLoader Renew Tests
+//======================================================================
+
+func TestPacketLoader_Renew(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+
+	parentLoader := NewPcapLoader(cmds, runner)
+	loader := &PacketLoader{ParentLoader: parentLoader}
+
+	// Set up some state
+	loader.PsmlLoader.packetPsmlData = [][]string{{"test"}}
+	loader.PdmlLoader.rowCurrentlyLoading = 42
+	originalCtx := loader.mainCtx
+
+	// Renew
+	loader.Renew()
+
+	// Should have fresh state
+	assert.NotEqual(t, originalCtx, loader.mainCtx)
+	assert.Empty(t, loader.PsmlLoader.packetPsmlData)
+	assert.Equal(t, -1, loader.PdmlLoader.rowCurrentlyLoading)
+}
+
+//======================================================================
+// PsmlLoader State Tests
+//======================================================================
+
+func TestPsmlLoader_StateTransitions(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
+
+	// Initial state
+	assert.Equal(t, NotLoading, loader.PsmlLoader.state)
+	assert.False(t, loader.PsmlLoader.IsLoading())
+
+	// Transition to Loading
+	loader.PsmlLoader.state = Loading
+	assert.True(t, loader.PsmlLoader.IsLoading())
+
+	// Transition back to NotLoading
+	loader.PsmlLoader.state = NotLoading
+	assert.False(t, loader.PsmlLoader.IsLoading())
+}
+
+func TestPdmlLoader_StateTransitions(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
+
+	// Initial state
+	assert.Equal(t, NotLoading, loader.PdmlLoader.state)
+	assert.False(t, loader.PdmlLoader.IsLoading())
+
+	// Transition to Loading
+	loader.PdmlLoader.state = Loading
+	assert.True(t, loader.PdmlLoader.IsLoading())
+
+	// Transition back to NotLoading
+	loader.PdmlLoader.state = NotLoading
+	assert.False(t, loader.PdmlLoader.IsLoading())
+}
+
+func TestInterfaceLoader_StateTransitions(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
+
+	// Create interface loader
+	loader.RenewIfaceLoader()
+
+	// Initial state
+	assert.Equal(t, NotLoading, loader.InterfaceLoader.state)
+	assert.False(t, loader.InterfaceLoader.IsLoading())
+
+	// Transition to Loading
+	loader.InterfaceLoader.state = Loading
+	assert.True(t, loader.InterfaceLoader.IsLoading())
+
+	// Transition back to NotLoading
+	loader.InterfaceLoader.state = NotLoading
+	assert.False(t, loader.InterfaceLoader.IsLoading())
+}
+
+//======================================================================
+// Visibility and Row Loading Tests
+//======================================================================
+
+func TestPdmlLoader_VisibleField(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
+
+	assert.False(t, loader.PdmlLoader.LoadIsVisible())
+
+	loader.PdmlLoader.visible = true
+	assert.True(t, loader.PdmlLoader.LoadIsVisible())
+
+	loader.PdmlLoader.visible = false
+	assert.False(t, loader.PdmlLoader.LoadIsVisible())
+}
+
+func TestPdmlLoader_RowCurrentlyLoadingField(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
+
+	assert.Equal(t, -1, loader.PdmlLoader.LoadingRow())
+
+	loader.PdmlLoader.rowCurrentlyLoading = 100
+	assert.Equal(t, 100, loader.PdmlLoader.LoadingRow())
+
+	loader.PdmlLoader.rowCurrentlyLoading = -1
+	assert.Equal(t, -1, loader.PdmlLoader.LoadingRow())
+}
+
+func TestPdmlLoader_HighestCachedRowField(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
+
+	assert.Equal(t, -1, loader.PdmlLoader.highestCachedRow)
+
+	loader.PdmlLoader.highestCachedRow = 500
+	assert.Equal(t, 500, loader.PdmlLoader.highestCachedRow)
+}
+
+//======================================================================
+// InterfaceLoader Field Tests
+//======================================================================
+
+func TestInterfaceLoader_FifoByteFields(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
+	loader.RenewIfaceLoader()
+
+	// Initially no bytes tracked (Option type with IsNone())
+	assert.True(t, loader.InterfaceLoader.totalFifoBytesWritten.IsNone())
+	assert.True(t, loader.InterfaceLoader.totalFifoBytesRead.IsNone())
+}
+
+func TestInterfaceLoader_FifoErrorField(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
+	loader.RenewIfaceLoader()
+
+	// Initially no error
+	assert.Nil(t, loader.InterfaceLoader.fifoError)
+
+	// Set error
+	testErr := assert.AnError
+	loader.InterfaceLoader.fifoError = testErr
+	assert.Equal(t, testErr, loader.InterfaceLoader.fifoError)
+}
+
+//======================================================================
+// PacketNumberMap Tests
+//======================================================================
+
+func TestPsmlLoader_PacketNumberMap(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
+
+	// Initially empty
+	assert.Empty(t, loader.PsmlLoader.PacketNumberMap)
+	assert.Empty(t, loader.PsmlLoader.PacketNumberOrder)
+
+	// Add mappings
+	loader.PsmlLoader.PacketNumberMap[12] = 0  // Packet 12 is at position 0
+	loader.PsmlLoader.PacketNumberMap[44] = 1  // Packet 44 is at position 1
+	loader.PsmlLoader.PacketNumberOrder[12] = 44 // After 12 comes 44
+
+	assert.Equal(t, 0, loader.PsmlLoader.PacketNumberMap[12])
+	assert.Equal(t, 1, loader.PsmlLoader.PacketNumberMap[44])
+	assert.Equal(t, 44, loader.PsmlLoader.PacketNumberOrder[12])
+}
+
+//======================================================================
+// Stage2 Channel Tests
+//======================================================================
+
+func TestPsmlLoader_Stage2Channels(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
+
+	// Channels should be initialized
+	assert.NotNil(t, loader.PsmlLoader.startStage2Chan)
+	assert.NotNil(t, loader.PsmlLoader.PsmlFinishedChan)
+
+	// StartStage2ChanFn should return the channel
+	ch := loader.PsmlLoader.StartStage2ChanFn()
+	assert.Equal(t, loader.PsmlLoader.startStage2Chan, ch)
+}
+
+func TestPdmlLoader_Stage2Channels(t *testing.T) {
+	cmds := NewMockLoaderCmds()
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
+
+	// Stage2FinishedChan starts as nil
+	assert.Nil(t, loader.PdmlLoader.Stage2FinishedChan)
+
+	// After setting up, it should be set
+	loader.PdmlLoader.Stage2FinishedChan = make(chan struct{})
+	assert.NotNil(t, loader.PdmlLoader.Stage2FinishedChan)
+}
+
+//======================================================================
 // Local Variables:
 // mode: Go
 // fill-column: 78
