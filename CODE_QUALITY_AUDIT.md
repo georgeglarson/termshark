@@ -13,7 +13,7 @@
 | Deprecated APIs | COMPLETE | 6 files with ioutil, fsnotify path | All |
 | Error Handling | COMPLETE | pkg/errors, %v wrapping, type assertions | All |
 | Goroutine Lifecycle | COMPLETE | Global WaitGroup injection | ~40 goroutines |
-| Code Complexity | PARTIAL | 1260-line cmain(), 80+ UI globals | ~145 lines extracted |
+| Code Complexity | IN PROGRESS | 1260-line cmain(), 80+ UI globals | ~686 lines extracted |
 | Modernization | COMPLETE | strings.Replace, error wrapping, slices pkg, sort -> slices, go vet clean | All |
 | Bug Fixes | COMPLETE | iota misuse (8 files), WriteGob error handling, redundant code | All |
 | Test Coverage | IN PROGRESS | ~30% coverage, 0% for UI | 17 packages tested |
@@ -195,14 +195,24 @@ Note: `pkg/errors` remains as an indirect dependency via `gowid`.
 
 ---
 
-## 5. Code Complexity - PENDING
+## 5. Code Complexity - IN PROGRESS
 
 ### 5.1 Long Functions
 
-| Function | File | Lines | Recommendation |
-|----------|------|-------|----------------|
-| `cmain()` | `cmd/termshark/termshark.go:112-1372` | 1260 | Extract signal handling, profile logic |
-| UI initialization | `ui/ui.go` | 4412 total | Extract into components |
+| Function | File | Original | Current | Reduction |
+|----------|------|----------|---------|-----------|
+| `cmain()` | `cmd/termshark/termshark.go` | ~1260 | ~574 | -686 lines |
+| UI initialization | `ui/ui.go` | 4412 total | 4412 | Pending |
+
+**Extracted helper functions (14 total):**
+- `setupConfigDirs()`, `setupLogging()`, `validateTsharkBinary()`
+- `checkTsharkColorSupport()`, `createCacheDirs()`, `validateTTY()`
+- `applyTermOverride()`, `initUIState()`, `loadTsharkArgs()`, `loadCacheSettings()`
+- `configureBase16Colors()`, `handleTerminalColorSuggestions()`, `handleSignal()`, `activateUI()`
+- `resolvePacketSources()`, `validateAndTransformSources()`, `validateSourceCombinations()`
+- `resolveFilters()`, `validateWriteTarget()`, `resolveInterfaceNames()`
+- `handleSpecialModes()`, `handleTsharkPassthrough()`, `handleHelpAndVersion()`
+- `appState` struct with `newAppState()`, `cleanup()`, `printInterfaceError()`, `printPcapSaveMessage()`
 
 ### 5.2 Global State in UI
 
@@ -353,7 +363,7 @@ type HandlerList[T any] []T
    - ~~Migrate all TrackedGo() calls to termshark.Go()~~ DONE
    - ~~Remove package-level Goroutinewg variables~~ DONE
    - ~~Add context awareness to long-running goroutines~~ DONE
-9. Extract `cmain()` into smaller functions - IN PROGRESS
+9. Extract `cmain()` into smaller functions - SIGNIFICANT PROGRESS
    - ~~Extract setupConfigDirs()~~ DONE
    - ~~Extract setupLogging()~~ DONE
    - ~~Extract validateTsharkBinary()~~ DONE
@@ -365,7 +375,20 @@ type HandlerList[T any] []T
    - ~~Extract loadTsharkArgs()~~ DONE
    - ~~Extract loadCacheSettings()~~ DONE
    - ~~Extract configureBase16Colors()~~ DONE
-   - Current cmain() size: ~1115 lines (down from ~1260, -145 lines)
+   - ~~Extract handleTerminalColorSuggestions()~~ DONE
+   - ~~Extract handleSignal()~~ DONE
+   - ~~Extract activateUI()~~ DONE
+   - ~~Extract resolvePacketSources()~~ DONE
+   - ~~Extract validateAndTransformSources()~~ DONE
+   - ~~Extract validateSourceCombinations()~~ DONE
+   - ~~Extract resolveFilters()~~ DONE
+   - ~~Extract validateWriteTarget()~~ DONE
+   - ~~Extract resolveInterfaceNames()~~ DONE
+   - ~~Extract handleSpecialModes()~~ DONE
+   - ~~Extract handleTsharkPassthrough()~~ DONE
+   - ~~Extract handleHelpAndVersion()~~ DONE
+   - ~~Create appState struct with methods~~ DONE
+   - Current cmain() size: ~574 lines (down from ~1260, -686 lines)
 10. Create `AppState` struct for UI globals
 
 ### Phase 4: Testing (Medium Term)
