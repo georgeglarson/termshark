@@ -138,7 +138,7 @@ Note: `pkg/errors` remains as an indirect dependency via `gowid`.
 | `pkg/shark` | **18.0%** | 5 | ~350 | Medium |
 | `pkg/theme` | **14.0%** | 2 | ~140 | Low |
 | `ui/` | **0.7%** | 1 | ~4400 | Critical |
-| `pkg/pcap` | **26.4%** | 4+ | ~2400 | Medium |
+| `pkg/pcap` | **29.7%** | 80+ | ~2400 | Medium |
 | `configs/profiles` | **39.0%** | 22 | ~350 | Good |
 | `cmd/termshark` | **0%** | 0 | ~1400 | High |
 
@@ -146,6 +146,7 @@ Note: `pkg/errors` remains as an indirect dependency via `gowid`.
 - `pkg/pcap`: 0% → 26.4% (handler tests, loader mocks)
 - `pkg/lifecycle`: 93.8% → 100%
 - `configs/profiles`: 26% → 39% (nil viper handling, precedence, edge cases)
+- `pkg/pcap`: 28% → 29.7% (state machine, accessor methods, state transitions)
 - `widgets/number`: 93.5% → 100%
 - `pkg/app`: 54% (tree functions fully tested)
 - `pkg/pdmltree`: 25% (comprehensive tests added)
@@ -413,7 +414,7 @@ type HandlerList[T any] []T
 
 ### Phase 4: Testing (Medium Term)
 11. ~~Add tests for configuration loading~~ DONE (configs/profiles 26% → 39%)
-12. Add tests for loader state machine
+12. ~~Add tests for loader state machine~~ DONE (pkg/pcap 28% → 29.7%)
 13. Add integration tests with mock tshark
 
 ### Phase 5: Type Safety - COMPLETE
