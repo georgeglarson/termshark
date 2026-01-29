@@ -214,7 +214,7 @@ var _ pcap.IPsmlHeader = StartUIWhenThereArePackets{}
 
 func (t StartUIWhenThereArePackets) OnPsmlHeader(code pcap.HandlerCode, app gowid.IApp) {
 	StartUIOnce.Do(func() {
-		close(StartUIChan)
+		close(GetStartUIChan())
 	})
 }
 

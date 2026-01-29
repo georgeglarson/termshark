@@ -5,6 +5,7 @@
 package ui
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/gcla/termshark/v2/pkg/pcap"
@@ -133,6 +134,57 @@ func TestChannelCommunicationAfterBuild(t *testing.T) {
 		t.Fatal("Global QuitRequestedChan should be empty")
 	default:
 		// Good, global is empty as expected
+	}
+}
+
+// TestCloseStartUIChanAfterBuild verifies that closing GetStartUIChan()
+// (via the accessor) closes the channel the main loop listens on.
+// This is critical for the live capture flow where packets arriving
+// trigger the UI to start.
+func TestCloseStartUIChanAfterBuild(t *testing.T) {
+	// Save and restore UI state
+	savedUI := UI
+	savedStartUIChan := StartUIChan
+	savedStartUIOnce := StartUIOnce
+	defer func() {
+		UI = savedUI
+		StartUIChan = savedStartUIChan
+		StartUIOnce = savedStartUIOnce
+	}()
+
+	// Reset the sync.Once for testing
+	StartUIOnce = sync.Once{}
+
+	// Initialize fresh channels
+	StartUIChan = make(chan struct{}, 1)
+
+	// Simulate state after ui.Build() - this is what happens in real code
+	UI = &UIState{
+		Channels: NewChannelState(),
+	}
+
+	// The accessor now returns UI.Channels.StartUIChan (different from global)
+	accessorChan := GetStartUIChan()
+	assert.NotEqual(t, StartUIChan, accessorChan,
+		"After Build, accessor returns different channel than global")
+
+	// Close via accessor (this is what prochandlers.go should do)
+	close(GetStartUIChan())
+
+	// Verify we can receive from the accessor channel (it's closed)
+	select {
+	case <-GetStartUIChan():
+		// Good - channel is closed, receive returns immediately
+	default:
+		t.Fatal("GetStartUIChan() should be closed and receive should succeed")
+	}
+
+	// The global channel should NOT be closed
+	select {
+	case <-StartUIChan:
+		t.Fatal("Global StartUIChan should NOT be closed")
+	default:
+		// Good - global is still open
 	}
 }
 
