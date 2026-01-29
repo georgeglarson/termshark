@@ -3463,32 +3463,41 @@ func Build(tty string) (*gowid.App, error) {
 			"err": err,
 		})
 	}
+	UI.Packets.PacketHexWidgets = packetHexWidgets
 
 	nullw = null.New()
+	UI.Widgets.Nullw = nullw
 
 	Loadingw = text.New("Loading, please wait...")
+	UI.Widgets.Loadingw = Loadingw
 	singlePacketViewMsgHolder = holder.New(nullw)
+	UI.Widgets.SinglePacketViewMsgHolder = singlePacketViewMsgHolder
 	fillSpace = fill.New(' ')
+	UI.Widgets.FillSpace = fillSpace
 	if runtime.GOOS == "windows" {
 		fillVBar = fill.New('|')
 	} else {
 		fillVBar = fill.New('┃')
 	}
+	UI.Widgets.FillVBar = fillVBar
 
 	colSpace = &gowid.ContainerWidget{
 		IWidget: fillSpace,
 		D:       units(1),
 	}
+	UI.Widgets.ColSpace = colSpace
 
 	MissingMsgw = vpadding.New( // centred
 		hpadding.New(singlePacketViewMsgHolder, hmiddle, fixed),
 		vmiddle,
 		flow,
 	)
+	UI.Widgets.MissingMsgw = MissingMsgw
 
 	pleaseWaitSpinner = spinner.New(spinner.Options{
 		Styler: gowid.MakePaletteRef("progress-spinner"),
 	})
+	UI.Widgets.PleaseWaitSpinner = pleaseWaitSpinner
 
 	PleaseWait = dialog.New(framed.NewSpace(
 		pile.NewFlow(
@@ -3511,6 +3520,7 @@ func Build(tty string) (*gowid.App, error) {
 	title := styled.New(text.New(termshark.TemplateToString(Templates, "NameVer", TemplateData)), gowid.MakePaletteRef("title"))
 
 	currentCapture = text.New("")
+	UI.Nav.CurrentCapture = currentCapture
 	currentCaptureStyled := styled.New(
 		currentCapture,
 		gowid.MakePaletteRef("current-capture"),
@@ -3527,11 +3537,14 @@ func Build(tty string) (*gowid.App, error) {
 		sp,
 		currentCaptureStyled,
 	)
+	UI.Nav.CurrentCaptureWidget = currentCaptureWidget
 	currentCaptureWidgetHolder = holder.New(nullw)
+	UI.Nav.CurrentCaptureWidgetHolder = currentCaptureWidgetHolder
 
 	CopyModePredicate = func() bool {
 		return app != nil && app.InCopyMode()
 	}
+	UI.Widgets.CopyModePredicate = CopyModePredicate
 
 	CopyModeWidget = styled.New(
 		ifwidget.New(
@@ -3541,6 +3554,7 @@ func Build(tty string) (*gowid.App, error) {
 		),
 		gowid.MakePaletteRef("copy-mode-label"),
 	)
+	UI.Widgets.CopyModeWidget = CopyModeWidget
 
 	//======================================================================
 
@@ -3554,6 +3568,7 @@ func Build(tty string) (*gowid.App, error) {
 	)
 
 	openMenuSite = menu.NewSite(menu.SiteOptions{YOffset: 1})
+	UI.Menus.OpenMenuSite = openMenuSite
 	openMenu.OnClick(gowid.MakeWidgetCallback(gowid.ClickCB{}, func(app gowid.IApp, target gowid.IWidget) {
 		multiMenu1Opener.OpenMenu(generalMenu, openMenuSite, app)
 	}))
@@ -3745,6 +3760,7 @@ func Build(tty string) (*gowid.App, error) {
 			gowid.MakeKeyExt(tcell.KeyCtrlC),
 		},
 	})
+	UI.Menus.GeneralMenu = generalMenu
 
 	//======================================================================
 
@@ -3758,6 +3774,7 @@ func Build(tty string) (*gowid.App, error) {
 	)
 
 	openAnalysisSite = menu.NewSite(menu.SiteOptions{XOffset: -12, YOffset: 1})
+	UI.Menus.OpenAnalysisSite = openAnalysisSite
 	openAnalysis.OnClick(gowid.MakeWidgetCallback(gowid.ClickCB{}, func(app gowid.IApp, target gowid.IWidget) {
 		multiMenu1Opener.OpenMenu(analysisMenu, openAnalysisSite, app)
 	}))
@@ -3812,6 +3829,7 @@ func Build(tty string) (*gowid.App, error) {
 			gowid.MakeKeyExt(tcell.KeyCtrlC),
 		},
 	})
+	UI.Menus.AnalysisMenu = analysisMenu
 
 	//======================================================================
 
@@ -3819,13 +3837,16 @@ func Build(tty string) (*gowid.App, error) {
 		Normal:   gowid.MakePaletteRef("progress-default"),
 		Complete: gowid.MakePaletteRef("progress-complete"),
 	})
+	UI.Progress.LoadProgress = loadProgress
 
 	loadSpinner = spinner.New(spinner.Options{
 		Styler: gowid.MakePaletteRef("progress-spinner"),
 	})
+	UI.Progress.LoadSpinner = loadSpinner
 
 	savedListBox, _ := makeRecentMenuWidget()
 	savedListBoxWidgetHolder = holder.New(savedListBox)
+	UI.Menus.SavedListBoxWidgetHolder = savedListBoxWidgetHolder
 
 	savedMenu = menu.New("saved", savedListBoxWidgetHolder, fixed, menu.Options{
 		Modal:             true,
@@ -3837,10 +3858,12 @@ func Build(tty string) (*gowid.App, error) {
 			gowid.MakeKeyExt(tcell.KeyCtrlC),
 		},
 	})
+	UI.Menus.SavedMenu = savedMenu
 
 	//======================================================================
 
 	currentProfile = text.New("default")
+	UI.Nav.CurrentProfile = currentProfile
 	currentProfileWidget = columns.NewFixed(
 		text.New("Profile: "),
 		currentProfile,
@@ -3852,6 +3875,8 @@ func Build(tty string) (*gowid.App, error) {
 		sp,
 	)
 	currentProfileWidgetHolder = holder.New(currentProfileWidget)
+	UI.Nav.CurrentProfileWidget = currentProfileWidget
+	UI.Nav.CurrentProfileWidgetHolder = currentProfileWidgetHolder
 
 	// Update display to show the profile if it isn't the default
 	UpdateProfileWidget(profiles.CurrentName(), app)
@@ -3910,10 +3935,14 @@ func Build(tty string) (*gowid.App, error) {
 	analysisNext.Focus = 7 // should really find by ID
 
 	packetListViewHolder = holder.New(nullw)
+	UI.Packets.PacketListViewHolder = packetListViewHolder
 	packetStructureViewHolder = holder.New(nullw)
+	UI.Packets.PacketStructureViewHolder = packetStructureViewHolder
 	packetHexViewHolder = holder.New(nullw)
+	UI.Packets.PacketHexViewHolder = packetHexViewHolder
 
 	progressHolder = holder.New(nullw)
+	UI.Progress.ProgressHolder = progressHolder
 
 	applyw := button.New(text.New("Apply"))
 	applyWidget := disable.NewEnabled(
@@ -3929,11 +3958,13 @@ func Build(tty string) (*gowid.App, error) {
 	// For completing filter expressions
 	FieldCompleter = fields.New()
 	FieldCompleter.Init()
+	UI.App.FieldCompleter = FieldCompleter
 
 	FilterWidget = filter.New("filter", filter.Options{
 		Completer:  savedCompleter{def: FieldCompleter},
 		MenuOpener: &multiMenu1Opener,
 	})
+	UI.Filter.FilterWidget = FilterWidget
 
 	validFilterCb := gowid.MakeWidgetCallback("cb", func(app gowid.IApp, w gowid.IWidget) {
 		if Loader.DisplayFilter() == FilterWidget.Value() {
@@ -3973,17 +4004,23 @@ func Build(tty string) (*gowid.App, error) {
 	}))
 
 	progWidgetIdx = 7 // adjust this if nullw moves position in filterCols
+	UI.Progress.ProgWidgetIdx = progWidgetIdx
 	filterCols = columns.NewFixed(filterLabel,
 		&gowid.ContainerWidget{
 			IWidget: FilterWidget,
 			D:       weight(100),
 		},
 		applyWidget, colSpace, savedBtnSite, savedWidget, colSpace, nullw)
+	UI.Filter.FilterCols = filterCols
 
 	//======================================================================
 
 	loadStop, loadProg = createLoaderProgressWidget()
+	UI.Progress.LoadStop = loadStop
+	UI.Progress.LoadProg = loadProg
 	searchStop, searchProg = createProgressWidget()
+	UI.Progress.SearchStop = searchStop
+	UI.Progress.SearchProg = searchProg
 
 	//======================================================================
 
@@ -4031,6 +4068,7 @@ func Build(tty string) (*gowid.App, error) {
 		savedCompleter{def: FieldCompleter},
 		OpenErrorDialog{},
 	)
+	UI.Filter.SearchWidget = SearchWidget
 
 	//======================================================================
 
@@ -4040,6 +4078,7 @@ func Build(tty string) (*gowid.App, error) {
 			D:       units(1),
 		},
 	})
+	UI.Filter.FilterWithoutSearch = filterWithoutSearch
 
 	filterWithSearch = pile.New([]gowid.IContainerWidget{
 		&gowid.ContainerWidget{
@@ -4055,8 +4094,10 @@ func Build(tty string) (*gowid.App, error) {
 			D:       units(1),
 		},
 	})
+	UI.Filter.FilterWithSearch = filterWithSearch
 
 	filterHolder = holder.New(filterWithoutSearch)
+	UI.Filter.FilterHolder = filterHolder
 
 	filterView := framed.NewUnicode(filterHolder)
 
@@ -4159,6 +4200,7 @@ func Build(tty string) (*gowid.App, error) {
 			D:       weight(1),
 		},
 	})
+	UI.Layout.MainviewRows = mainviewRows
 
 	mainviewRows.OnOffsetsSet(gowid.MakeWidgetCallback("cb", func(app gowid.IApp, w gowid.IWidget) {
 		termshark.SaveOffsetToConfig("mainview", mainviewRows.GetOffsets())
@@ -4178,6 +4220,7 @@ func Build(tty string) (*gowid.App, error) {
 			D:       weight(1),
 		},
 	})
+	UI.Layout.ViewOnlyPacketList = viewOnlyPacketList
 
 	viewOnlyPacketStructure = pile.New([]gowid.IContainerWidget{
 		&gowid.ContainerWidget{
@@ -4193,6 +4236,7 @@ func Build(tty string) (*gowid.App, error) {
 			D:       weight(1),
 		},
 	})
+	UI.Layout.ViewOnlyPacketStructure = viewOnlyPacketStructure
 
 	viewOnlyPacketHex = pile.New([]gowid.IContainerWidget{
 		&gowid.ContainerWidget{
@@ -4208,9 +4252,12 @@ func Build(tty string) (*gowid.App, error) {
 			D:       weight(1),
 		},
 	})
+	UI.Layout.ViewOnlyPacketHex = viewOnlyPacketHex
 
 	tabViewsForward = make(map[gowid.IWidget]gowid.IWidget)
 	tabViewsBackward = make(map[gowid.IWidget]gowid.IWidget)
+	UI.Layout.TabViewsForward = tabViewsForward
+	UI.Layout.TabViewsBackward = tabViewsBackward
 
 	tabViewsForward[viewOnlyPacketList] = viewOnlyPacketStructure
 	tabViewsForward[viewOnlyPacketStructure] = viewOnlyPacketHex
@@ -4237,6 +4284,7 @@ func Build(tty string) (*gowid.App, error) {
 		},
 	})
 
+	UI.Layout.Altview1Pile = altview1Pile
 	altview1Pile.OnOffsetsSet(gowid.MakeWidgetCallback("cb", func(app gowid.IApp, w gowid.IWidget) {
 		termshark.SaveOffsetToConfig("altviewleft", altview1Pile.GetOffsets())
 	}))
@@ -4257,6 +4305,7 @@ func Build(tty string) (*gowid.App, error) {
 			D:       weight(1),
 		},
 	})
+	UI.Layout.Altview1Cols = altview1Cols
 
 	altview1Cols.OnOffsetsSet(gowid.MakeWidgetCallback("cb", func(app gowid.IApp, w gowid.IWidget) {
 		termshark.SaveOffsetToConfig("altviewright", altview1Cols.GetOffsets())
@@ -4278,6 +4327,7 @@ func Build(tty string) (*gowid.App, error) {
 			D:       weight(1),
 		},
 	})
+	UI.Layout.Altview1OuterRows = altview1OuterRows
 
 	//======================================================================
 
@@ -4301,6 +4351,7 @@ func Build(tty string) (*gowid.App, error) {
 		altview2ColsKeyPress,
 	)
 
+	UI.Layout.Altview2Cols = altview2Cols
 	altview2Cols.OnOffsetsSet(gowid.MakeWidgetCallback("cb", func(app gowid.IApp, w gowid.IWidget) {
 		termshark.SaveOffsetToConfig("altview2vertical", altview2Cols.GetOffsets())
 	}))
@@ -4324,6 +4375,7 @@ func Build(tty string) (*gowid.App, error) {
 		),
 		altview2PileKeyPress,
 	)
+	UI.Layout.Altview2Pile = altview2Pile
 
 	altview2Pile.OnOffsetsSet(gowid.MakeWidgetCallback("cb", func(app gowid.IApp, w gowid.IWidget) {
 		termshark.SaveOffsetToConfig("altview2horizontal", altview2Pile.GetOffsets())
@@ -4343,42 +4395,57 @@ func Build(tty string) (*gowid.App, error) {
 			D:       weight(1),
 		},
 	})
+	UI.Layout.Altview2OuterRows = altview2OuterRows
 
 	//======================================================================
 
 	maxViewPath = []interface{}{2, 0} // list, structure or hex - whichever one is selected
+	UI.Layout.MaxViewPath = maxViewPath
 
 	mainviewPaths = [][]interface{}{
 		{2}, // packet list
 		{4}, // packet structure
 		{6}, // packet hex
 	}
+	UI.Layout.MainviewPaths = mainviewPaths
 
 	altview1Paths = [][]interface{}{
 		{2, 0, 0}, // packet list
 		{2, 0, 2}, // packet structure
 		{2, 2},    // packet hex
 	}
+	UI.Layout.Altview1Paths = altview1Paths
 
 	altview2Paths = [][]interface{}{
 		{2, 0},    // packet list
 		{2, 2, 0}, // packet structure
 		{2, 2, 2}, // packet hex
 	}
+	UI.Layout.Altview2Paths = altview2Paths
 
 	filterPathMain = []interface{}{1, 0, 1}
 	filterPathAlt = []interface{}{1, 0, 1}
 	filterPathMax = []interface{}{1, 0, 1}
+	UI.Layout.FilterPathMain = filterPathMain
+	UI.Layout.FilterPathAlt = filterPathAlt
+	UI.Layout.FilterPathMax = filterPathMax
 
 	searchPathMain = []interface{}{1, 2, 6} // 6 is the index of the filter in the search widget
 	searchPathAlt = []interface{}{1, 2, 6}
 	searchPathMax = []interface{}{1, 2, 6}
+	UI.Layout.SearchPathMain = searchPathMain
+	UI.Layout.SearchPathAlt = searchPathAlt
+	UI.Layout.SearchPathMax = searchPathMax
 
 	mainview = mainviewRows
 	altview1 = altview1OuterRows
 	altview2 = altview2OuterRows
+	UI.Layout.Mainview = mainview
+	UI.Layout.Altview1 = altview1
+	UI.Layout.Altview2 = altview2
 
 	mainViewNoKeys = holder.New(mainview)
+	UI.Widgets.MainViewNoKeys = mainViewNoKeys
 	defaultLayout := profiles.ConfString("main.layout", "")
 	switch defaultLayout {
 	case "altview1":
@@ -4391,6 +4458,9 @@ func Build(tty string) (*gowid.App, error) {
 	menuPathMain = []interface{}{0, 7}
 	menuPathAlt = []interface{}{0, 7}
 	menuPathMax = []interface{}{0, 7}
+	UI.Layout.MenuPathMain = menuPathMain
+	UI.Layout.MenuPathAlt = menuPathAlt
+	UI.Layout.MenuPathMax = menuPathMax
 
 	buildStreamUi()
 	buildFilterConvsMenu()
@@ -4413,6 +4483,7 @@ func Build(tty string) (*gowid.App, error) {
 			ApplyBefore: true,
 		},
 	)
+	UI.Widgets.MainView = mainView
 
 	//======================================================================
 
@@ -4431,9 +4502,11 @@ func Build(tty string) (*gowid.App, error) {
 
 	// For minibuffer
 	mbView = holder.New(appViewWithKeys)
+	UI.Widgets.MbView = mbView
 
 	if !profiles.ConfBool("main.disable-shark-fin", false) {
 		Fin = rossshark.New(mbView)
+		UI.Widgets.Fin = Fin
 
 		steerableFin := appkeys.NewMouse(
 			appkeys.New(
@@ -4472,17 +4545,25 @@ func Build(tty string) (*gowid.App, error) {
 	} else {
 		appView = holder.New(mbView)
 	}
+	UI.Widgets.AppView = appView
+	UI.Widgets.AppViewNoKeys = appViewNoKeys
 
 	// A restriction on the multiMenu is that it only holds one open menu, so using
 	// this trick, only one menu can be open at a time per multiMenu variable. So
 	// I am making two because all I need at the moment is two levels of menu.
 	multiMenu.IMenuCompatible = holder.New(appView)
 	multiMenu2.IMenuCompatible = holder.New(multiMenu)
+	UI.Menus.MultiMenu = multiMenu
+	UI.Menus.MultiMenuWidget = multiMenu.IMenuCompatible.(*holder.Widget)
+	UI.Menus.MultiMenu2 = multiMenu2
+	UI.Menus.MultiMenu2Widget = multiMenu2.IMenuCompatible.(*holder.Widget)
 
 	multiMenu1Opener.under = appView
 	multiMenu1Opener.mm = multiMenu
 	multiMenu2Opener.under = multiMenu
 	multiMenu2Opener.mm = multiMenu2
+	UI.Menus.MultiMenu1Opener = multiMenu1Opener
+	UI.Menus.MultiMenu2Opener = multiMenu2Opener
 
 	var lastMenu gowid.IWidget = multiMenu2
 	menus := []gowid.IMenuCompatible{
@@ -4499,6 +4580,7 @@ func Build(tty string) (*gowid.App, error) {
 	}
 
 	keyMapper = mapkeys.New(lastMenu)
+	UI.Widgets.KeyMapper = keyMapper
 	keyMappings := termshark.LoadKeyMappings()
 	for _, km := range keyMappings {
 		log.Infof("Applying keymapping %v --> %v", km.From, km.To)

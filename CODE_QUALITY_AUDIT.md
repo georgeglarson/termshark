@@ -214,24 +214,43 @@ Note: `pkg/errors` remains as an indirect dependency via `gowid`.
 - `handleSpecialModes()`, `handleTsharkPassthrough()`, `handleHelpAndVersion()`
 - `appState` struct with `newAppState()`, `cleanup()`, `printInterfaceError()`, `printPcapSaveMessage()`
 
-### 5.2 Global State in UI
+### 5.2 Global State in UI - SIGNIFICANT PROGRESS
 
-**Location:** `ui/ui.go:93-150+`
+**Location:** `ui/uistate.go` (new) + `ui/ui.go`
 
-80+ package-level variables:
+**UIState struct created** with comprehensive sub-states:
 ```go
-var appViewNoKeys *holder.Widget
-var appView *holder.Widget
-var packetListViewHolder *holder.Widget
-// ... many more
+type UIState struct {
+    App      *ApplicationState   // Loader, flags, timers
+    Widgets  *WidgetState        // Core widget references
+    Layout   *LayoutState        // Views, paths, navigation
+    Menus    *MenuState          // Menu widgets and sites
+    Packets  *PacketState        // Packet view holders and caches
+    Filter   *FilterState        // Filter and search widgets
+    Progress *ProgressState      // Progress indicators
+    Nav      *NavigationState    // Profile and capture display
+    Channels *ChannelState       // Inter-component communication
+    Keyboard *KeyboardState      // Vim-like keyboard state
+    Features *FeatureState       // Streams, convs, capinfo, etc.
+}
 ```
 
-**Problems:**
-- Hard to test
-- Hard to reason about state
-- Limits reusability
+**Migration infrastructure:**
+- `UI *UIState` package-level instance initialized in `Build()`
+- All 11 sub-state structs with fields matching old globals
+- Constructor functions (`NewUIState()`, `NewApplicationState()`, etc.)
+- Accessor functions in `ui/accessors.go` with dual-write pattern
 
-**Recommendation:** Create `AppState` struct, use dependency injection
+**Build() updated** to populate UIState fields for ~50 major widgets:
+- `UI.Widgets.*` - AppView, MainView, KeyMapper, etc.
+- `UI.Layout.*` - MainviewRows, view paths, tab navigation maps
+- `UI.Menus.*` - GeneralMenu, AnalysisMenu, sites
+- `UI.Packets.*` - View holders, hex cache
+- `UI.Filter.*` - FilterWidget, SearchWidget
+- `UI.Progress.*` - LoadProgress, LoadSpinner
+
+**Legacy globals preserved** for backwards compatibility during gradual migration.
+The dual-write pattern allows code to be migrated incrementally.
 
 ### 5.3 Type Safety - COMPLETE
 
@@ -444,7 +463,7 @@ type HandlerList[T any] []T
 | Test Coverage | ~30% | 50%+ |
 | Deprecated API Usage | 0 files | 0 |
 | Long Functions (>500 LOC) | 7 | 0 |
-| Package Globals (UI) | 80+ | <20 |
+| Package Globals (UI) | 80+ (UIState struct ready) | <20 |
 | golangci-lint Config | Added | Passing |
 
 ---
@@ -498,3 +517,9 @@ Converted `for i := 0; i < len(x); i++` to `for i := range len(x)` in:
 | `03d3702` | Continue converting loops to Go 1.22 range-over-int syntax |
 | `b4212fc` | Replace deprecated StringInSlice with slices.Contains |
 | `7c8795b` | Fix undefined path.Base in Android picker (use filepath.Base) |
+
+### UIState Structure Implementation
+- **ui/uistate.go**: Created comprehensive UIState struct with 11 sub-states
+- **ui/accessors.go**: Added accessor functions with dual-write pattern for gradual migration
+- **ui/ui.go Build()**: Updated to populate UIState fields for ~50 major widgets
+- Migration infrastructure ready - legacy globals preserved for backwards compatibility
