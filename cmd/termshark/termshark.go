@@ -282,8 +282,8 @@ func cmain() int {
 		}
 		state.waitingForPackets = true
 	} else {
-		// Start UI right away, reading from a file
-		close(ui.GetStartUIChan())
+		// Note: StartUIChan will be closed after ui.Build() to ensure we close the right channel
+		state.waitingForPackets = false // Mark that we should start UI immediately after build
 	}
 
 	// Configure base16 color handling before creating the tcell screen
@@ -298,6 +298,11 @@ func cmain() int {
 			fmt.Fprintf(os.Stderr, "Termshark could not recognize your terminal. Try changing $TERM.\n")
 		}
 		return 1
+	}
+
+	// Close StartUIChan here (after ui.Build) for file loading so we close the right channel
+	if !state.waitingForPackets {
+		close(ui.GetStartUIChan())
 	}
 
 	state.appRunner = state.app.Runner()

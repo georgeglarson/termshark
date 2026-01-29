@@ -598,7 +598,7 @@ func makePdmlFilterMenu(filter string, val string) *menu.Widget {
 
 func RequestQuit() {
 	select {
-	case QuitRequestedChan <- struct{}{}:
+	case GetQuitRequestedChan() <- struct{}{}:
 	default:
 		// Ok for the send not to succeed - there is a buffer of one, and it only
 		// needs one message to start the shutdown sequence. So this means a

@@ -30,7 +30,7 @@ type Termshark struct {
 	PlatformSwitches
 	Profile  string   `long:"profile" short:"C" description:"Start with this configuration profile." value-name:"<profile>"`
 	PassThru string   `long:"pass-thru" default:"auto" optional:"true" optional-value:"true" choice:"auto" choice:"true" choice:"false" description:"Run tshark instead (auto => if stdout is not a tty)."`
-	LogTty   bool     `long:"log-tty" optional:"true" optional-value:"true" choice:"true" choice:"false" description:"Log to the terminal."`
+	LogTty   bool     `long:"log-tty" optional:"true" optional-value:"true" description:"Log to the terminal."`
 	Debug    TriState `long:"debug" default:"unset" hidden:"true" optional:"true" optional-value:"true" description:"Enable termshark debugging. See https://termshark.io/userguide."`
 	Help     bool     `long:"help" short:"h" optional:"true" optional-value:"true" description:"Show this help message."`
 	Version  []bool   `long:"version" short:"v" optional:"true" optional-value:"true" description:"Show version information."`

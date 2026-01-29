@@ -248,7 +248,9 @@ func (w *ColumnsFromTshark) InitNoCache() error {
 		return err
 	}
 
-	cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start tshark: %w", err)
+	}
 
 	w.fields = make([]PsmlColumnSpec, 0, 128)
 
