@@ -178,7 +178,7 @@ func (m *Manager) StartCapture(iface string, captureFilter string) error {
 	m.capture.SetCallbacks(
 		func(count int) {
 			// Packets added - reload from backend
-			if m.capture != nil {
+			if m.capture != nil && m.backend != nil {
 				tmpFile := m.capture.TempFile()
 				if tmpFile != "" {
 					m.backend.LoadFile(m.ctx, tmpFile)
@@ -224,7 +224,7 @@ func (m *Manager) StartCapture(iface string, captureFilter string) error {
 		m.mu.Lock()
 		defer m.mu.Unlock()
 
-		if m.capture != nil && m.capture.IsRunning() {
+		if m.capture != nil && m.capture.IsRunning() && m.backend != nil {
 			tmpFile := m.capture.TempFile()
 			if tmpFile != "" {
 				m.backend.LoadFile(m.ctx, tmpFile)
