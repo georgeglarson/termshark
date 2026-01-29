@@ -10,7 +10,11 @@
     <div id="app">
         <header>
             <h1>Termshark Web</h1>
-            <div id="status">Connecting...</div>
+            <div id="header-right">
+                <span id="session-info" class="hidden"></span>
+                <button id="session-btn" class="small-btn">Sessions</button>
+                <div id="status">Connecting...</div>
+            </div>
         </header>
         <main>
             <section id="controls">
@@ -32,6 +36,26 @@
             </section>
         </main>
     </div>
+
+    <!-- Session Picker Modal -->
+    <div id="session-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Sessions</h2>
+                <button id="modal-close" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="session-list-container">
+                    <div id="session-list"></div>
+                </div>
+                <div class="session-actions">
+                    <input type="text" id="new-session-name" placeholder="New session name...">
+                    <button id="create-session-btn">Create Session</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="main.js" type="module"></script>
 </body>
 </html>

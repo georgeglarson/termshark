@@ -6,6 +6,7 @@ class SharkdClient {
         this.requestId = 0;
         this.pendingRequests = new Map();
         this.onStatusChange = null;
+        this.supportsRegistry = false;
     }
 
     connect() {
@@ -78,6 +79,45 @@ class SharkdClient {
         });
     }
 
+    // Session management methods
+    async listSessions() {
+        return this.call('sessions.list');
+    }
+
+    async createSession(name) {
+        return this.call('sessions.create', { name: name });
+    }
+
+    async joinSession(sessionId) {
+        return this.call('sessions.join', { id: sessionId });
+    }
+
+    async leaveSession() {
+        return this.call('sessions.leave');
+    }
+
+    async getSessionInfo(sessionId = null) {
+        const params = sessionId ? { id: sessionId } : {};
+        return this.call('sessions.info', params);
+    }
+
+    async deleteSession(sessionId) {
+        return this.call('sessions.delete', { id: sessionId });
+    }
+
+    // Check if server supports session registry
+    async checkRegistrySupport() {
+        try {
+            await this.listSessions();
+            this.supportsRegistry = true;
+            return true;
+        } catch (e) {
+            this.supportsRegistry = false;
+            return false;
+        }
+    }
+
+    // Packet analysis methods
     async getStatus() {
         return this.call('status');
     }
@@ -102,8 +142,6 @@ class SharkdClient {
     }
 
     async followStream(protocol, streamIndex) {
-        // protocol: 'tcp', 'udp', 'http', etc.
-        // streamIndex: the stream number to follow
         return this.call('follow', {
             follow: protocol,
             filter: `${protocol}.stream eq ${streamIndex}`
@@ -111,13 +149,188 @@ class SharkdClient {
     }
 
     async getTaps(taps) {
-        // taps is an array like ['expert', 'conv:eth', 'endpt:ip']
         return this.call('tap', { tap0: taps[0] });
     }
 
     async getIntervals(interval = 1000) {
-        // interval in milliseconds
         return this.call('intervals', { interval: interval });
+    }
+}
+
+class SessionPicker {
+    constructor(client) {
+        this.client = client;
+        this.modal = document.getElementById('session-modal');
+        this.sessionList = document.getElementById('session-list');
+        this.sessionInfo = document.getElementById('session-info');
+        this.currentSessionId = null;
+        this.onSessionJoined = null;
+
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        // Open modal
+        document.getElementById('session-btn').addEventListener('click', () => {
+            this.show();
+        });
+
+        // Close modal
+        document.getElementById('modal-close').addEventListener('click', () => {
+            this.hide();
+        });
+
+        // Close on backdrop click
+        this.modal.addEventListener('click', (e) => {
+            if (e.target === this.modal) {
+                this.hide();
+            }
+        });
+
+        // Create session
+        document.getElementById('create-session-btn').addEventListener('click', () => {
+            this.createSession();
+        });
+
+        // Create on Enter key
+        document.getElementById('new-session-name').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.createSession();
+            }
+        });
+    }
+
+    async show() {
+        this.modal.classList.remove('hidden');
+        await this.refresh();
+    }
+
+    hide() {
+        this.modal.classList.add('hidden');
+    }
+
+    async refresh() {
+        try {
+            const sessions = await this.client.listSessions();
+            this.renderSessions(sessions);
+        } catch (error) {
+            console.error('Failed to list sessions:', error);
+            this.sessionList.innerHTML = '<div class="empty-state">Failed to load sessions</div>';
+        }
+    }
+
+    renderSessions(sessions) {
+        if (!sessions || sessions.length === 0) {
+            this.sessionList.innerHTML = '<div class="empty-state">No sessions available. Create one to get started.</div>';
+            return;
+        }
+
+        this.sessionList.innerHTML = sessions.map(session => {
+            const isActive = session.id === this.currentSessionId;
+            const createdAt = new Date(session.createdAt).toLocaleTimeString();
+            return `
+                <div class="session-item ${isActive ? 'active' : ''}" data-id="${session.id}">
+                    <div class="session-item-info">
+                        <div class="session-item-name">${this.escapeHtml(session.name)}</div>
+                        <div class="session-item-meta">
+                            ${session.clientCount} client(s) ·
+                            ${session.packetCount || 0} packets ·
+                            ${session.isCapturing ? 'Capturing' : (session.source || 'No source')} ·
+                            Created ${createdAt}
+                        </div>
+                    </div>
+                    <div class="session-item-actions">
+                        ${isActive ?
+                            '<button class="small-btn" disabled>Current</button>' :
+                            `<button class="join-btn" data-action="join" data-id="${session.id}">Join</button>`
+                        }
+                        <button class="delete-btn" data-action="delete" data-id="${session.id}">Delete</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Add event listeners
+        this.sessionList.querySelectorAll('[data-action="join"]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.joinSession(btn.dataset.id);
+            });
+        });
+
+        this.sessionList.querySelectorAll('[data-action="delete"]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.deleteSession(btn.dataset.id);
+            });
+        });
+
+        // Click on row to join
+        this.sessionList.querySelectorAll('.session-item').forEach(item => {
+            item.addEventListener('click', () => {
+                if (item.dataset.id !== this.currentSessionId) {
+                    this.joinSession(item.dataset.id);
+                }
+            });
+        });
+    }
+
+    async createSession() {
+        const nameInput = document.getElementById('new-session-name');
+        const name = nameInput.value.trim() || '';
+
+        try {
+            const session = await this.client.createSession(name);
+            nameInput.value = '';
+            await this.joinSession(session.id);
+        } catch (error) {
+            console.error('Failed to create session:', error);
+            alert('Failed to create session: ' + error.message);
+        }
+    }
+
+    async joinSession(sessionId) {
+        try {
+            const session = await this.client.joinSession(sessionId);
+            this.currentSessionId = session.id;
+            this.updateSessionInfo(session);
+            this.hide();
+            if (this.onSessionJoined) {
+                this.onSessionJoined(session);
+            }
+        } catch (error) {
+            console.error('Failed to join session:', error);
+            alert('Failed to join session: ' + error.message);
+        }
+    }
+
+    async deleteSession(sessionId) {
+        if (!confirm('Are you sure you want to delete this session?')) {
+            return;
+        }
+
+        try {
+            await this.client.deleteSession(sessionId);
+            if (sessionId === this.currentSessionId) {
+                this.currentSessionId = null;
+                this.sessionInfo.classList.add('hidden');
+            }
+            await this.refresh();
+        } catch (error) {
+            console.error('Failed to delete session:', error);
+            alert('Failed to delete session: ' + error.message);
+        }
+    }
+
+    updateSessionInfo(session) {
+        this.sessionInfo.textContent = `Session: ${session.name}`;
+        this.sessionInfo.classList.remove('hidden');
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
 
@@ -285,6 +498,7 @@ class HexView {
 class App {
     constructor() {
         this.client = new SharkdClient();
+        this.sessionPicker = null;
         this.packetList = new PacketListView(
             document.getElementById('packets'),
             this.client
@@ -340,6 +554,14 @@ class App {
 
         // Keyboard navigation
         document.addEventListener('keydown', (e) => {
+            // Ignore if modal is open
+            if (!document.getElementById('session-modal').classList.contains('hidden')) {
+                if (e.key === 'Escape') {
+                    this.sessionPicker?.hide();
+                }
+                return;
+            }
+
             // j/k or arrow keys for packet navigation
             if (e.key === 'j' || e.key === 'ArrowDown') {
                 this.selectNextPacket();
@@ -370,12 +592,40 @@ class App {
             }, 100);
         });
 
-        // Get initial status
+        // Check if server supports session registry
+        const hasRegistry = await this.client.checkRegistrySupport();
+
+        if (hasRegistry) {
+            // Initialize session picker
+            this.sessionPicker = new SessionPicker(this.client);
+            this.sessionPicker.onSessionJoined = (session) => {
+                this.onSessionJoined(session);
+            };
+
+            // Show session picker modal
+            this.sessionPicker.show();
+        } else {
+            // Hide session button if no registry support
+            document.getElementById('session-btn').classList.add('hidden');
+
+            // Get initial status directly
+            await this.loadInitialStatus();
+        }
+    }
+
+    async onSessionJoined(session) {
+        // Load status for the joined session
+        await this.loadInitialStatus();
+    }
+
+    async loadInitialStatus() {
         try {
             const status = await this.client.getStatus();
-            this.packetList.setColumns(status.columns);
+            if (status && status.columns) {
+                this.packetList.setColumns(status.columns);
+            }
 
-            if (status.frames > 0) {
+            if (status && status.frames > 0) {
                 await this.loadFrames();
             }
         } catch (error) {

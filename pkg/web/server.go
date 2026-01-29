@@ -27,10 +27,16 @@ type Server struct {
 	addr     string
 	sharkd   *SharkdClient         // Deprecated: use manager instead
 	manager  *state.Manager        // New unified state manager
+	registry *state.Registry       // Session registry for multi-session support
 	server   *http.Server
 	upgrader websocket.Upgrader
 	mu       sync.RWMutex
-	clients  map[*websocket.Conn]bool
+	clients  map[*websocket.Conn]*clientState
+}
+
+// clientState tracks per-connection state
+type clientState struct {
+	session *state.ManagedSession
 }
 
 // NewServer creates a new web server with a SharkdClient.
@@ -46,7 +52,7 @@ func NewServer(addr string, sharkd *SharkdClient) *Server {
 				return true // Allow all origins for local development
 			},
 		},
-		clients: make(map[*websocket.Conn]bool),
+		clients: make(map[*websocket.Conn]*clientState),
 	}
 }
 
@@ -62,7 +68,23 @@ func NewServerWithManager(addr string, manager *state.Manager) *Server {
 				return true // Allow all origins for local development
 			},
 		},
-		clients: make(map[*websocket.Conn]bool),
+		clients: make(map[*websocket.Conn]*clientState),
+	}
+}
+
+// NewServerWithRegistry creates a new web server with session registry support.
+func NewServerWithRegistry(addr string, registry *state.Registry) *Server {
+	return &Server{
+		addr:     addr,
+		registry: registry,
+		upgrader: websocket.Upgrader{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			CheckOrigin: func(r *http.Request) bool {
+				return true // Allow all origins for local development
+			},
+		},
+		clients: make(map[*websocket.Conn]*clientState),
 	}
 }
 
@@ -121,14 +143,19 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
+	clientSt := &clientState{}
 	s.mu.Lock()
-	s.clients[conn] = true
+	s.clients[conn] = clientSt
 	s.mu.Unlock()
 
 	defer func() {
 		s.mu.Lock()
 		delete(s.clients, conn)
 		s.mu.Unlock()
+		// Leave session if in one
+		if clientSt.session != nil {
+			clientSt.session.RemoveClient(nil)
+		}
 	}()
 
 	log.Info("WebSocket client connected")
@@ -150,9 +177,11 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Handle via manager or sharkd
+		// Handle via registry, manager, or sharkd
 		var result json.RawMessage
-		if s.manager != nil {
+		if s.registry != nil {
+			result, err = s.handleRegistryRequest(req, clientSt)
+		} else if s.manager != nil {
 			result, err = s.handleManagerRequest(req)
 		} else {
 			// Fallback to direct sharkd
@@ -175,6 +204,215 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+}
+
+// handleRegistryRequest routes a request through the session registry.
+func (s *Server) handleRegistryRequest(req JSONRPCRequest, clientSt *clientState) (json.RawMessage, error) {
+	// Convert params to map if needed
+	var p map[string]interface{}
+	if req.Params != nil {
+		switch v := req.Params.(type) {
+		case map[string]interface{}:
+			p = v
+		default:
+			b, _ := json.Marshal(req.Params)
+			json.Unmarshal(b, &p)
+		}
+	}
+
+	var result interface{}
+
+	// Handle session management methods
+	switch req.Method {
+	case "sessions.list":
+		result = s.registry.ListSessions()
+		return json.Marshal(result)
+
+	case "sessions.create":
+		name, _ := p["name"].(string)
+		session, err := s.registry.CreateSession(name)
+		if err != nil {
+			return nil, err
+		}
+		result = session.Info()
+		return json.Marshal(result)
+
+	case "sessions.join":
+		sessionID, _ := p["id"].(string)
+		if sessionID == "" {
+			return nil, fmt.Errorf("session id required")
+		}
+		session, ok := s.registry.GetSession(sessionID)
+		if !ok {
+			return nil, fmt.Errorf("session not found: %s", sessionID)
+		}
+		// Leave current session if any
+		if clientSt.session != nil {
+			clientSt.session.RemoveClient(nil)
+		}
+		clientSt.session = session
+		session.AddClient(nil)
+		result = session.Info()
+		return json.Marshal(result)
+
+	case "sessions.leave":
+		if clientSt.session == nil {
+			return nil, fmt.Errorf("not in a session")
+		}
+		clientSt.session.RemoveClient(nil)
+		clientSt.session = nil
+		result = map[string]bool{"left": true}
+		return json.Marshal(result)
+
+	case "sessions.info":
+		sessionID, _ := p["id"].(string)
+		if sessionID == "" {
+			if clientSt.session != nil {
+				result = clientSt.session.Info()
+				return json.Marshal(result)
+			}
+			return nil, fmt.Errorf("not in a session and no id provided")
+		}
+		session, ok := s.registry.GetSession(sessionID)
+		if !ok {
+			return nil, fmt.Errorf("session not found: %s", sessionID)
+		}
+		result = session.Info()
+		return json.Marshal(result)
+
+	case "sessions.delete":
+		sessionID, _ := p["id"].(string)
+		if sessionID == "" {
+			return nil, fmt.Errorf("session id required")
+		}
+		if err := s.registry.DeleteSession(sessionID); err != nil {
+			return nil, err
+		}
+		result = map[string]bool{"deleted": true}
+		return json.Marshal(result)
+	}
+
+	// For other methods, require an active session
+	if clientSt.session == nil {
+		return nil, fmt.Errorf("no session active - use sessions.join first")
+	}
+
+	// Route through the session's manager
+	manager := clientSt.session.Manager
+	return s.handleManagerRequestWithManager(req, manager)
+}
+
+// handleManagerRequestWithManager routes a request through a specific manager.
+func (s *Server) handleManagerRequestWithManager(req JSONRPCRequest, manager *state.Manager) (json.RawMessage, error) {
+	// Convert params to map if needed
+	var p map[string]interface{}
+	if req.Params != nil {
+		switch v := req.Params.(type) {
+		case map[string]interface{}:
+			p = v
+		default:
+			b, _ := json.Marshal(req.Params)
+			json.Unmarshal(b, &p)
+		}
+	}
+
+	var result interface{}
+	var err error
+
+	switch req.Method {
+	case "status":
+		result, err = manager.GetStatus()
+
+	case "load":
+		path, _ := p["file"].(string)
+		if path == "" {
+			return nil, fmt.Errorf("file path required")
+		}
+		err = manager.LoadFile(path)
+		if err == nil {
+			result = map[string]string{"status": "ok"}
+		}
+
+	case "frames":
+		start := int(getFloat(p, "skip", 0))
+		count := int(getFloat(p, "limit", 100))
+		packets, err := manager.GetPackets(start, count)
+		if err != nil {
+			return nil, err
+		}
+		frames := make([]map[string]interface{}, len(packets))
+		for i, pkt := range packets {
+			frames[i] = map[string]interface{}{
+				"num": pkt.Number,
+				"c":   pkt.Columns,
+			}
+			if pkt.BGColor != "" {
+				frames[i]["bg"] = pkt.BGColor
+			}
+			if pkt.FGColor != "" {
+				frames[i]["fg"] = pkt.FGColor
+			}
+		}
+		result = frames
+
+	case "frame":
+		num := int(getFloat(p, "frame", 0))
+		if num <= 0 {
+			return nil, fmt.Errorf("frame number required")
+		}
+		detail, err := manager.GetPacketDetail(num)
+		if err != nil {
+			return nil, err
+		}
+		result = map[string]interface{}{
+			"tree":  convertTreeToSharkd(detail.Tree),
+			"bytes": detail.Bytes,
+		}
+
+	case "check":
+		filter, _ := p["filter"].(string)
+		validation, err := manager.ValidateFilter(filter)
+		if err != nil {
+			return nil, err
+		}
+		result = map[string]bool{"ok": validation.Valid}
+
+	case "setfilter":
+		filter, _ := p["filter"].(string)
+		err = manager.SetFilter(filter)
+		if err == nil {
+			result = map[string]string{"status": "ok"}
+		}
+
+	case "startCapture":
+		iface, _ := p["interface"].(string)
+		if iface == "" {
+			return nil, fmt.Errorf("interface required")
+		}
+		captureFilter, _ := p["captureFilter"].(string)
+		err = manager.StartCapture(iface, captureFilter)
+		if err == nil {
+			result = map[string]string{"status": "ok"}
+		}
+
+	case "stopCapture":
+		err = manager.StopCapture()
+		if err == nil {
+			result = map[string]string{"status": "ok"}
+		}
+
+	case "isCapturing":
+		result = map[string]bool{"capturing": manager.IsCapturing()}
+
+	default:
+		return nil, fmt.Errorf("unknown method: %s", req.Method)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(result)
 }
 
 // handleManagerRequest routes a request through the state manager.
