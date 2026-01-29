@@ -1,5 +1,24 @@
 // Termshark Web UI - Main JavaScript
 
+// Debug logging - visible on page when errors occur or via console: showDebugLog()
+function debugLog(msg) {
+    console.log('[termshark]', msg);
+    const el = document.getElementById('debug-log');
+    if (el) {
+        el.textContent += new Date().toISOString().substr(11, 12) + ' ' + msg + '\n';
+        el.scrollTop = el.scrollHeight;
+        // Show log panel on errors
+        if (msg.includes('ERROR') || msg.includes('FAILED')) {
+            el.style.display = 'block';
+        }
+    }
+}
+// Allow manually showing debug log from console
+window.showDebugLog = function() {
+    const el = document.getElementById('debug-log');
+    if (el) el.style.display = 'block';
+};
+
 class SharkdClient {
     constructor() {
         this.ws = null;
@@ -910,23 +929,36 @@ class App {
     }
 
     async start() {
+        debugLog('start: connecting WebSocket...');
         this.client.connect();
 
-        // Wait for connection
-        await new Promise(resolve => {
+        // Wait for connection with timeout
+        await new Promise((resolve, reject) => {
+            let elapsed = 0;
             const checkConnection = setInterval(() => {
                 if (this.client.ws && this.client.ws.readyState === WebSocket.OPEN) {
                     clearInterval(checkConnection);
                     resolve();
                 }
+                elapsed += 100;
+                if (elapsed > 10000) {
+                    clearInterval(checkConnection);
+                    reject(new Error('WebSocket connection timeout'));
+                }
             }, 100);
         });
+        debugLog('start: WebSocket connected');
 
-        // Subscribe to push notifications
-        await this.setupPushNotifications();
+        // Subscribe to push notifications (non-blocking - don't let it delay startup)
+        this.setupPushNotifications().then(() => {
+            debugLog('push notifications set up');
+        }).catch(() => {
+            debugLog('push notifications not available');
+        });
 
         // Check if server supports session registry
         const hasRegistry = await this.client.checkRegistrySupport();
+        debugLog('start: hasRegistry=' + hasRegistry);
 
         // Initialize capture controls
         this.captureControls = new CaptureControls(this.client);
@@ -935,6 +967,7 @@ class App {
         };
 
         if (hasRegistry) {
+            debugLog('start: showing session picker');
             // Initialize session picker
             this.sessionPicker = new SessionPicker(this.client);
             this.sessionPicker.onSessionJoined = (session) => {
@@ -948,8 +981,11 @@ class App {
             document.getElementById('session-btn').classList.add('hidden');
 
             // Initialize capture controls and get initial status
+            debugLog('start: initializing capture controls...');
             await this.captureControls.init();
+            debugLog('start: loading initial status...');
             await this.loadInitialStatus();
+            debugLog('start: done');
         }
     }
 
@@ -987,9 +1023,12 @@ class App {
 
     async loadInitialStatus() {
         try {
+            debugLog('loadInitialStatus: calling getStatus...');
             const status = await this.client.getStatus();
+            debugLog('loadInitialStatus: status=' + JSON.stringify(status));
             if (status && status.columns) {
                 this.packetList.setColumns(status.columns);
+                debugLog('loadInitialStatus: set ' + status.columns.length + ' columns');
             }
 
             // Show download and stream buttons if there's a file loaded
@@ -998,9 +1037,14 @@ class App {
             this.streamViewer.setVisible(hasFile);
 
             if (status && status.frames > 0) {
+                debugLog('loadInitialStatus: loading ' + status.frames + ' frames...');
                 await this.loadFrames();
+                debugLog('loadInitialStatus: frames loaded');
+            } else {
+                debugLog('loadInitialStatus: no frames to load');
             }
         } catch (error) {
+            debugLog('loadInitialStatus ERROR: ' + error.message);
             console.error('Failed to get status:', error);
         }
     }
@@ -1029,12 +1073,16 @@ class App {
 
     async loadFrames(filter = '') {
         try {
+            debugLog('loadFrames: filter="' + filter + '"');
             const frames = await this.client.getFrames(filter);
+            debugLog('loadFrames: got ' + (frames ? frames.length : 0) + ' frames');
             this.packetList.clear();
             if (frames && frames.length > 0) {
                 this.packetList.addPackets(frames);
+                debugLog('loadFrames: rendered ' + frames.length + ' rows');
             }
         } catch (error) {
+            debugLog('loadFrames ERROR: ' + error.message);
             console.error('Failed to load frames:', error);
         }
     }
@@ -1123,6 +1171,16 @@ class App {
 
 // Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
+    debugLog('DOMContentLoaded fired, creating App...');
     const app = new App();
-    app.start();
+    debugLog('App created, calling start()...');
+    app.start().catch(error => {
+        debugLog('App.start() FAILED: ' + error.message);
+        console.error('App failed to start:', error);
+        const statusEl = document.getElementById('status');
+        if (statusEl) {
+            statusEl.textContent = 'Error: ' + error.message;
+            statusEl.className = 'error';
+        }
+    });
 });
