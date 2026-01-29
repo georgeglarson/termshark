@@ -171,19 +171,28 @@ func cmain() int {
 		return exitCode
 	}
 
-	// Handle web UI mode early - before source validation
-	// This allows starting the web server without specifying a pcap file
+	// Handle web UI mode - uses same source resolution as terminal UI
 	if state.opts.Web {
 		// Setup logging first
 		if err := setupLogging(state.opts.LogTty); err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			return 1
 		}
-		// Resolve pcap file if provided via -r flag
-		var psrcs []pcap.IPacketSource
-		if state.opts.Pcap != "" {
-			psrcs = append(psrcs, pcap.FileSource{Filename: string(state.opts.Pcap)})
+
+		// Use same source resolution as terminal UI for consistency
+		psrcs, _, err := resolvePacketSourcesForWeb(&state.opts, filterArgs)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return 1
 		}
+
+		// Resolve interface names (e.g., "1" -> "eth0")
+		psrcs, err = resolveInterfaceNames(psrcs)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return 1
+		}
+
 		return runWebServer(state.opts.WebAddr, psrcs)
 	}
 
@@ -1041,6 +1050,42 @@ func resolvePacketSources(opts *cli.Termshark, filterArgs []string) ([]pcap.IPac
 	return psrcs, filterArgs, nil
 }
 
+// resolvePacketSourcesForWeb determines packet sources for web UI mode.
+// Similar to resolvePacketSources but defaults to interface "1" when no source specified
+// (no file picker or stdin support in web mode).
+func resolvePacketSourcesForWeb(opts *cli.Termshark, filterArgs []string) ([]pcap.IPacketSource, []string, error) {
+	var psrcs []pcap.IPacketSource
+	pcapf := string(opts.Pcap)
+
+	// Check for pcap file from positional arg if not specified via -r
+	if pcapf == "" && len(opts.Ifaces) == 0 {
+		pcapf = string(opts.Args.FilterOrPcap)
+		if pcapf == "" {
+			// Web mode: default to interface "1" (first interface)
+			psrcs = append(psrcs, pcap.InterfaceSource{Iface: "1"})
+		}
+	} else {
+		filterArgs = append(filterArgs, opts.Args.FilterOrPcap)
+	}
+
+	if pcapf != "" && len(opts.Ifaces) > 0 {
+		return nil, nil, fmt.Errorf("please supply either a pcap or one or more live captures")
+	}
+
+	if len(psrcs) == 0 {
+		switch {
+		case pcapf != "":
+			psrcs = append(psrcs, pcap.FileSource{Filename: pcapf})
+		case len(opts.Ifaces) > 0:
+			for _, iface := range opts.Ifaces {
+				psrcs = append(psrcs, pcap.InterfaceSource{Iface: iface})
+			}
+		}
+	}
+
+	return psrcs, filterArgs, nil
+}
+
 // validateAndTransformSources validates packet sources and transforms stdin/fifo sources.
 func validateAndTransformSources(psrcs []pcap.IPacketSource) ([]pcap.IPacketSource, error) {
 	haveStdin := false
@@ -1503,16 +1548,47 @@ func runWebServer(addr string, psrcs []pcap.IPacketSource) int {
 	manager := state.NewManager(backend)
 	defer manager.Close()
 
-	// Load pcap file if provided
-	if len(psrcs) > 0 {
-		for _, src := range psrcs {
-			if fs, ok := src.(pcap.FileSource); ok {
-				if err := manager.LoadFile(fs.Filename); err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to load pcap file: %v\n", err)
-					return 1
-				}
-				fmt.Printf("Loaded: %s\n", fs.Filename)
+	// Handle packet sources
+	var captureCmd *exec.Cmd
+	var tmpFile string
+	for _, src := range psrcs {
+		switch s := src.(type) {
+		case pcap.FileSource:
+			if err := manager.LoadFile(s.Filename); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to load pcap file: %v\n", err)
+				return 1
 			}
+			fmt.Printf("Loaded: %s\n", s.Filename)
+
+		case pcap.InterfaceSource:
+			// Start live capture to temp file
+			tmpFile = pcap.TempPcapFile(s.Iface)
+			captureCmd, err = startWebCapture(ctx, s.Iface, tmpFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to start capture on %s: %v\n", s.Iface, err)
+				return 1
+			}
+			defer func() {
+				if captureCmd.Process != nil {
+					captureCmd.Process.Signal(syscall.SIGTERM)
+					captureCmd.Wait()
+				}
+				os.Remove(tmpFile)
+			}()
+			fmt.Printf("Capturing on interface: %s\n", s.Iface)
+			fmt.Printf("Temp file: %s\n", tmpFile)
+
+			// Wait for some packets to be captured before loading
+			time.Sleep(1 * time.Second)
+
+			// Load the temp file
+			if err := manager.LoadFile(tmpFile); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to load capture file: %v\n", err)
+				return 1
+			}
+
+			// Start periodic refresh of the capture file
+			go refreshCaptureFile(ctx, manager, tmpFile)
 		}
 	}
 
@@ -1527,6 +1603,41 @@ func runWebServer(addr string, psrcs []pcap.IPacketSource) int {
 	}
 
 	return 0
+}
+
+// startWebCapture starts dumpcap/tshark to capture packets to a file.
+func startWebCapture(ctx context.Context, iface string, outFile string) (*exec.Cmd, error) {
+	// Try dumpcap first, fall back to tshark
+	capturebin := termshark.CaptureBin()
+	if capturebin == "" {
+		return nil, fmt.Errorf("no capture tool found (dumpcap or tshark)")
+	}
+
+	cmd := exec.CommandContext(ctx, capturebin, "-i", iface, "-w", outFile)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+
+	return cmd, nil
+}
+
+// refreshCaptureFile periodically reloads the capture file to get new packets.
+func refreshCaptureFile(ctx context.Context, manager *state.Manager, tmpFile string) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			// Reload to get new packets
+			manager.LoadFile(tmpFile)
+		}
+	}
 }
 
 //======================================================================
