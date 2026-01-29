@@ -1563,9 +1563,7 @@ func runWebServer(addr string, psrcs []pcap.IPacketSource) int {
 	manager := statemgr.NewManager(backend)
 	defer manager.Close()
 
-	// Handle packet sources
-	var captureCmd *exec.Cmd
-	var tmpFile string
+	// Handle packet sources using the unified capture API
 	for _, src := range psrcs {
 		switch s := src.(type) {
 		case pcap.FileSource:
@@ -1576,34 +1574,13 @@ func runWebServer(addr string, psrcs []pcap.IPacketSource) int {
 			fmt.Printf("Loaded: %s\n", s.Filename)
 
 		case pcap.InterfaceSource:
-			// Start live capture to temp file
-			tmpFile = pcap.TempPcapFile(s.Iface)
-			captureCmd, err = startWebCapture(ctx, s.Iface, tmpFile)
-			if err != nil {
+			// Use the unified capture API
+			if err := manager.StartCapture(s.Iface, ""); err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to start capture on %s: %v\n", s.Iface, err)
 				return 1
 			}
-			defer func() {
-				if captureCmd.Process != nil {
-					captureCmd.Process.Signal(syscall.SIGTERM)
-					captureCmd.Wait()
-				}
-				os.Remove(tmpFile)
-			}()
 			fmt.Printf("Capturing on interface: %s\n", s.Iface)
-			fmt.Printf("Temp file: %s\n", tmpFile)
-
-			// Wait for some packets to be captured before loading
-			time.Sleep(1 * time.Second)
-
-			// Load the temp file
-			if err := manager.LoadFile(tmpFile); err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to load capture file: %v\n", err)
-				return 1
-			}
-
-			// Start periodic refresh of the capture file
-			go refreshCaptureFile(ctx, manager, tmpFile)
+			fmt.Printf("Temp file: %s\n", manager.GetCaptureFile())
 		}
 	}
 
@@ -1618,41 +1595,6 @@ func runWebServer(addr string, psrcs []pcap.IPacketSource) int {
 	}
 
 	return 0
-}
-
-// startWebCapture starts dumpcap/tshark to capture packets to a file.
-func startWebCapture(ctx context.Context, iface string, outFile string) (*exec.Cmd, error) {
-	// Try dumpcap first, fall back to tshark
-	capturebin := termshark.CaptureBin()
-	if capturebin == "" {
-		return nil, fmt.Errorf("no capture tool found (dumpcap or tshark)")
-	}
-
-	cmd := exec.CommandContext(ctx, capturebin, "-i", iface, "-w", outFile)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		return nil, err
-	}
-
-	return cmd, nil
-}
-
-// refreshCaptureFile periodically reloads the capture file to get new packets.
-func refreshCaptureFile(ctx context.Context, manager *statemgr.Manager, tmpFile string) {
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			// Reload to get new packets
-			manager.LoadFile(tmpFile)
-		}
-	}
 }
 
 // syncLoaderToManager periodically syncs the PacketLoader state to the state.Manager.

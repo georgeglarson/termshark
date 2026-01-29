@@ -9,16 +9,18 @@ import (
 	"fmt"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 // Manager coordinates the session state and backend.
 // It provides the API that UI clients call via JSON-RPC.
 type Manager struct {
-	mu      sync.RWMutex
-	session *Session
-	backend Backend
-	ctx     context.Context
-	cancel  context.CancelFunc
+	mu       sync.RWMutex
+	session  *Session
+	backend  Backend
+	capture  *CaptureCoordinator
+	ctx      context.Context
+	cancel   context.CancelFunc
 }
 
 // NewManager creates a new state manager with the given backend.
@@ -156,12 +158,136 @@ func (m *Manager) Subscribe(bufferSize int) (<-chan StateChange, func()) {
 	return m.session.Subscribe(bufferSize)
 }
 
+// StartCapture begins live packet capture on the specified interface.
+func (m *Manager) StartCapture(iface string, captureFilter string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Stop any existing capture
+	if m.capture != nil && m.capture.IsRunning() {
+		m.capture.Stop()
+	}
+
+	// Clear previous state
+	m.session.Clear()
+
+	// Create new capture coordinator
+	m.capture = NewCaptureCoordinator()
+
+	// Set up callbacks to update session state
+	m.capture.SetCallbacks(
+		func(count int) {
+			// Packets added - reload from backend
+			if m.capture != nil {
+				tmpFile := m.capture.TempFile()
+				if tmpFile != "" {
+					m.backend.LoadFile(m.ctx, tmpFile)
+					status, err := m.backend.GetStatus(m.ctx)
+					if err == nil {
+						m.session.SetPacketCount(status.PacketCount)
+					}
+				}
+			}
+		},
+		func(err error) {
+			// Error occurred
+			m.session.NotifyError(err)
+		},
+		func() {
+			// Capture stopped
+			m.session.SetCaptureRunning(false)
+		},
+	)
+
+	// Start capture
+	config := CaptureConfig{
+		Interface:     iface,
+		CaptureFilter: captureFilter,
+	}
+	if err := m.capture.Start(config); err != nil {
+		return fmt.Errorf("failed to start capture: %w", err)
+	}
+
+	// Update session state
+	m.session.SetSource(iface, SourceInterface)
+	m.session.SetCaptureRunning(true)
+	m.session.SetCaptureFile(m.capture.TempFile())
+
+	// Wait briefly for initial packets, then load the file
+	go func() {
+		select {
+		case <-time.After(1 * time.Second):
+		case <-m.ctx.Done():
+			return
+		}
+
+		m.mu.Lock()
+		defer m.mu.Unlock()
+
+		if m.capture != nil && m.capture.IsRunning() {
+			tmpFile := m.capture.TempFile()
+			if tmpFile != "" {
+				m.backend.LoadFile(m.ctx, tmpFile)
+				status, err := m.backend.GetStatus(m.ctx)
+				if err == nil {
+					m.session.SetPacketCount(status.PacketCount)
+					m.session.SetColumns(status.Columns)
+				}
+			}
+		}
+	}()
+
+	return nil
+}
+
+// StopCapture stops the current live capture.
+func (m *Manager) StopCapture() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.capture == nil {
+		return nil
+	}
+
+	if err := m.capture.Stop(); err != nil {
+		return err
+	}
+
+	m.session.SetCaptureRunning(false)
+	return nil
+}
+
+// IsCapturing returns whether live capture is active.
+func (m *Manager) IsCapturing() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return m.capture != nil && m.capture.IsRunning()
+}
+
+// GetCaptureFile returns the path to the current capture file.
+func (m *Manager) GetCaptureFile() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.capture != nil {
+		return m.capture.TempFile()
+	}
+	return ""
+}
+
 // Close shuts down the manager and releases resources.
 func (m *Manager) Close() error {
 	m.cancel()
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	// Stop any active capture
+	if m.capture != nil {
+		m.capture.Stop()
+		m.capture.Cleanup()
+	}
 
 	if m.backend != nil {
 		return m.backend.Close()

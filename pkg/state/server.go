@@ -334,6 +334,20 @@ func (c *clientConn) dispatch(method string, params interface{}) (interface{}, e
 		filter, _ := p["filter"].(string)
 		return m.ValidateFilter(filter)
 
+	case "session.startCapture":
+		iface, _ := p["interface"].(string)
+		if iface == "" {
+			return nil, fmt.Errorf("interface required")
+		}
+		captureFilter, _ := p["captureFilter"].(string)
+		return nil, m.StartCapture(iface, captureFilter)
+
+	case "session.stopCapture":
+		return nil, m.StopCapture()
+
+	case "session.isCapturing":
+		return map[string]bool{"capturing": m.IsCapturing()}, nil
+
 	default:
 		return nil, fmt.Errorf("unknown method: %s", method)
 	}
