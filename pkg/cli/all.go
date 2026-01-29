@@ -34,8 +34,10 @@ type Termshark struct {
 	Debug    TriState `long:"debug" default:"unset" hidden:"true" optional:"true" optional-value:"true" description:"Enable termshark debugging. See https://termshark.io/userguide."`
 	Help     bool     `long:"help" short:"h" optional:"true" optional-value:"true" description:"Show this help message."`
 	Version  []bool   `long:"version" short:"v" optional:"true" optional-value:"true" description:"Show version information."`
-	Web      bool     `long:"web" optional:"true" optional-value:"true" description:"Start web UI server instead of terminal UI."`
-	WebAddr  string   `long:"web-addr" default:"127.0.0.1:8080" description:"Address for web server to listen on."`
+	Web         bool   `long:"web" optional:"true" optional-value:"true" description:"Start web UI server instead of terminal UI."`
+	WebAddr     string `long:"web-addr" default:"127.0.0.1:8080" description:"Address for web server to listen on."`
+	WebSessions bool   `long:"web-sessions" optional:"true" optional-value:"true" description:"Enable multi-session mode for web UI (allows multiple users to share sessions)."`
+	SessionName string `long:"session-name" description:"Name for the session when using multi-session mode." value-name:"<name>"`
 
 	Args struct {
 		FilterOrPcap string `value-name:"<filter-or-file>" description:"Filter (capture for iface, display for pcap), or pcap to read."`
@@ -44,7 +46,7 @@ type Termshark struct {
 
 // If args are passed through to tshark (e.g. stdout not a tty), then
 // strip these out so tshark doesn't fail.
-var TermsharkOnly = []string{"--pass-thru", "--profile", "--log-tty", "--debug", "--tail", "--web", "--web-addr"}
+var TermsharkOnly = []string{"--pass-thru", "--profile", "--log-tty", "--debug", "--tail", "--web", "--web-addr", "--web-sessions", "--session-name"}
 
 func FlagIsTrue(val string) bool {
 	return val == "true" || val == "yes"

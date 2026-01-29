@@ -193,6 +193,9 @@ func cmain() int {
 			return 1
 		}
 
+		if state.opts.WebSessions {
+			return runWebServerWithSessions(state.opts.WebAddr, state.opts.SessionName, psrcs)
+		}
 		return runWebServer(state.opts.WebAddr, psrcs)
 	}
 
@@ -1597,6 +1600,81 @@ func runWebServer(addr string, psrcs []pcap.IPacketSource) int {
 	return 0
 }
 
+// runWebServerWithSessions starts the web UI server with multi-session support.
+// This allows multiple users to create, join, and share analysis sessions.
+func runWebServerWithSessions(addr string, sessionName string, psrcs []pcap.IPacketSource) int {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Handle interrupt signals
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		fmt.Fprintln(os.Stderr, "\nShutting down...")
+		cancel()
+	}()
+
+	// Create session registry with sharkd backend factory
+	registry := statemgr.NewRegistry(statemgr.RegistryConfig{
+		BackendFactory: &sharkdBackendFactory{},
+	})
+
+	// If sources were provided, create an initial session with them
+	if len(psrcs) > 0 {
+		name := sessionName
+		if name == "" {
+			// Generate a default name from the source
+			if len(psrcs) > 0 {
+				name = psrcs[0].Name()
+			} else {
+				name = "Default"
+			}
+		}
+
+		session, err := registry.CreateSession(name)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create initial session: %v\n", err)
+			return 1
+		}
+
+		// Load sources into the session
+		for _, src := range psrcs {
+			switch s := src.(type) {
+			case pcap.FileSource:
+				if err := session.Manager.LoadFile(s.Filename); err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to load pcap file: %v\n", err)
+					return 1
+				}
+				fmt.Printf("Session '%s': Loaded %s\n", name, s.Filename)
+
+			case pcap.InterfaceSource:
+				if err := session.Manager.StartCapture(s.Iface, ""); err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to start capture on %s: %v\n", s.Iface, err)
+					return 1
+				}
+				fmt.Printf("Session '%s': Capturing on %s\n", name, s.Iface)
+				fmt.Printf("Temp file: %s\n", session.Manager.GetCaptureFile())
+			}
+		}
+
+		fmt.Printf("Created initial session: %s (ID: %s)\n", name, session.ID)
+	}
+
+	// Start web server with registry
+	server := web.NewServerWithRegistry(addr, registry)
+	fmt.Printf("Web UI available at http://%s\n", addr)
+	fmt.Println("Multi-session mode enabled - users can create and join sessions")
+	fmt.Println("Press Ctrl+C to stop")
+
+	if err := server.Start(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
+		return 1
+	}
+
+	return 0
+}
+
 // syncLoaderToManager periodically syncs the PacketLoader state to the state.Manager.
 // This runs in the background for the terminal UI to keep state consistent.
 func syncLoaderToManager(backend *statemgr.TsharkBackend, manager *statemgr.Manager) {
@@ -1610,6 +1688,22 @@ func syncLoaderToManager(backend *statemgr.TsharkBackend, manager *statemgr.Mana
 		// Sync loader state to backend, which updates the manager
 		backend.Sync()
 	}
+}
+
+// sharkdBackendFactory implements statemgr.BackendFactory for creating sharkd backends.
+type sharkdBackendFactory struct{}
+
+func (f *sharkdBackendFactory) Create(ctx context.Context) (statemgr.Backend, error) {
+	return statemgr.NewSharkdBackend(ctx)
+}
+
+func (f *sharkdBackendFactory) Name() string {
+	return "sharkd"
+}
+
+func (f *sharkdBackendFactory) Available() bool {
+	_, err := exec.LookPath("sharkd")
+	return err == nil
 }
 
 //======================================================================
