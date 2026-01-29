@@ -179,7 +179,30 @@ func cmain() int {
 			return 1
 		}
 
-		// Use same source resolution as terminal UI for consistency
+		// For multi-session mode, sources are optional (users can create sessions via UI)
+		if state.opts.WebSessions {
+			var psrcs []pcap.IPacketSource
+
+			// Only resolve sources if explicitly provided
+			if state.opts.Pcap != "" || len(state.opts.Ifaces) > 0 || state.opts.Args.FilterOrPcap != "" {
+				psrcs, _, err = resolvePacketSourcesForWeb(&state.opts, filterArgs)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%v\n", err)
+					return 1
+				}
+
+				// Resolve interface names (e.g., "1" -> "eth0")
+				psrcs, err = resolveInterfaceNames(psrcs)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%v\n", err)
+					return 1
+				}
+			}
+
+			return runWebServerWithSessions(state.opts.WebAddr, state.opts.SessionName, psrcs)
+		}
+
+		// Non-session mode: use same source resolution as terminal UI
 		psrcs, _, err := resolvePacketSourcesForWeb(&state.opts, filterArgs)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -193,9 +216,6 @@ func cmain() int {
 			return 1
 		}
 
-		if state.opts.WebSessions {
-			return runWebServerWithSessions(state.opts.WebAddr, state.opts.SessionName, psrcs)
-		}
 		return runWebServer(state.opts.WebAddr, psrcs)
 	}
 
