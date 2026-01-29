@@ -31,6 +31,7 @@ import (
 	"github.com/gcla/termshark/v2/pkg/lifecycle"
 	"github.com/gcla/termshark/v2/pkg/pcap"
 	"github.com/gcla/termshark/v2/pkg/shark"
+	"github.com/gcla/termshark/v2/pkg/state"
 	"github.com/gcla/termshark/v2/pkg/system"
 	"github.com/gcla/termshark/v2/pkg/tailfile"
 	"github.com/gcla/termshark/v2/pkg/tty"
@@ -1489,26 +1490,24 @@ func runWebServer(addr string, psrcs []pcap.IPacketSource) int {
 		cancel()
 	}()
 
-	// Start sharkd
-	sharkd, err := web.NewSharkdClient(ctx)
+	// Create sharkd backend using the unified state package
+	backend, err := state.NewSharkdBackend(ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to start sharkd: %v\n", err)
 		fmt.Fprintln(os.Stderr, "Make sure sharkd is installed (usually part of wireshark-common).")
 		return 1
 	}
-	defer sharkd.Close()
+	defer backend.Close()
+
+	// Create state manager
+	manager := state.NewManager(backend)
+	defer manager.Close()
 
 	// Load pcap file if provided
 	if len(psrcs) > 0 {
 		for _, src := range psrcs {
 			if fs, ok := src.(pcap.FileSource); ok {
-				absPath, err := filepath.Abs(fs.Filename)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to resolve pcap path: %v\n", err)
-					return 1
-				}
-				_, err = sharkd.Call("load", map[string]string{"file": absPath})
-				if err != nil {
+				if err := manager.LoadFile(fs.Filename); err != nil {
 					fmt.Fprintf(os.Stderr, "Failed to load pcap file: %v\n", err)
 					return 1
 				}
@@ -1517,8 +1516,8 @@ func runWebServer(addr string, psrcs []pcap.IPacketSource) int {
 		}
 	}
 
-	// Start web server
-	server := web.NewServer(addr, sharkd)
+	// Start web server with state manager
+	server := web.NewServerWithManager(addr, manager)
 	fmt.Printf("Web UI available at http://%s\n", addr)
 	fmt.Println("Press Ctrl+C to stop")
 

@@ -14,10 +14,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gcla/termshark/v2/pkg/state"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// Test helpers to wrap state package types
+func NewSharkdBackendForTest(ctx context.Context) (*state.SharkdBackend, error) {
+	return state.NewSharkdBackend(ctx)
+}
+
+func NewManagerForTest(backend state.Backend) *state.Manager {
+	return state.NewManager(backend)
+}
 
 func TestServerHealth(t *testing.T) {
 	if _, err := exec.LookPath("sharkd"); err != nil {
@@ -111,4 +121,105 @@ func TestServerStaticFiles(t *testing.T) {
 	data, err := staticFiles.ReadFile("static/index.html")
 	require.NoError(t, err)
 	assert.True(t, strings.Contains(string(data), "Termshark Web"))
+}
+
+func TestNewServerWithManager(t *testing.T) {
+	if _, err := exec.LookPath("sharkd"); err != nil {
+		t.Skip("sharkd not found in PATH")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Import state package inline since we need it for the test
+	backend, err := NewSharkdBackendForTest(ctx)
+	if err != nil {
+		t.Skipf("Failed to create sharkd backend: %v", err)
+	}
+	defer backend.Close()
+
+	manager := NewManagerForTest(backend)
+	defer manager.Close()
+
+	server := NewServerWithManager("127.0.0.1:0", manager)
+	assert.NotNil(t, server)
+	assert.NotNil(t, server.manager)
+	assert.Nil(t, server.sharkd)
+}
+
+func TestGetFloat(t *testing.T) {
+	tests := []struct {
+		name     string
+		m        map[string]interface{}
+		key      string
+		def      float64
+		expected float64
+	}{
+		{
+			name:     "key exists",
+			m:        map[string]interface{}{"count": float64(42)},
+			key:      "count",
+			def:      0,
+			expected: 42,
+		},
+		{
+			name:     "key missing",
+			m:        map[string]interface{}{},
+			key:      "count",
+			def:      10,
+			expected: 10,
+		},
+		{
+			name:     "wrong type",
+			m:        map[string]interface{}{"count": "not a number"},
+			key:      "count",
+			def:      5,
+			expected: 5,
+		},
+		{
+			name:     "nil map",
+			m:        nil,
+			key:      "count",
+			def:      7,
+			expected: 7,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getFloat(tt.m, tt.key, tt.def)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestConvertTreeToSharkd(t *testing.T) {
+	nodes := []state.ProtocolNode{
+		{
+			Label:    "Ethernet II",
+			Field:    "eth",
+			Position: 0,
+			Size:     14,
+			Children: []state.ProtocolNode{
+				{
+					Label:    "Destination",
+					Field:    "eth.dst",
+					Position: 0,
+					Size:     6,
+				},
+			},
+		},
+	}
+
+	result := convertTreeToSharkd(nodes)
+
+	require.Len(t, result, 1)
+	assert.Equal(t, "Ethernet II", result[0]["l"])
+	assert.Equal(t, "eth", result[0]["f"])
+	assert.Equal(t, 0, result[0]["h"])
+	assert.Equal(t, 14, result[0]["i"])
+
+	children := result[0]["n"].([]map[string]interface{})
+	require.Len(t, children, 1)
+	assert.Equal(t, "Destination", children[0]["l"])
 }

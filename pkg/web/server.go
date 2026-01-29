@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gcla/termshark/v2/pkg/state"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 )
@@ -24,18 +25,36 @@ var staticFiles embed.FS
 // Server represents the web server for termshark.
 type Server struct {
 	addr     string
-	sharkd   *SharkdClient
+	sharkd   *SharkdClient         // Deprecated: use manager instead
+	manager  *state.Manager        // New unified state manager
 	server   *http.Server
 	upgrader websocket.Upgrader
 	mu       sync.RWMutex
 	clients  map[*websocket.Conn]bool
 }
 
-// NewServer creates a new web server.
+// NewServer creates a new web server with a SharkdClient.
+// Deprecated: Use NewServerWithManager instead.
 func NewServer(addr string, sharkd *SharkdClient) *Server {
 	return &Server{
 		addr:   addr,
 		sharkd: sharkd,
+		upgrader: websocket.Upgrader{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			CheckOrigin: func(r *http.Request) bool {
+				return true // Allow all origins for local development
+			},
+		},
+		clients: make(map[*websocket.Conn]bool),
+	}
+}
+
+// NewServerWithManager creates a new web server using the unified state manager.
+func NewServerWithManager(addr string, manager *state.Manager) *Server {
+	return &Server{
+		addr:    addr,
+		manager: manager,
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
@@ -93,7 +112,7 @@ func (s *Server) Start(ctx context.Context) error {
 	return nil
 }
 
-// handleWebSocket handles WebSocket connections and proxies to sharkd.
+// handleWebSocket handles WebSocket connections and proxies to sharkd or manager.
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -131,8 +150,15 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Forward to sharkd
-		result, err := s.sharkd.Call(req.Method, req.Params)
+		// Handle via manager or sharkd
+		var result json.RawMessage
+		if s.manager != nil {
+			result, err = s.handleManagerRequest(req)
+		} else {
+			// Fallback to direct sharkd
+			result, err = s.sharkd.Call(req.Method, req.Params)
+		}
+
 		if err != nil {
 			s.sendError(conn, req.ID, -32603, err.Error())
 			continue
@@ -149,6 +175,136 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+}
+
+// handleManagerRequest routes a request through the state manager.
+func (s *Server) handleManagerRequest(req JSONRPCRequest) (json.RawMessage, error) {
+	// Convert params to map if needed
+	var p map[string]interface{}
+	if req.Params != nil {
+		switch v := req.Params.(type) {
+		case map[string]interface{}:
+			p = v
+		default:
+			// Try to convert via JSON
+			b, _ := json.Marshal(req.Params)
+			json.Unmarshal(b, &p)
+		}
+	}
+
+	var result interface{}
+	var err error
+
+	switch req.Method {
+	case "status":
+		result, err = s.manager.GetStatus()
+
+	case "load":
+		path, _ := p["file"].(string)
+		if path == "" {
+			return nil, fmt.Errorf("file path required")
+		}
+		err = s.manager.LoadFile(path)
+		if err == nil {
+			result = map[string]string{"status": "ok"}
+		}
+
+	case "frames":
+		start := int(getFloat(p, "skip", 0))
+		count := int(getFloat(p, "limit", 100))
+		packets, err := s.manager.GetPackets(start, count)
+		if err != nil {
+			return nil, err
+		}
+		// Convert to sharkd-compatible format
+		frames := make([]map[string]interface{}, len(packets))
+		for i, pkt := range packets {
+			frames[i] = map[string]interface{}{
+				"num": pkt.Number,
+				"c":   pkt.Columns,
+			}
+			if pkt.BGColor != "" {
+				frames[i]["bg"] = pkt.BGColor
+			}
+			if pkt.FGColor != "" {
+				frames[i]["fg"] = pkt.FGColor
+			}
+		}
+		result = frames
+
+	case "frame":
+		num := int(getFloat(p, "frame", 0))
+		if num <= 0 {
+			return nil, fmt.Errorf("frame number required")
+		}
+		detail, err := s.manager.GetPacketDetail(num)
+		if err != nil {
+			return nil, err
+		}
+		// Convert to sharkd-compatible format
+		result = map[string]interface{}{
+			"tree":  convertTreeToSharkd(detail.Tree),
+			"bytes": detail.Bytes,
+		}
+
+	case "check":
+		filter, _ := p["filter"].(string)
+		validation, err := s.manager.ValidateFilter(filter)
+		if err != nil {
+			return nil, err
+		}
+		result = map[string]bool{"ok": validation.Valid}
+
+	case "setfilter":
+		filter, _ := p["filter"].(string)
+		err = s.manager.SetFilter(filter)
+		if err == nil {
+			result = map[string]string{"status": "ok"}
+		}
+
+	default:
+		return nil, fmt.Errorf("unknown method: %s", req.Method)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(result)
+}
+
+// convertTreeToSharkd converts protocol nodes to sharkd format.
+func convertTreeToSharkd(nodes []state.ProtocolNode) []map[string]interface{} {
+	result := make([]map[string]interface{}, len(nodes))
+	for i, n := range nodes {
+		m := map[string]interface{}{
+			"l": n.Label,
+		}
+		if n.Field != "" {
+			m["f"] = n.Field
+		}
+		// Include position if size is set (indicates a byte range)
+		if n.Size > 0 {
+			m["h"] = n.Position
+			m["i"] = n.Size
+		}
+		if len(n.Children) > 0 {
+			m["n"] = convertTreeToSharkd(n.Children)
+		}
+		result[i] = m
+	}
+	return result
+}
+
+// getFloat gets a float64 from a map with a default value.
+func getFloat(m map[string]interface{}, key string, def float64) float64 {
+	if m == nil {
+		return def
+	}
+	if v, ok := m[key].(float64); ok {
+		return v
+	}
+	return def
 }
 
 // sendError sends a JSON-RPC error response.
@@ -184,18 +340,29 @@ func (s *Server) handleLoadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Load file via sharkd
-	result, err := s.sharkd.Call("load", map[string]string{"file": req.File})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	// Load file via manager or sharkd
+	if s.manager != nil {
+		if err := s.manager.LoadFile(req.File); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "ok",
+		})
+	} else {
+		// Fallback to direct sharkd
+		result, err := s.sharkd.Call("load", map[string]string{"file": req.File})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "ok",
+			"result": json.RawMessage(result),
+		})
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status": "ok",
-		"result": json.RawMessage(result),
-	})
 }
 
 // Addr returns the server address.
