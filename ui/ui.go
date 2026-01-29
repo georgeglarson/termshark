@@ -363,11 +363,13 @@ func calculateAndSyncPrefetchRequests(currentRow, pktsPerLoad int) {
 	// Use the app package's pure prefetch algorithm
 	requests := app.CalculatePrefetchRequests(currentRow, pktsPerLoad)
 
-	// Sync with the old global CacheRequests
-	CacheRequests = CacheRequests[:0]
+	// Build the cache requests slice
+	cacheReqs := make([]pcap.LoadPcapSlice, 0, len(requests))
 	for _, req := range requests {
-		CacheRequests = append(CacheRequests, req.ToLoadPcapSlice())
+		cacheReqs = append(cacheReqs, req.ToLoadPcapSlice())
 	}
+	// Use SetCacheRequests to update both global and UI.Channels.CacheRequests
+	SetCacheRequests(cacheReqs)
 
 	// Also update the Controller's pending requests
 	AppController.State.ClearPendingRequests()
@@ -2706,7 +2708,7 @@ func setPacketListWidgets(psml iPsmlInfo, app gowid.IApp) {
 			// Use the app package's prefetch algorithm
 			calculateAndSyncPrefetchRequests(row, pktsPerLoad)
 
-			CacheRequestsChan <- struct{}{}
+			GetCacheRequestsChan() <- struct{}{}
 
 			// Sync current packet number with Controller
 			if jpos, err := packetNumberFromTableRow(row2); err == nil {

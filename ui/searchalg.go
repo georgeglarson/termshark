@@ -113,11 +113,12 @@ func (w *PacketSearcher) SearchPackets(term search.INeedle, cbs search.ICallback
 					app.Run(gowid.RunFunction(func(app gowid.IApp) {
 						pktsPerLoad := Loader.PacketsPerLoad()
 
-						CacheRequests = append(CacheRequests, pcap.LoadPcapSlice{
+						reqs := append(GetCacheRequests(), pcap.LoadPcapSlice{
 							Row:           (resumeAtZeroBased / pktsPerLoad) * pktsPerLoad,
 							CancelCurrent: true,
 						})
-						CacheRequestsChan <- struct{}{}
+						SetCacheRequests(reqs)
+						GetCacheRequestsChan() <- struct{}{}
 					}))
 				}
 
