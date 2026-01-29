@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -462,4 +463,92 @@ func TestSharkdBackendFactory_Create(t *testing.T) {
 	defer backend.Close()
 
 	assert.NotNil(t, backend)
+}
+
+func TestServer_HandleHealth(t *testing.T) {
+	backend := &mockBackend{}
+	manager := NewManager(backend)
+
+	server := NewServer(manager, ServerConfig{})
+
+	// Create a test response writer
+	rr := &httpResponseRecorder{
+		headers: make(http.Header),
+	}
+
+	server.handleHealth(rr, nil)
+
+	assert.Equal(t, "application/json", rr.headers.Get("Content-Type"))
+	assert.Contains(t, rr.body, `"status":"ok"`)
+}
+
+// httpResponseRecorder implements http.ResponseWriter for testing
+type httpResponseRecorder struct {
+	headers    http.Header
+	body       string
+	statusCode int
+}
+
+func (w *httpResponseRecorder) Header() http.Header {
+	return w.headers
+}
+
+func (w *httpResponseRecorder) Write(b []byte) (int, error) {
+	w.body += string(b)
+	return len(b), nil
+}
+
+func (w *httpResponseRecorder) WriteHeader(statusCode int) {
+	w.statusCode = statusCode
+}
+
+func TestServer_Dispatch_StartCapture_MissingInterface(t *testing.T) {
+	backend := &mockBackend{}
+	manager := NewManager(backend)
+
+	server := NewServer(manager, ServerConfig{})
+	client := &clientConn{server: server}
+
+	_, err := client.dispatch("session.startCapture", map[string]interface{}{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "interface required")
+}
+
+func TestServer_Dispatch_StopCapture(t *testing.T) {
+	backend := &mockBackend{}
+	manager := NewManager(backend)
+	defer manager.Close()
+
+	server := NewServer(manager, ServerConfig{})
+	client := &clientConn{server: server}
+
+	// Stop capture when not running should be fine
+	_, err := client.dispatch("session.stopCapture", nil)
+	assert.NoError(t, err)
+}
+
+func TestServer_Dispatch_IsCapturing(t *testing.T) {
+	backend := &mockBackend{}
+	manager := NewManager(backend)
+	defer manager.Close()
+
+	server := NewServer(manager, ServerConfig{})
+	client := &clientConn{server: server}
+
+	result, err := client.dispatch("session.isCapturing", nil)
+	assert.NoError(t, err)
+
+	captureResult := result.(map[string]bool)
+	assert.False(t, captureResult["capturing"])
+}
+
+func TestServer_Stop_NoListeners(t *testing.T) {
+	backend := &mockBackend{}
+	manager := NewManager(backend)
+
+	server := NewServer(manager, ServerConfig{})
+
+	// Stop without starting should be fine
+	err := server.Stop()
+	assert.NoError(t, err)
 }

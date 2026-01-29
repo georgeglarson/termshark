@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewCaptureCoordinator(t *testing.T) {
@@ -226,4 +227,154 @@ func TestDoubleTicker(t *testing.T) {
 			totalTicks++
 		}
 	}
+}
+
+func TestCaptureCoordinator_checkForNewPackets(t *testing.T) {
+	c := NewCaptureCoordinator()
+
+	// Create a temp file with some data
+	tmpFile := filepath.Join(os.TempDir(), "test-packets.pcap")
+	f, err := os.Create(tmpFile)
+	require.NoError(t, err)
+	defer os.Remove(tmpFile)
+
+	// Write some initial data
+	_, err = f.Write(make([]byte, 1000))
+	require.NoError(t, err)
+	f.Close()
+
+	// Set up the coordinator
+	c.mu.Lock()
+	c.tmpFile = tmpFile
+	c.bytesWritten = 0
+	c.packetsDiscovered = 0
+	c.mu.Unlock()
+
+	c.SetCallbacks(
+		func(count int) { /* track packet count */ },
+		nil,
+		nil,
+	)
+
+	// Check for new packets
+	c.checkForNewPackets()
+
+	// Should have detected some packets
+	assert.Greater(t, c.bytesWritten, int64(0))
+}
+
+func TestCaptureCoordinator_checkForNewPackets_NoFile(t *testing.T) {
+	c := NewCaptureCoordinator()
+
+	c.mu.Lock()
+	c.tmpFile = "/nonexistent/file.pcap"
+	c.mu.Unlock()
+
+	// Should not panic
+	c.checkForNewPackets()
+}
+
+func TestCaptureCoordinator_checkForNewPackets_WithCallback(t *testing.T) {
+	c := NewCaptureCoordinator()
+
+	// Create a temp file with some data
+	tmpFile := filepath.Join(os.TempDir(), "test-callback.pcap")
+	f, err := os.Create(tmpFile)
+	require.NoError(t, err)
+	defer os.Remove(tmpFile)
+
+	// Write enough data to register multiple packets (500 bytes per packet estimate)
+	_, err = f.Write(make([]byte, 5000))
+	require.NoError(t, err)
+	f.Close()
+
+	c.mu.Lock()
+	c.tmpFile = tmpFile
+	c.bytesWritten = 0
+	c.packetsDiscovered = 0
+	c.mu.Unlock()
+
+	callbackCalled := false
+	addedCount := 0
+	c.SetCallbacks(
+		func(count int) {
+			callbackCalled = true
+			addedCount = count
+		},
+		nil,
+		nil,
+	)
+
+	c.checkForNewPackets()
+
+	assert.True(t, callbackCalled)
+	assert.Greater(t, addedCount, 0)
+}
+
+func TestCaptureCoordinator_checkForNewPackets_NoGrowth(t *testing.T) {
+	c := NewCaptureCoordinator()
+
+	// Create a temp file
+	tmpFile := filepath.Join(os.TempDir(), "test-no-growth.pcap")
+	f, err := os.Create(tmpFile)
+	require.NoError(t, err)
+	defer os.Remove(tmpFile)
+
+	_, err = f.Write(make([]byte, 1000))
+	require.NoError(t, err)
+	f.Close()
+
+	c.mu.Lock()
+	c.tmpFile = tmpFile
+	c.bytesWritten = 1000 // Same as file size
+	c.packetsDiscovered = 2
+	c.mu.Unlock()
+
+	callbackCalled := false
+	c.SetCallbacks(
+		func(count int) { callbackCalled = true },
+		nil,
+		nil,
+	)
+
+	c.checkForNewPackets()
+
+	// Callback should not be called since file didn't grow
+	assert.False(t, callbackCalled)
+}
+
+func TestCaptureCoordinator_StartAlreadyRunning(t *testing.T) {
+	c := NewCaptureCoordinator()
+
+	c.mu.Lock()
+	c.running = true
+	c.mu.Unlock()
+
+	config := CaptureConfig{
+		Interface: "lo",
+	}
+
+	err := c.Start(config)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "already running")
+}
+
+func TestCaptureCoordinator_CleanupNoFile(t *testing.T) {
+	c := NewCaptureCoordinator()
+
+	// Cleanup with no file set should be fine
+	err := c.Cleanup()
+	assert.NoError(t, err)
+}
+
+func TestCaptureCoordinator_CleanupNonexistentFile(t *testing.T) {
+	c := NewCaptureCoordinator()
+
+	c.mu.Lock()
+	c.tmpFile = "/nonexistent/file.pcap"
+	c.mu.Unlock()
+
+	// Cleanup should not error for nonexistent file
+	err := c.Cleanup()
+	assert.NoError(t, err)
 }

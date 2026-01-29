@@ -154,3 +154,45 @@ func TestTsharkBackend_Sync(t *testing.T) {
 	status, _ := backend.GetStatus(context.Background())
 	assert.Equal(t, 3, status.PacketCount)
 }
+
+func TestTsharkBackend_GetPacketDetail(t *testing.T) {
+	backend := NewTsharkBackend()
+
+	detail, err := backend.GetPacketDetail(context.Background(), 5)
+	assert.NoError(t, err)
+	assert.NotNil(t, detail)
+	assert.Equal(t, 5, detail.Number)
+	assert.Empty(t, detail.Tree)
+}
+
+func TestTsharkBackend_GetStreamInfo(t *testing.T) {
+	backend := NewTsharkBackend()
+
+	_, err := backend.GetStreamInfo(context.Background(), "tcp")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not implemented")
+}
+
+func TestTsharkBackend_FollowStream(t *testing.T) {
+	backend := NewTsharkBackend()
+
+	_, err := backend.FollowStream(context.Background(), "tcp", 0)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not implemented")
+}
+
+func TestTsharkBackend_Sync_NoLoader(t *testing.T) {
+	backend := NewTsharkBackend()
+
+	// Should not panic with no loader set
+	backend.Sync()
+}
+
+func TestTsharkBackend_GetStatus_NoLoader(t *testing.T) {
+	backend := NewTsharkBackend()
+
+	status, err := backend.GetStatus(context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, 0, status.PacketCount)
+	assert.Empty(t, status.Source)
+}
