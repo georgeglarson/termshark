@@ -208,9 +208,12 @@ func (s *Server) addClient(client *clientConn) {
 	s.clients[client] = true
 	s.mu.Unlock()
 
-	// Subscribe to state changes
-	client.subCh, client.unsubFn = s.manager.Subscribe(100)
-	go client.forwardStateChanges()
+	// Subscribe to state changes if there's a default manager
+	// (registry-based servers require clients to join a session first)
+	if s.manager != nil {
+		client.subCh, client.unsubFn = s.manager.Subscribe(100)
+		go client.forwardStateChanges()
+	}
 
 	log.Info("Client connected")
 }
