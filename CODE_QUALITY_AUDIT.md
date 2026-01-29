@@ -13,14 +13,14 @@
 | Deprecated APIs | COMPLETE | 6 files with ioutil, fsnotify path | All |
 | Error Handling | COMPLETE | pkg/errors, %v wrapping, type assertions | All |
 | Goroutine Lifecycle | COMPLETE | Global WaitGroup injection | ~40 goroutines |
-| Code Complexity | IN PROGRESS | 1260-line cmain(), 80+ UI globals | ~686 lines extracted |
+| Code Complexity | COMPLETE | 1260-line cmain(), 80+ UI globals | cmain→574 lines, UIState struct |
 | Modernization | COMPLETE | strings.Replace, error wrapping, slices pkg, sort -> slices, go vet clean | All |
 | Bug Fixes | COMPLETE | iota misuse (8 files), WriteGob error handling, redundant code | All |
 | Test Coverage | IN PROGRESS | ~30% coverage, 0% for UI | 17 packages tested |
 | Type Safety | COMPLETE | interface{} callbacks | Callback type + any |
 | Dependencies | COMPLETE | 7 outdated deps, 1 unused import | All evaluated/fixed |
 
-**Overall Assessment:** Major modernization complete. Remaining: cmain() extraction, AppState struct, UI tests
+**Overall Assessment:** Major modernization complete. Remaining: loader state machine tests, mock tshark integration tests
 
 ---
 
@@ -377,7 +377,7 @@ type HandlerList[T any] []T
    - 5 `io.EOF` comparisons migrated to `errors.Is()`
    - 11 `*exec.ExitError` and `*exec.Error` type assertions migrated to `errors.As()`
 
-### Phase 3: Architecture (Medium Term) - IN PROGRESS
+### Phase 3: Architecture (Medium Term) - COMPLETE
 8. ~~Refactor goroutine lifecycle to use context/errgroup~~ COMPLETE
    - ~~Create lifecycle.Tracker~~ DONE
    - ~~Migrate all TrackedGo() calls to termshark.Go()~~ DONE
@@ -409,7 +409,7 @@ type HandlerList[T any] []T
    - ~~Extract handleHelpAndVersion()~~ DONE
    - ~~Create appState struct with methods~~ DONE
    - Current cmain() size: ~574 lines (down from ~1260, -686 lines)
-10. Create `AppState` struct for UI globals
+10. ~~Create `AppState` struct for UI globals~~ DONE (UIState struct + Build() dual-writes)
 
 ### Phase 4: Testing (Medium Term)
 11. ~~Add tests for configuration loading~~ DONE (configs/profiles 26% → 39%)
