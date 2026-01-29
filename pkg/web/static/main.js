@@ -649,12 +649,156 @@ class HexView {
     }
 }
 
+class StreamViewer {
+    constructor(client) {
+        this.client = client;
+        this.modal = document.getElementById('stream-modal');
+        this.content = document.getElementById('stream-content');
+        this.protocolSelect = document.getElementById('stream-protocol');
+        this.streamIndex = document.getElementById('stream-index');
+        this.viewToggle = document.getElementById('stream-view-toggle');
+        this.streamBtn = document.getElementById('stream-btn');
+        this.hexMode = false;
+        this.currentData = null;
+
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        // Open modal
+        this.streamBtn.addEventListener('click', () => this.show());
+
+        // Close modal
+        document.getElementById('stream-modal-close').addEventListener('click', () => this.hide());
+
+        // Close on backdrop click
+        this.modal.addEventListener('click', (e) => {
+            if (e.target === this.modal) {
+                this.hide();
+            }
+        });
+
+        // Fetch stream
+        document.getElementById('stream-fetch-btn').addEventListener('click', () => this.fetchStream());
+
+        // Toggle view mode
+        this.viewToggle.addEventListener('click', () => this.toggleView());
+    }
+
+    show() {
+        this.modal.classList.remove('hidden');
+    }
+
+    hide() {
+        this.modal.classList.add('hidden');
+    }
+
+    async fetchStream() {
+        const protocol = this.protocolSelect.value;
+        const index = parseInt(this.streamIndex.value) || 0;
+
+        this.content.textContent = 'Loading...';
+
+        try {
+            const result = await this.client.followStream(protocol, index);
+            if (result && result.payloads && result.payloads.length > 0) {
+                // Decode and concatenate payloads
+                let data = '';
+                for (const payload of result.payloads) {
+                    if (payload.d) {
+                        data += atob(payload.d);
+                    }
+                }
+                this.currentData = data;
+                this.renderData();
+            } else {
+                this.content.textContent = 'No stream data found';
+                this.currentData = null;
+            }
+        } catch (error) {
+            this.content.textContent = 'Error: ' + error.message;
+            this.currentData = null;
+        }
+    }
+
+    toggleView() {
+        this.hexMode = !this.hexMode;
+        this.viewToggle.textContent = this.hexMode ? 'ASCII View' : 'Hex View';
+        this.renderData();
+    }
+
+    renderData() {
+        if (!this.currentData) {
+            return;
+        }
+
+        if (this.hexMode) {
+            this.renderHex(this.currentData);
+        } else {
+            this.renderAscii(this.currentData);
+        }
+    }
+
+    renderAscii(data) {
+        // Replace non-printable characters with dots
+        let text = '';
+        for (let i = 0; i < data.length; i++) {
+            const code = data.charCodeAt(i);
+            if (code >= 32 && code <= 126) {
+                text += data[i];
+            } else if (code === 10 || code === 13 || code === 9) {
+                text += data[i];
+            } else {
+                text += '.';
+            }
+        }
+        this.content.textContent = text;
+    }
+
+    renderHex(data) {
+        const lines = [];
+        for (let i = 0; i < data.length; i += 16) {
+            const offset = i.toString(16).padStart(8, '0');
+            let hexPart = '';
+            let asciiPart = '';
+
+            for (let j = 0; j < 16; j++) {
+                if (i + j < data.length) {
+                    const byte = data.charCodeAt(i + j);
+                    hexPart += byte.toString(16).padStart(2, '0') + ' ';
+                    asciiPart += (byte >= 32 && byte <= 126) ? data[i + j] : '.';
+                } else {
+                    hexPart += '   ';
+                    asciiPart += ' ';
+                }
+                if (j === 7) hexPart += ' ';
+            }
+
+            lines.push(
+                `<span class="stream-hex-offset">${offset}</span>` +
+                `<span class="stream-hex-bytes">${hexPart}</span>` +
+                `<span class="stream-hex-ascii">${asciiPart}</span>`
+            );
+        }
+        this.content.innerHTML = lines.join('\n');
+    }
+
+    setVisible(visible) {
+        if (visible) {
+            this.streamBtn.classList.remove('hidden');
+        } else {
+            this.streamBtn.classList.add('hidden');
+        }
+    }
+}
+
 // Main application
 class App {
     constructor() {
         this.client = new SharkdClient();
         this.sessionPicker = null;
         this.captureControls = null;
+        this.streamViewer = new StreamViewer(this.client);
         this.packetList = new PacketListView(
             document.getElementById('packets'),
             this.client
@@ -707,6 +851,11 @@ class App {
             if (e.target.files.length > 0) {
                 this.loadLocalFile(e.target.files[0]);
             }
+        });
+
+        // Download button
+        document.getElementById('download-btn').addEventListener('click', () => {
+            this.downloadPcap();
         });
 
         // Keyboard navigation
@@ -816,6 +965,11 @@ class App {
                 this.packetList.setColumns(status.columns);
             }
 
+            // Show download and stream buttons if there's a file loaded
+            const hasFile = status && (status.filename || status.frames > 0);
+            this.updateDownloadButton(hasFile);
+            this.streamViewer.setVisible(hasFile);
+
             if (status && status.frames > 0) {
                 await this.loadFrames();
             }
@@ -853,6 +1007,30 @@ class App {
         // Note: This requires server-side support to handle file uploads
         // For now, show a message
         alert('File upload requires server-side file handling.\n\nTo analyze a file, start termshark with:\n  termshark --web -r ' + file.name);
+    }
+
+    downloadPcap() {
+        // Trigger download via the API endpoint
+        const link = document.createElement('a');
+        let url = '/api/download';
+        // Include session ID if we have one
+        if (this.sessionPicker && this.sessionPicker.currentSessionId) {
+            url += '?session=' + encodeURIComponent(this.sessionPicker.currentSessionId);
+        }
+        link.href = url;
+        link.download = '';  // Let server set filename
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    updateDownloadButton(hasFile) {
+        const downloadBtn = document.getElementById('download-btn');
+        if (hasFile) {
+            downloadBtn.classList.remove('hidden');
+        } else {
+            downloadBtn.classList.add('hidden');
+        }
     }
 
     selectNextPacket() {

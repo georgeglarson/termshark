@@ -12,6 +12,8 @@
             <h1>Termshark Web</h1>
             <div id="header-right">
                 <span id="session-info" class="hidden"></span>
+                <button id="stream-btn" class="small-btn hidden">Follow Stream</button>
+                <button id="download-btn" class="small-btn hidden">Download PCAP</button>
                 <button id="session-btn" class="small-btn">Sessions</button>
                 <div id="status">Connecting...</div>
             </div>
@@ -60,6 +62,29 @@
                     <input type="text" id="new-session-name" placeholder="New session name...">
                     <button id="create-session-btn">Create Session</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stream Viewer Modal -->
+    <div id="stream-modal" class="modal hidden">
+        <div class="modal-content stream-modal-content">
+            <div class="modal-header">
+                <h2>Follow Stream</h2>
+                <div class="stream-controls">
+                    <select id="stream-protocol">
+                        <option value="tcp">TCP</option>
+                        <option value="udp">UDP</option>
+                        <option value="http">HTTP</option>
+                    </select>
+                    <input type="number" id="stream-index" min="0" value="0" placeholder="Stream #">
+                    <button id="stream-fetch-btn" class="small-btn">Fetch</button>
+                    <button id="stream-view-toggle" class="small-btn">Hex View</button>
+                </div>
+                <button id="stream-modal-close" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <pre id="stream-content"></pre>
             </div>
         </div>
     </div>

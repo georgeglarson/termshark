@@ -276,6 +276,18 @@ func (m *Manager) GetCaptureFile() string {
 	return ""
 }
 
+// FollowStream returns the reassembled data for a stream.
+func (m *Manager) FollowStream(protocol string, streamIndex int) ([]byte, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.backend == nil {
+		return nil, fmt.Errorf("no backend available")
+	}
+
+	return m.backend.FollowStream(m.ctx, protocol, streamIndex)
+}
+
 // Close shuts down the manager and releases resources.
 func (m *Manager) Close() error {
 	m.cancel()

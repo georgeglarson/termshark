@@ -446,3 +446,237 @@ button:hover {
 #capture-status.capturing {
     color: var(--success);
 }
+
+/* Stream viewer modal */
+.stream-modal-content {
+    max-width: 800px;
+    width: 95%;
+    max-height: 80vh;
+}
+
+.stream-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-right: 16px;
+}
+
+#stream-protocol, #stream-index {
+    padding: 4px 8px;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 12px;
+}
+
+#stream-index {
+    width: 80px;
+}
+
+#stream-protocol:focus, #stream-index:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+#stream-content {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+    background-color: var(--bg-primary);
+    padding: 12px;
+    border-radius: 4px;
+    min-height: 200px;
+    max-height: 400px;
+    overflow: auto;
+}
+
+.stream-hex-line {
+    display: flex;
+    gap: 16px;
+}
+
+.stream-hex-offset {
+    color: var(--text-secondary);
+    min-width: 64px;
+}
+
+.stream-hex-bytes {
+    flex: 1;
+}
+
+.stream-hex-ascii {
+    color: var(--accent);
+    min-width: 120px;
+}
+
+/* Responsive styles for mobile */
+@media (max-width: 768px) {
+    body {
+        font-size: 12px;
+    }
+
+    header {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 8px 12px;
+    }
+
+    header h1 {
+        font-size: 14px;
+    }
+
+    #header-right {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    #controls {
+        flex-wrap: wrap;
+        padding: 8px 12px;
+    }
+
+    #filter {
+        min-width: 100%;
+        order: 1;
+    }
+
+    #apply-filter {
+        order: 2;
+    }
+
+    #capture-controls {
+        width: 100%;
+        order: 3;
+        flex-wrap: wrap;
+    }
+
+    #interface-select {
+        flex: 1;
+        min-width: 120px;
+    }
+
+    #pcap-file {
+        width: 100%;
+        order: 4;
+        margin-top: 4px;
+    }
+
+    #details-pane {
+        flex-direction: column;
+        height: auto;
+        min-height: 300px;
+    }
+
+    #packet-tree {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        min-height: 150px;
+        max-height: 200px;
+    }
+
+    #packet-hex {
+        min-height: 150px;
+        max-height: 200px;
+    }
+
+    #packets th,
+    #packets td {
+        padding: 6px 4px;
+        font-size: 11px;
+    }
+
+    /* Hide less important columns on mobile */
+    #packets th:nth-child(n+5),
+    #packets td:nth-child(n+5) {
+        display: none;
+    }
+
+    .modal-content {
+        width: 95%;
+        max-height: 90vh;
+    }
+
+    .session-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .session-item-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .session-actions {
+        flex-direction: column;
+    }
+
+    .session-actions input {
+        width: 100%;
+    }
+
+    .small-btn {
+        padding: 6px 10px;
+    }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+    header h1 {
+        font-size: 13px;
+    }
+
+    #packets th,
+    #packets td {
+        padding: 4px 2px;
+        font-size: 10px;
+    }
+
+    /* Hide even more columns on very small screens */
+    #packets th:nth-child(n+4),
+    #packets td:nth-child(n+4) {
+        display: none;
+    }
+
+    .tree-node {
+        font-size: 11px;
+    }
+
+    .tree-children {
+        margin-left: 12px;
+    }
+
+    #packet-hex {
+        font-size: 10px;
+    }
+}
+
+/* Touch-friendly improvements */
+@media (pointer: coarse) {
+    button, .small-btn, .capture-btn {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    #packets tr {
+        min-height: 44px;
+    }
+
+    .tree-node-toggle {
+        padding: 8px;
+        margin: -8px;
+        margin-right: 4px;
+    }
+
+    .session-item {
+        padding: 16px;
+    }
+
+    .join-btn, .delete-btn {
+        padding: 8px 12px;
+    }
+}

@@ -7,10 +7,13 @@ package web
 import (
 	"context"
 	"embed"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -111,6 +114,9 @@ func (s *Server) Start(ctx context.Context) error {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
+
+	// Download pcap endpoint
+	mux.HandleFunc("/api/download", s.handleDownload)
 
 	s.server = &http.Server{
 		Addr:         s.addr,
@@ -378,6 +384,26 @@ func (s *Server) handleManagerRequestWithManager(req JSONRPCRequest, manager *st
 		}
 		result = map[string]bool{"ok": validation.Valid}
 
+	case "follow":
+		protocol, _ := p["follow"].(string)
+		if protocol == "" {
+			return nil, fmt.Errorf("follow protocol required (e.g., 'tcp', 'udp', 'http')")
+		}
+		streamIndex := 0
+		if idx, ok := p["stream"].(float64); ok {
+			streamIndex = int(idx)
+		}
+		data, err := manager.FollowStream(protocol, streamIndex)
+		if err != nil {
+			return nil, err
+		}
+		// Return base64-encoded data in payload format
+		result = map[string]interface{}{
+			"payloads": []map[string]string{
+				{"d": base64.StdEncoding.EncodeToString(data)},
+			},
+		}
+
 	case "setfilter":
 		filter, _ := p["filter"].(string)
 		err = manager.SetFilter(filter)
@@ -511,6 +537,25 @@ func (s *Server) handleManagerRequest(req JSONRPCRequest) (json.RawMessage, erro
 			return nil, err
 		}
 		result = map[string]bool{"ok": validation.Valid}
+
+	case "follow":
+		protocol, _ := p["follow"].(string)
+		if protocol == "" {
+			return nil, fmt.Errorf("follow protocol required (e.g., 'tcp', 'udp', 'http')")
+		}
+		streamIndex := 0
+		if idx, ok := p["stream"].(float64); ok {
+			streamIndex = int(idx)
+		}
+		data, err := s.manager.FollowStream(protocol, streamIndex)
+		if err != nil {
+			return nil, err
+		}
+		result = map[string]interface{}{
+			"payloads": []map[string]string{
+				{"d": base64.StdEncoding.EncodeToString(data)},
+			},
+		}
 
 	case "setfilter":
 		filter, _ := p["filter"].(string)
@@ -657,6 +702,72 @@ func (s *Server) handleLoadFile(w http.ResponseWriter, r *http.Request) {
 			"result": json.RawMessage(result),
 		})
 	}
+}
+
+// handleDownload handles downloading the current pcap file.
+func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var filePath string
+
+	// Check for session parameter (registry mode)
+	sessionID := r.URL.Query().Get("session")
+	if sessionID != "" && s.registry != nil {
+		session, found := s.registry.GetSession(sessionID)
+		if found && session != nil && session.Manager != nil {
+			filePath = session.Manager.GetCaptureFile()
+			if filePath == "" {
+				status, err := session.Manager.GetStatus()
+				if err == nil && status.Source != "" {
+					filePath = status.Source
+				}
+			}
+		}
+	}
+
+	// Fall back to direct manager
+	if filePath == "" && s.manager != nil {
+		filePath = s.manager.GetCaptureFile()
+		if filePath == "" {
+			// Try to get the source path
+			status, err := s.manager.GetStatus()
+			if err == nil && status.Source != "" {
+				filePath = status.Source
+			}
+		}
+	}
+
+	if filePath == "" {
+		http.Error(w, "No pcap file available", http.StatusNotFound)
+		return
+	}
+
+	// Open the file
+	file, err := os.Open(filePath)
+	if err != nil {
+		http.Error(w, "Failed to open file: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+
+	// Get file info for size
+	stat, err := file.Stat()
+	if err != nil {
+		http.Error(w, "Failed to stat file: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Set headers for download
+	filename := filepath.Base(filePath)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+	w.Header().Set("Content-Type", "application/vnd.tcpdump.pcap")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", stat.Size()))
+
+	// Stream the file
+	http.ServeContent(w, r, filename, stat.ModTime(), file)
 }
 
 // Addr returns the server address.
