@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -346,7 +347,7 @@ func (b *SharkdBackend) GetStreamInfo(ctx context.Context, protocol string) ([]S
 // FollowStream returns the reassembled data for a stream.
 func (b *SharkdBackend) FollowStream(ctx context.Context, protocol string, streamIndex int) ([]byte, error) {
 	result, err := b.call("follow", map[string]interface{}{
-		"follower": protocol,
+		"follow": strings.ToUpper(protocol),
 		"filter": fmt.Sprintf("%s.stream eq %d", protocol, streamIndex),
 	})
 	if err != nil {

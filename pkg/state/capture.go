@@ -280,20 +280,13 @@ func (c *CaptureCoordinator) checkForNewPackets() {
 	newSize := info.Size()
 	if newSize > c.bytesWritten {
 		c.bytesWritten = newSize
-		// Estimate packet count based on average packet size (~500 bytes)
-		// This is a rough estimate; actual count comes from backend
-		estimatedPackets := int(newSize / 500)
-		if estimatedPackets > c.packetsDiscovered {
-			added := estimatedPackets - c.packetsDiscovered
-			c.packetsDiscovered = estimatedPackets
-			callback := c.onPacketsAdded
-			c.mu.Unlock()
+		callback := c.onPacketsAdded
+		c.mu.Unlock()
 
-			if callback != nil {
-				callback(added)
-			}
-			return
+		if callback != nil {
+			callback(0)
 		}
+		return
 	}
 	c.mu.Unlock()
 }

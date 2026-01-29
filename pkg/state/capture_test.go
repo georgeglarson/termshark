@@ -295,11 +295,9 @@ func TestCaptureCoordinator_checkForNewPackets_WithCallback(t *testing.T) {
 	c.mu.Unlock()
 
 	callbackCalled := false
-	addedCount := 0
 	c.SetCallbacks(
 		func(count int) {
 			callbackCalled = true
-			addedCount = count
 		},
 		nil,
 		nil,
@@ -308,7 +306,6 @@ func TestCaptureCoordinator_checkForNewPackets_WithCallback(t *testing.T) {
 	c.checkForNewPackets()
 
 	assert.True(t, callbackCalled)
-	assert.Greater(t, addedCount, 0)
 }
 
 func TestCaptureCoordinator_checkForNewPackets_NoGrowth(t *testing.T) {
