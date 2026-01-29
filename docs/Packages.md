@@ -1,108 +1,77 @@
-# Install Packages
+# Package Installation
 
-Here's how to install termshark on various OSes and with various package managers.
+> **Note:** This is a fork of termshark. The packages listed below install the original version from [gcla/termshark](https://github.com/gcla/termshark), not this fork.
 
-## Arch Linux
+## Installing This Fork
 
-- [termshark](https://archlinux.org/packages/community/x86_64/termshark/): The
-   official package.
-- [termshark-git](https://aur.archlinux.org/packages/termshark-git): Compiles
-  from source, made by [Thann](https://github.com/Thann)
+### From Source (Recommended)
 
-## Debian
+```bash
+git clone https://github.com/georgeglarson/termshark.git
+cd termshark
+go build -o termshark ./cmd/termshark
+sudo mv termshark /usr/local/bin/
+```
 
-Termshark is only available in unstable/sid at the moment.
+### Using Go Install
+
+```bash
+go install github.com/gcla/termshark/v2/cmd/termshark@latest
+```
+
+Note: The module path remains `github.com/gcla/termshark/v2` for import compatibility.
+
+---
+
+## Original Package Sources
+
+The following package sources install the **original gcla/termshark**, not this fork:
+
+### Arch Linux
+
+- [termshark](https://archlinux.org/packages/community/x86_64/termshark/): Official package
+- [termshark-git](https://aur.archlinux.org/packages/termshark-git): AUR package
+
+### Debian / Ubuntu / Kali
 
 ```bash
 apt update
 apt install termshark
 ```
 
-## FreeBSD
-
-Thanks to [Ryan Steinmetz](https://github.com/zi0r)
-
-Termshark is in the FreeBSD ports tree! To install the package, run:
-
-`pkg install termshark`
-
-To build/install the port, run:
-
-`cd /usr/ports/net/termshark/ && make install clean`
-
-## Homebrew
+### FreeBSD
 
 ```bash
-brew update
+pkg install termshark
+```
+
+### Homebrew (macOS)
+
+```bash
 brew install termshark
 ```
 
-## MacPorts
+### MacPorts
 
 ```bash
-sudo port selfupdate
 sudo port install termshark
 ```
 
-## Kali Linux
+### NixOS
 
 ```bash
-apt update
-apt install termshark
-```
-
-## NixOS
-
-Thanks to [Patrick Winter](https://github.com/winpat)
-
-```bash
-nix-channel --add https://nixos.org/channels/nixpkgs-unstable
-nix-channel --update
 nix-env -iA nixpkgs.termshark
 ```
 
-## SnapCraft
-
-Thanks to [mharjac](https://github.com/mharjac)
-
-Termshark can be easily installed on almost all major distros just by issuing:
+### Snap
 
 ```bash
 snap install termshark
 ```
 
-Note there is a big caveat with Snap and the architecture of Wireshark that prevents termshark being able to read network interfaces. If installed via Snap, termshark will only be able to work with pcap files. See [this explanation](https://forum.snapcraft.io/t/wireshark-and-setcap/9629/6).
-
-## Termux (Android)
+### Termux (Android)
 
 ```bash
 pkg install root-repo
 pkg install termshark
 ```
-
-Note that termshark does not require a rooted phone to inspect a pcap, but it does depend on tshark which is itself in Termux's root-repo for programs that do work best on a rooted phone.
-
-If you would like to use termshark's copy-mode to copy sections of packets to your Android clipboard, you will also need [Termux:API](https://play.google.com/store/apps/details?id=com.termux.api&hl=en_US). Install from the Play Store, then from termux, type:
-
-```bash
-pkg install termux-api
-```
-
-![device art](/../gh-pages/images/device art.png?raw=true)
-
-## Ubuntu
-
-If you are running Ubuntu 19.10 (eoan) or higher, termshark can be installed like this:
-
-```bash
-sudo apt install termshark
-```
-
-For Ubuntu < 19.10, you can use the PPA _nicolais/termshark_ to install termshark:
-
-```bash
-sudo add-apt-repository --update ppa:nicolais/termshark
-sudo apt install termshark
-```
-
-Thanks to [Nicolai Søberg](https://github.com/NicolaiSoeborg)

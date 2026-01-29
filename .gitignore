@@ -4,6 +4,7 @@ dist/
 *~
 
 /cmd/termshark/termshark
+/termshark
 /typescript
 /go.work
 /go.work.sum

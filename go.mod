@@ -1,3 +1,5 @@
+// Module path kept as github.com/gcla/termshark/v2 for import compatibility.
+// This is a fork: github.com/georgeglarson/termshark
 module github.com/gcla/termshark/v2
 
 go 1.22

@@ -1,6 +1,43 @@
 # Changelog
 
-## [Unreleased]
+## [3.0.0] - 2026-01-28 (Fork Release)
+
+This release marks the first version of the modernized fork with substantial architectural improvements.
+
+### Architecture
+
+- **Goroutine Lifecycle**: Centralized management via `lifecycle.Tracker` replacing scattered WaitGroups
+- **UIState Struct**: Consolidated 80+ UI globals into structured state with 11 sub-states
+- **pkg/app Package**: Extracted business logic from UI layer with Controller pattern
+- **cmain() Refactoring**: Reduced from 1260 to 574 lines with 27+ extracted helper functions
+
+### Code Quality
+
+- Updated to Go 1.22+ with modern idioms (range-over-int, slices package, errors.Is/As)
+- Replaced deprecated APIs (io/ioutil, pkg/errors direct usage)
+- Fixed iota bugs in 8 files, file resource leaks, go vet warnings
+- Added golangci-lint configuration
+
+### Testing
+
+- Improved test coverage across core packages
+- pkg/lifecycle: 100% coverage
+- widgets/number: 100% coverage
+- configs/profiles: 26% → 39%
+- pkg/pcap: 26% → 30%
+- Added comprehensive mocking infrastructure
+
+### Dependencies
+
+- Removed deprecated fsnotify import path
+- Updated to current versions of core dependencies
+- Removed unused imports and dead code
+
+---
+
+## [2.4.0] - 2022-07-11 (Original Release)
+
+*Note: Versions below are from the original [gcla/termshark](https://github.com/gcla/termshark) project.*
 
 ### Added
 
