@@ -306,6 +306,11 @@ func CapinfosBin() string {
 	return profiles.ConfString("main.capinfos", "capinfos")
 }
 
+// SharkdBin returns the path to the sharkd binary.
+func SharkdBin() string {
+	return profiles.ConfString("main.sharkd", "sharkd")
+}
+
 // CaptureBin is the binary the user intends to use to capture
 // packets i.e. with the -i switch. This might be distinct from
 // DumpcapBin because dumpcap can't capture on extcap interfaces

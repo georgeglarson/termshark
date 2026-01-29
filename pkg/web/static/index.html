@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Termshark Web</title>
+    <link rel="stylesheet" href="main.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Termshark Web</h1>
+            <div id="status">Connecting...</div>
+        </header>
+        <main>
+            <section id="controls">
+                <input type="text" id="filter" placeholder="Display filter (e.g., tcp.port == 80)">
+                <button id="apply-filter">Apply</button>
+                <input type="file" id="pcap-file" accept=".pcap,.pcapng,.cap">
+            </section>
+            <section id="packet-list">
+                <table id="packets">
+                    <thead>
+                        <tr id="packet-header"></tr>
+                    </thead>
+                    <tbody id="packet-body"></tbody>
+                </table>
+            </section>
+            <section id="details-pane">
+                <div id="packet-tree"></div>
+                <div id="packet-hex"></div>
+            </section>
+        </main>
+    </div>
+    <script src="main.js" type="module"></script>
+</body>
+</html>

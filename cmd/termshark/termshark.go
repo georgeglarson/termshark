@@ -6,9 +6,11 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -32,6 +34,7 @@ import (
 	"github.com/gcla/termshark/v2/pkg/system"
 	"github.com/gcla/termshark/v2/pkg/tailfile"
 	"github.com/gcla/termshark/v2/pkg/tty"
+	"github.com/gcla/termshark/v2/pkg/web"
 	"github.com/gcla/termshark/v2/ui"
 	"github.com/gcla/termshark/v2/widgets/filter"
 	"github.com/gdamore/tcell/v2"
@@ -165,6 +168,22 @@ func cmain() int {
 	// Handle help and version flags
 	if exitCode, continueNormal := handleHelpAndVersion(&state.opts, tmFlags); !continueNormal {
 		return exitCode
+	}
+
+	// Handle web UI mode early - before source validation
+	// This allows starting the web server without specifying a pcap file
+	if state.opts.Web {
+		// Setup logging first
+		if err := setupLogging(state.opts.LogTty); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return 1
+		}
+		// Resolve pcap file if provided via -r flag
+		var psrcs []pcap.IPacketSource
+		if state.opts.Pcap != "" {
+			psrcs = append(psrcs, pcap.FileSource{Filename: string(state.opts.Pcap)})
+		}
+		return runWebServer(state.opts.WebAddr, psrcs)
 	}
 
 	// Validate TTY
@@ -1218,6 +1237,13 @@ func handleSpecialModes(tsopts *cli.Tshark) (exitCode int, continueNormal bool) 
 // handleTsharkPassthrough checks if we should pass through to tshark.
 // Returns exit code and whether to continue with normal operation.
 func handleTsharkPassthrough(tsopts *cli.Tshark, passthru bool) (exitCode int, continueNormal bool) {
+	// Don't pass through to tshark if --web mode is requested
+	for _, arg := range os.Args[1:] {
+		if arg == "--web" || strings.HasPrefix(arg, "--web=") {
+			return 0, true
+		}
+	}
+
 	if passthru &&
 		(cli.FlagIsTrue(tsopts.PassThru) ||
 			(tsopts.PassThru == "auto" && !isatty.IsTerminal(os.Stdout.Fd())) ||
@@ -1447,6 +1473,61 @@ func activateUI(state *appState) error {
 	ui.SetStartUIChan(nil) // make sure it's not triggered again
 
 	return nil
+}
+
+// runWebServer starts the web UI server instead of the terminal UI.
+func runWebServer(addr string, psrcs []pcap.IPacketSource) int {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Handle interrupt signals
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		fmt.Fprintln(os.Stderr, "\nShutting down...")
+		cancel()
+	}()
+
+	// Start sharkd
+	sharkd, err := web.NewSharkdClient(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to start sharkd: %v\n", err)
+		fmt.Fprintln(os.Stderr, "Make sure sharkd is installed (usually part of wireshark-common).")
+		return 1
+	}
+	defer sharkd.Close()
+
+	// Load pcap file if provided
+	if len(psrcs) > 0 {
+		for _, src := range psrcs {
+			if fs, ok := src.(pcap.FileSource); ok {
+				absPath, err := filepath.Abs(fs.Filename)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to resolve pcap path: %v\n", err)
+					return 1
+				}
+				_, err = sharkd.Call("load", map[string]string{"file": absPath})
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to load pcap file: %v\n", err)
+					return 1
+				}
+				fmt.Printf("Loaded: %s\n", fs.Filename)
+			}
+		}
+	}
+
+	// Start web server
+	server := web.NewServer(addr, sharkd)
+	fmt.Printf("Web UI available at http://%s\n", addr)
+	fmt.Println("Press Ctrl+C to stop")
+
+	if err := server.Start(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
+		return 1
+	}
+
+	return 0
 }
 
 //======================================================================

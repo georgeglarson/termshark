@@ -54,9 +54,35 @@ termshark -i eth0 icmp
 
 Run `termshark -h` for options.
 
+## Web UI (Experimental)
+
+Termshark includes an experimental browser-based interface:
+
+```bash
+# Start web UI with a pcap file
+termshark --web -r capture.pcap
+
+# Start on a specific address/port
+termshark --web --web-addr 0.0.0.0:9090 -r capture.pcap
+```
+
+Then open http://localhost:8080 in your browser.
+
+**Requirements:**
+- `sharkd` must be installed (part of wireshark-common on Debian/Ubuntu)
+
+**Features:**
+- Packet list with filtering
+- Protocol tree view
+- Hex dump view
+- Keyboard navigation (j/k, arrow keys, / to search)
+
+See [Web UI Documentation](docs/WebUI.md) for details.
+
 ## Documentation
 
 - [User Guide](docs/UserGuide.md)
+- [Web UI Guide](docs/WebUI.md)
 - [FAQ](docs/FAQ.md)
 - [Changelog](CHANGELOG.md)
 
