@@ -20,6 +20,14 @@
             <section id="controls">
                 <input type="text" id="filter" placeholder="Display filter (e.g., tcp.port == 80)">
                 <button id="apply-filter">Apply</button>
+                <div id="capture-controls" class="hidden">
+                    <select id="interface-select">
+                        <option value="">Select interface...</option>
+                    </select>
+                    <button id="start-capture-btn" class="capture-btn">Start Capture</button>
+                    <button id="stop-capture-btn" class="capture-btn stop hidden">Stop</button>
+                    <span id="capture-status" class="hidden"></span>
+                </div>
                 <input type="file" id="pcap-file" accept=".pcap,.pcapng,.cap">
             </section>
             <section id="packet-list">

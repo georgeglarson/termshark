@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gcla/termshark/v2"
 	"github.com/gcla/termshark/v2/pkg/state"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
@@ -404,6 +405,24 @@ func (s *Server) handleManagerRequestWithManager(req JSONRPCRequest, manager *st
 	case "isCapturing":
 		result = map[string]bool{"capturing": manager.IsCapturing()}
 
+	case "listInterfaces":
+		ifaces, err := termshark.Interfaces()
+		if err != nil {
+			return nil, fmt.Errorf("failed to list interfaces: %w", err)
+		}
+		// Convert to list of interface info
+		ifaceList := make([]map[string]interface{}, 0)
+		for idx, names := range ifaces {
+			if len(names) > 0 {
+				ifaceList = append(ifaceList, map[string]interface{}{
+					"index": idx,
+					"name":  names[0],
+					"aliases": names[1:],
+				})
+			}
+		}
+		result = ifaceList
+
 	default:
 		return nil, fmt.Errorf("unknown method: %s", req.Method)
 	}
@@ -499,6 +518,43 @@ func (s *Server) handleManagerRequest(req JSONRPCRequest) (json.RawMessage, erro
 		if err == nil {
 			result = map[string]string{"status": "ok"}
 		}
+
+	case "startCapture":
+		iface, _ := p["interface"].(string)
+		if iface == "" {
+			return nil, fmt.Errorf("interface required")
+		}
+		captureFilter, _ := p["captureFilter"].(string)
+		err = s.manager.StartCapture(iface, captureFilter)
+		if err == nil {
+			result = map[string]string{"status": "ok"}
+		}
+
+	case "stopCapture":
+		err = s.manager.StopCapture()
+		if err == nil {
+			result = map[string]string{"status": "ok"}
+		}
+
+	case "isCapturing":
+		result = map[string]bool{"capturing": s.manager.IsCapturing()}
+
+	case "listInterfaces":
+		ifaces, err := termshark.Interfaces()
+		if err != nil {
+			return nil, fmt.Errorf("failed to list interfaces: %w", err)
+		}
+		ifaceList := make([]map[string]interface{}, 0)
+		for idx, names := range ifaces {
+			if len(names) > 0 {
+				ifaceList = append(ifaceList, map[string]interface{}{
+					"index":   idx,
+					"name":    names[0],
+					"aliases": names[1:],
+				})
+			}
+		}
+		result = ifaceList
 
 	default:
 		return nil, fmt.Errorf("unknown method: %s", req.Method)

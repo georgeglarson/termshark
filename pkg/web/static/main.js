@@ -155,6 +155,161 @@ class SharkdClient {
     async getIntervals(interval = 1000) {
         return this.call('intervals', { interval: interval });
     }
+
+    // Capture methods
+    async listInterfaces() {
+        return this.call('listInterfaces');
+    }
+
+    async startCapture(iface, captureFilter = '') {
+        const params = { interface: iface };
+        if (captureFilter) params.captureFilter = captureFilter;
+        return this.call('startCapture', params);
+    }
+
+    async stopCapture() {
+        return this.call('stopCapture');
+    }
+
+    async isCapturing() {
+        return this.call('isCapturing');
+    }
+}
+
+class CaptureControls {
+    constructor(client) {
+        this.client = client;
+        this.container = document.getElementById('capture-controls');
+        this.interfaceSelect = document.getElementById('interface-select');
+        this.startBtn = document.getElementById('start-capture-btn');
+        this.stopBtn = document.getElementById('stop-capture-btn');
+        this.statusEl = document.getElementById('capture-status');
+        this.isCapturing = false;
+        this.onCaptureStateChange = null;
+        this.pollInterval = null;
+
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        this.startBtn.addEventListener('click', () => this.startCapture());
+        this.stopBtn.addEventListener('click', () => this.stopCapture());
+    }
+
+    async init() {
+        try {
+            // Try to list interfaces - this determines if capture is supported
+            const interfaces = await this.client.listInterfaces();
+            if (interfaces && interfaces.length > 0) {
+                this.populateInterfaces(interfaces);
+                this.container.classList.remove('hidden');
+
+                // Check if already capturing
+                const status = await this.client.isCapturing();
+                if (status && status.capturing) {
+                    this.setCapturingState(true);
+                }
+            }
+        } catch (e) {
+            // Capture not supported or error listing interfaces
+            console.log('Capture controls not available:', e.message);
+        }
+    }
+
+    populateInterfaces(interfaces) {
+        // Clear existing options except the placeholder
+        while (this.interfaceSelect.options.length > 1) {
+            this.interfaceSelect.remove(1);
+        }
+
+        // Sort by index
+        interfaces.sort((a, b) => a.index - b.index);
+
+        for (const iface of interfaces) {
+            const option = document.createElement('option');
+            option.value = iface.name;
+            option.textContent = iface.name;
+            if (iface.aliases && iface.aliases.length > 0) {
+                option.textContent += ` (${iface.aliases.join(', ')})`;
+            }
+            this.interfaceSelect.appendChild(option);
+        }
+    }
+
+    async startCapture() {
+        const iface = this.interfaceSelect.value;
+        if (!iface) {
+            alert('Please select an interface');
+            return;
+        }
+
+        try {
+            await this.client.startCapture(iface);
+            this.setCapturingState(true);
+            if (this.onCaptureStateChange) {
+                this.onCaptureStateChange(true);
+            }
+        } catch (e) {
+            alert('Failed to start capture: ' + e.message);
+        }
+    }
+
+    async stopCapture() {
+        try {
+            await this.client.stopCapture();
+            this.setCapturingState(false);
+            if (this.onCaptureStateChange) {
+                this.onCaptureStateChange(false);
+            }
+        } catch (e) {
+            alert('Failed to stop capture: ' + e.message);
+        }
+    }
+
+    setCapturingState(capturing) {
+        this.isCapturing = capturing;
+        if (capturing) {
+            this.startBtn.classList.add('hidden');
+            this.stopBtn.classList.remove('hidden');
+            this.interfaceSelect.disabled = true;
+            this.statusEl.textContent = 'Capturing...';
+            this.statusEl.classList.remove('hidden');
+            this.statusEl.classList.add('capturing');
+            this.startPolling();
+        } else {
+            this.startBtn.classList.remove('hidden');
+            this.stopBtn.classList.add('hidden');
+            this.interfaceSelect.disabled = false;
+            this.statusEl.classList.add('hidden');
+            this.statusEl.classList.remove('capturing');
+            this.stopPolling();
+        }
+    }
+
+    startPolling() {
+        // Poll for capture status every 2 seconds
+        this.pollInterval = setInterval(async () => {
+            try {
+                const status = await this.client.isCapturing();
+                if (!status.capturing && this.isCapturing) {
+                    // Capture stopped externally
+                    this.setCapturingState(false);
+                    if (this.onCaptureStateChange) {
+                        this.onCaptureStateChange(false);
+                    }
+                }
+            } catch (e) {
+                // Ignore poll errors
+            }
+        }, 2000);
+    }
+
+    stopPolling() {
+        if (this.pollInterval) {
+            clearInterval(this.pollInterval);
+            this.pollInterval = null;
+        }
+    }
 }
 
 class SessionPicker {
@@ -499,12 +654,14 @@ class App {
     constructor() {
         this.client = new SharkdClient();
         this.sessionPicker = null;
+        this.captureControls = null;
         this.packetList = new PacketListView(
             document.getElementById('packets'),
             this.client
         );
         this.packetTree = new PacketTreeView(document.getElementById('packet-tree'));
         this.hexView = new HexView(document.getElementById('packet-hex'));
+        this.refreshInterval = null;
 
         this.setupEventListeners();
     }
@@ -595,6 +752,12 @@ class App {
         // Check if server supports session registry
         const hasRegistry = await this.client.checkRegistrySupport();
 
+        // Initialize capture controls
+        this.captureControls = new CaptureControls(this.client);
+        this.captureControls.onCaptureStateChange = (capturing) => {
+            this.onCaptureStateChange(capturing);
+        };
+
         if (hasRegistry) {
             // Initialize session picker
             this.sessionPicker = new SessionPicker(this.client);
@@ -608,14 +771,42 @@ class App {
             // Hide session button if no registry support
             document.getElementById('session-btn').classList.add('hidden');
 
-            // Get initial status directly
+            // Initialize capture controls and get initial status
+            await this.captureControls.init();
             await this.loadInitialStatus();
         }
     }
 
     async onSessionJoined(session) {
+        // Initialize capture controls for this session
+        await this.captureControls.init();
         // Load status for the joined session
         await this.loadInitialStatus();
+    }
+
+    onCaptureStateChange(capturing) {
+        if (capturing) {
+            // Start auto-refresh while capturing
+            this.startAutoRefresh();
+        } else {
+            // Stop auto-refresh and do one final refresh
+            this.stopAutoRefresh();
+            this.loadInitialStatus();
+        }
+    }
+
+    startAutoRefresh() {
+        if (this.refreshInterval) return;
+        this.refreshInterval = setInterval(async () => {
+            await this.loadInitialStatus();
+        }, 2000);
+    }
+
+    stopAutoRefresh() {
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = null;
+        }
     }
 
     async loadInitialStatus() {
