@@ -76,10 +76,21 @@ func (f *SharkdBackendFactory) Create(ctx context.Context) (Backend, error) {
 	return NewSharkdBackend(ctx)
 }
 
+// sharkdCounter is used to generate unique socket paths for multiple backends in the same process.
+var sharkdCounter uint64
+var sharkdCounterMu sync.Mutex
+
+func nextSharkdID() uint64 {
+	sharkdCounterMu.Lock()
+	defer sharkdCounterMu.Unlock()
+	sharkdCounter++
+	return sharkdCounter
+}
+
 // NewSharkdBackend creates and starts a new sharkd subprocess.
 func NewSharkdBackend(ctx context.Context) (*SharkdBackend, error) {
-	// Create unique socket path in temp directory
-	socketPath := filepath.Join(os.TempDir(), fmt.Sprintf("termshark-sharkd-%d.sock", os.Getpid()))
+	// Create unique socket path in temp directory using PID + counter to avoid collisions
+	socketPath := filepath.Join(os.TempDir(), fmt.Sprintf("termshark-sharkd-%d-%d.sock", os.Getpid(), nextSharkdID()))
 
 	// Remove any existing socket file
 	os.Remove(socketPath)
@@ -394,15 +405,19 @@ func (b *SharkdBackend) Close() error {
 		b.cancelFn()
 	}
 
+	// exec.CommandContext automatically kills the process when the context is cancelled.
+	// We just need to wait for it to finish. Use a timeout as a safety net.
 	if b.cmd != nil && b.cmd.Process != nil {
-		done := make(chan error, 1)
+		done := make(chan struct{})
 		go func() {
-			done <- b.cmd.Wait()
+			b.cmd.Wait()
+			close(done)
 		}()
 
 		select {
 		case <-done:
-		case <-time.After(2 * time.Second):
+		case <-time.After(3 * time.Second):
+			// Context cancel should have killed it, but force-kill as last resort
 			b.cmd.Process.Kill()
 		}
 	}

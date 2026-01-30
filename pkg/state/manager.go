@@ -142,8 +142,12 @@ func (m *Manager) SelectPacket(num int) (*PacketDetail, error) {
 		return nil, nil
 	}
 
+	// GetPacketDetail already acquires its own lock
 	return m.GetPacketDetail(num)
 }
+
+// Note: SelectPacket does not acquire m.mu because SetSelectedPacket has its
+// own lock (session.mu) and GetPacketDetail acquires m.mu.RLock internally.
 
 // ValidateFilter checks if a display filter is valid.
 func (m *Manager) ValidateFilter(filter string) (*FilterValidation, error) {

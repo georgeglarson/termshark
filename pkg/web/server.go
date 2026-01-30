@@ -44,6 +44,7 @@ type clientState struct {
 	conn          *websocket.Conn
 	subscriptions map[string]bool // Event types this client is subscribed to
 	mu            sync.RWMutex
+	writeMu       sync.Mutex // Protects concurrent WebSocket writes
 }
 
 // PushNotification is a server-initiated notification sent to clients.
@@ -129,11 +130,12 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/download", s.handleDownload)
 
 	s.server = &http.Server{
-		Addr:         s.addr,
-		Handler:      mux,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:        s.addr,
+		Handler:     mux,
+		ReadTimeout: 15 * time.Second,
+		// WriteTimeout is intentionally not set because WebSocket connections
+		// are long-lived and would be killed by a write timeout.
+		IdleTimeout: 60 * time.Second,
 	}
 
 	log.Infof("Web server starting on http://%s", s.addr)
@@ -224,7 +226,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				ID:      req.ID,
 				Result:  json.RawMessage(`{"status":"ok"}`),
 			}
-			conn.WriteJSON(resp)
+			clientSt.WriteJSON(resp)
 			continue
 		}
 
@@ -240,7 +242,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err != nil {
-			s.sendError(conn, req.ID, -32603, err.Error())
+			s.sendErrorVia(clientSt, req.ID, -32603, err.Error())
 			continue
 		}
 
@@ -250,7 +252,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			ID:      req.ID,
 			Result:  result,
 		}
-		if err := conn.WriteJSON(resp); err != nil {
+		if err := clientSt.WriteJSON(resp); err != nil {
 			log.Errorf("Failed to write response: %v", err)
 			break
 		}
@@ -711,7 +713,7 @@ func getFloat(m map[string]interface{}, key string, def float64) float64 {
 	return def
 }
 
-// sendError sends a JSON-RPC error response.
+// sendError sends a JSON-RPC error response (legacy, for use before clientState is set up).
 func (s *Server) sendError(conn *websocket.Conn, id int, code int, message string) {
 	resp := JSONRPCResponse{
 		JSONRPC: "2.0",
@@ -722,6 +724,19 @@ func (s *Server) sendError(conn *websocket.Conn, id int, code int, message strin
 		},
 	}
 	conn.WriteJSON(resp)
+}
+
+// sendErrorVia sends a JSON-RPC error response through the clientState write mutex.
+func (s *Server) sendErrorVia(cs *clientState, id int, code int, message string) {
+	resp := JSONRPCResponse{
+		JSONRPC: "2.0",
+		ID:      id,
+		Error: &JSONRPCError{
+			Code:    code,
+			Message: message,
+		},
+	}
+	cs.WriteJSON(resp)
 }
 
 // handleLoadFile handles loading a pcap file by path (for server-side files).
@@ -744,6 +759,14 @@ func (s *Server) handleLoadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate file path - must be absolute and exist
+	absPath, err := filepath.Abs(req.File)
+	if err != nil {
+		http.Error(w, "Invalid file path", http.StatusBadRequest)
+		return
+	}
+	req.File = absPath
+
 	// Load file via manager or sharkd
 	if s.manager != nil {
 		if err := s.manager.LoadFile(req.File); err != nil {
@@ -754,7 +777,7 @@ func (s *Server) handleLoadFile(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"status": "ok",
 		})
-	} else {
+	} else if s.sharkd != nil {
 		// Fallback to direct sharkd
 		result, err := s.sharkd.Call("load", map[string]string{"file": req.File})
 		if err != nil {
@@ -766,6 +789,8 @@ func (s *Server) handleLoadFile(w http.ResponseWriter, r *http.Request) {
 			"status": "ok",
 			"result": json.RawMessage(result),
 		})
+	} else {
+		http.Error(w, "File loading not available - use WebSocket sessions.join first", http.StatusBadRequest)
 	}
 }
 
@@ -858,13 +883,12 @@ func (s *Server) Broadcast(event string, params interface{}) {
 	for _, client := range clients {
 		client.mu.RLock()
 		subscribed := client.subscriptions[event]
-		conn := client.conn
 		client.mu.RUnlock()
 
-		if subscribed && conn != nil {
-			go func(c *websocket.Conn) {
-				c.WriteJSON(notification)
-			}(conn)
+		if subscribed {
+			go func(cs *clientState) {
+				cs.WriteJSON(notification)
+			}(client)
 		}
 	}
 }
@@ -880,7 +904,10 @@ func (s *Server) BroadcastToSession(session *state.ManagedSession, event string,
 	s.mu.RLock()
 	clients := make([]*clientState, 0)
 	for _, client := range s.clients {
-		if client.session == session {
+		client.mu.RLock()
+		clientSession := client.session
+		client.mu.RUnlock()
+		if clientSession == session {
 			clients = append(clients, client)
 		}
 	}
@@ -889,13 +916,12 @@ func (s *Server) BroadcastToSession(session *state.ManagedSession, event string,
 	for _, client := range clients {
 		client.mu.RLock()
 		subscribed := client.subscriptions[event]
-		conn := client.conn
 		client.mu.RUnlock()
 
-		if subscribed && conn != nil {
-			go func(c *websocket.Conn) {
-				c.WriteJSON(notification)
-			}(conn)
+		if subscribed {
+			go func(cs *clientState) {
+				cs.WriteJSON(notification)
+			}(client)
 		}
 	}
 }
@@ -915,6 +941,14 @@ func (cs *clientState) Unsubscribe(event string) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 	delete(cs.subscriptions, event)
+}
+
+// WriteJSON safely writes a JSON message to the WebSocket connection.
+// This serializes all writes to prevent concurrent write panics.
+func (cs *clientState) WriteJSON(v interface{}) error {
+	cs.writeMu.Lock()
+	defer cs.writeMu.Unlock()
+	return cs.conn.WriteJSON(v)
 }
 
 // NotifyPacketUpdate sends a packet count update to subscribed clients.

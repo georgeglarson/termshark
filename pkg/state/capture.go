@@ -106,28 +106,22 @@ func (c *CaptureCoordinator) Start(config CaptureConfig) error {
 // Stop stops the current capture.
 func (c *CaptureCoordinator) Stop() error {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	if !c.running {
+		c.mu.Unlock()
 		return nil
 	}
 
-	// Cancel context to signal all goroutines
+	// Cancel context to signal all goroutines and terminate CommandContext processes.
+	// Note: exec.CommandContext automatically kills the process when context is cancelled,
+	// so we don't call Wait() again here to avoid a double-wait race.
 	if c.cancel != nil {
 		c.cancel()
 	}
 
-	// Gracefully stop capture process
+	// For non-context captures, send SIGTERM as a graceful hint
 	if c.captureCmd != nil && c.captureCmd.Process != nil {
 		c.captureCmd.Process.Signal(syscall.SIGTERM)
-		// Wait briefly for graceful shutdown
-		done := make(chan error, 1)
-		go func() { done <- c.captureCmd.Wait() }()
-		select {
-		case <-done:
-		case <-time.After(2 * time.Second):
-			c.captureCmd.Process.Kill()
-		}
 	}
 
 	// Stop tail if running
@@ -136,10 +130,14 @@ func (c *CaptureCoordinator) Stop() error {
 	}
 
 	c.running = false
+	callback := c.onStopped
+	c.mu.Unlock()
+
 	log.Info("Capture stopped")
 
-	if c.onStopped != nil {
-		c.onStopped()
+	// Call callback outside the lock to avoid potential deadlock
+	if callback != nil {
+		callback()
 	}
 
 	return nil
@@ -229,10 +227,14 @@ func (c *CaptureCoordinator) startCapture(captureFilter string) error {
 
 // monitor watches the capture file and notifies of new packets.
 func (c *CaptureCoordinator) monitor() {
+	c.mu.RLock()
+	tmpFile := c.tmpFile
+	c.mu.RUnlock()
+
 	// Wait for file to exist
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
-		if _, err := os.Stat(c.tmpFile); err == nil {
+		if _, err := os.Stat(tmpFile); err == nil {
 			break
 		}
 		select {
@@ -271,7 +273,11 @@ func (c *CaptureCoordinator) monitor() {
 
 // checkForNewPackets checks if the capture file has grown.
 func (c *CaptureCoordinator) checkForNewPackets() {
-	info, err := os.Stat(c.tmpFile)
+	c.mu.RLock()
+	tmpFile := c.tmpFile
+	c.mu.RUnlock()
+
+	info, err := os.Stat(tmpFile)
 	if err != nil {
 		return
 	}

@@ -52,6 +52,10 @@ func (s *Session) GetStatus() *Status {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	// Deep copy columns to prevent aliasing
+	cols := make([]string, len(s.columns))
+	copy(cols, s.columns)
+
 	return &Status{
 		Source:         s.source,
 		SourceType:     s.sourceType,
@@ -60,7 +64,7 @@ func (s *Session) GetStatus() *Status {
 		FilteredCount:  s.filteredCount,
 		CaptureRunning: s.captureRunning,
 		Duration:       s.duration,
-		Columns:        s.columns,
+		Columns:        cols,
 	}
 }
 
@@ -103,8 +107,12 @@ func (s *Session) SetFilteredCount(count int) {
 
 // SetColumns updates the column headers.
 func (s *Session) SetColumns(columns []string) {
+	// Deep copy to prevent aliasing with caller's slice
+	copied := make([]string, len(columns))
+	copy(copied, columns)
+
 	s.mu.Lock()
-	s.columns = columns
+	s.columns = copied
 	s.mu.Unlock()
 }
 

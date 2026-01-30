@@ -36,13 +36,14 @@ type Server struct {
 
 // clientConn represents a connected client.
 type clientConn struct {
-	ws        *websocket.Conn
-	unix      net.Conn
-	server    *Server
-	session   *ManagedSession // Session this client belongs to (if using registry)
-	subCh     <-chan StateChange
-	unsubFn   func()
-	sendMu    sync.Mutex
+	ws          *websocket.Conn
+	unix        net.Conn
+	server      *Server
+	session     *ManagedSession // Session this client belongs to (if using registry)
+	subCh       <-chan StateChange
+	unsubFn     func()
+	forwardDone chan struct{} // Closed when forwardStateChanges exits
+	sendMu      sync.Mutex
 }
 
 // ServerConfig configures the server.
@@ -212,6 +213,7 @@ func (s *Server) addClient(client *clientConn) {
 	// (registry-based servers require clients to join a session first)
 	if s.manager != nil {
 		client.subCh, client.unsubFn = s.manager.Subscribe(100)
+		client.forwardDone = make(chan struct{})
 		go client.forwardStateChanges()
 	}
 
@@ -366,11 +368,16 @@ func (c *clientConn) dispatch(method string, params interface{}) (interface{}, e
 				if c.unsubFn != nil {
 					c.unsubFn()
 				}
+				// Wait for old forwardStateChanges goroutine to finish
+				if c.forwardDone != nil {
+					<-c.forwardDone
+				}
 			}
 			// Join new session
 			c.session = session
 			session.AddClient(c)
 			c.subCh, c.unsubFn = session.Manager.Subscribe(100)
+			c.forwardDone = make(chan struct{})
 			go c.forwardStateChanges()
 			return session.Info(), nil
 
@@ -492,6 +499,11 @@ func getFloat(m map[string]interface{}, key string, def float64) float64 {
 
 // forwardStateChanges forwards state changes to the client.
 func (c *clientConn) forwardStateChanges() {
+	defer func() {
+		if c.forwardDone != nil {
+			close(c.forwardDone)
+		}
+	}()
 	for change := range c.subCh {
 		notification := jsonRPCRequest{
 			JSONRPC: "2.0",

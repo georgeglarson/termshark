@@ -247,21 +247,18 @@ func (s *ManagedSession) Close() error {
 // GetOrCreateDefaultSession gets the default session or creates one.
 // This is useful for simple single-session scenarios.
 func (r *Registry) GetOrCreateDefaultSession() (*ManagedSession, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
+	r.mu.RLock()
 	// Look for a session named "default"
 	for _, session := range r.sessions {
 		if session.Name == "default" {
+			r.mu.RUnlock()
 			return session, nil
 		}
 	}
+	r.mu.RUnlock()
 
-	// Create default session
-	r.mu.Unlock()
-	session, err := r.CreateSession("default")
-	r.mu.Lock()
-	return session, err
+	// Create default session (CreateSession acquires its own lock)
+	return r.CreateSession("default")
 }
 
 // generateSessionID creates a short random session ID.

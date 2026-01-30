@@ -1,11 +1,27 @@
 // Termshark Web UI - Main JavaScript
 
+// HTML escape utility to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // Debug logging - visible on page when errors occur or via console: showDebugLog()
+const MAX_DEBUG_LINES = 500;
+let debugLineCount = 0;
 function debugLog(msg) {
     console.log('[termshark]', msg);
     const el = document.getElementById('debug-log');
     if (el) {
-        el.textContent += new Date().toISOString().substr(11, 12) + ' ' + msg + '\n';
+        debugLineCount++;
+        if (debugLineCount > MAX_DEBUG_LINES) {
+            // Trim oldest half of lines
+            const lines = el.textContent.split('\n');
+            el.textContent = lines.slice(Math.floor(lines.length / 2)).join('\n');
+            debugLineCount = Math.floor(debugLineCount / 2);
+        }
+        el.textContent += new Date().toISOString().slice(11, 23) + ' ' + msg + '\n';
         el.scrollTop = el.scrollHeight;
         // Show log panel on errors
         if (msg.includes('ERROR') || msg.includes('FAILED')) {
@@ -30,6 +46,18 @@ class SharkdClient {
     }
 
     connect() {
+        // Prevent reconnect stacking
+        if (this._reconnectTimer) {
+            clearTimeout(this._reconnectTimer);
+            this._reconnectTimer = null;
+        }
+        // Close existing connection if any
+        if (this.ws) {
+            this.ws.onclose = null;
+            this.ws.onerror = null;
+            try { this.ws.close(); } catch (e) { /* ignore */ }
+        }
+
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws`;
 
@@ -44,11 +72,17 @@ class SharkdClient {
 
         this.ws.onclose = () => {
             console.log('WebSocket disconnected');
+            // Reject all pending requests
+            for (const [id, pending] of this.pendingRequests) {
+                pending.reject(new Error('WebSocket disconnected'));
+            }
+            this.pendingRequests.clear();
+
             if (this.onStatusChange) {
                 this.onStatusChange('error', 'Disconnected');
             }
             // Attempt reconnect after 3 seconds
-            setTimeout(() => this.connect(), 3000);
+            this._reconnectTimer = setTimeout(() => this.connect(), 3000);
         };
 
         this.ws.onerror = (error) => {
@@ -59,7 +93,13 @@ class SharkdClient {
         };
 
         this.ws.onmessage = (event) => {
-            const response = JSON.parse(event.data);
+            let response;
+            try {
+                response = JSON.parse(event.data);
+            } catch (e) {
+                console.error('Failed to parse WebSocket message:', e);
+                return;
+            }
 
             // Check if this is a push notification (no id field)
             if (response.method && !response.id) {
@@ -330,6 +370,8 @@ class CaptureControls {
     }
 
     startPolling() {
+        // Prevent duplicate polling intervals
+        this.stopPolling();
         // Poll for capture status every 2 seconds
         this.pollInterval = setInterval(async () => {
             try {
@@ -433,7 +475,7 @@ class SessionPicker {
                         <div class="session-item-meta">
                             ${session.clientCount} client(s) ·
                             ${session.packetCount || 0} packets ·
-                            ${session.isCapturing ? 'Capturing' : (session.source || 'No source')} ·
+                            ${session.isCapturing ? 'Capturing' : (this.escapeHtml(session.source) || 'No source')} ·
                             Created ${createdAt}
                         </div>
                     </div>
@@ -684,7 +726,7 @@ class HexView {
             lines.push(
                 `<span class="hex-offset">${offset}</span>` +
                 `<span class="hex-bytes">${hexPart}</span>` +
-                `<span class="hex-ascii">${asciiPart}</span>`
+                `<span class="hex-ascii">${escapeHtml(asciiPart)}</span>`
             );
         }
 
@@ -820,7 +862,7 @@ class StreamViewer {
             lines.push(
                 `<span class="stream-hex-offset">${offset}</span>` +
                 `<span class="stream-hex-bytes">${hexPart}</span>` +
-                `<span class="stream-hex-ascii">${asciiPart}</span>`
+                `<span class="stream-hex-ascii">${escapeHtml(asciiPart)}</span>`
             );
         }
         this.content.innerHTML = lines.join('\n');
@@ -903,13 +945,35 @@ class App {
 
         // Keyboard navigation
         document.addEventListener('keydown', (e) => {
-            // Ignore if modal is open
+            // Ignore if typing in an input field (for j/k/slash keys)
+            const isInputFocused = document.activeElement &&
+                (document.activeElement.tagName === 'INPUT' ||
+                 document.activeElement.tagName === 'TEXTAREA' ||
+                 document.activeElement.tagName === 'SELECT');
+
+            // Ignore if session modal is open
             if (!document.getElementById('session-modal').classList.contains('hidden')) {
                 if (e.key === 'Escape') {
                     this.sessionPicker?.hide();
                 }
                 return;
             }
+
+            // Ignore if stream modal is open
+            if (!document.getElementById('stream-modal').classList.contains('hidden')) {
+                if (e.key === 'Escape') {
+                    this.streamViewer?.hide();
+                }
+                return;
+            }
+
+            if (e.key === 'Escape') {
+                document.getElementById('filter').blur();
+                return;
+            }
+
+            // Don't intercept j/k/slash when typing in an input
+            if (isInputFocused) return;
 
             // j/k or arrow keys for packet navigation
             if (e.key === 'j' || e.key === 'ArrowDown') {
@@ -922,8 +986,6 @@ class App {
                 // Focus filter input
                 document.getElementById('filter').focus();
                 e.preventDefault();
-            } else if (e.key === 'Escape') {
-                document.getElementById('filter').blur();
             }
         });
     }
@@ -1076,10 +1138,21 @@ class App {
             debugLog('loadFrames: filter="' + filter + '"');
             const frames = await this.client.getFrames(filter);
             debugLog('loadFrames: got ' + (frames ? frames.length : 0) + ' frames');
+            // Preserve selected packet across refresh
+            const selectedRow = this.packetList.selectedRow;
+            const selectedFrameNum = selectedRow ? selectedRow.dataset.frameNum : null;
             this.packetList.clear();
             if (frames && frames.length > 0) {
                 this.packetList.addPackets(frames);
                 debugLog('loadFrames: rendered ' + frames.length + ' rows');
+                // Restore selection
+                if (selectedFrameNum) {
+                    const row = this.packetList.body.querySelector(`tr[data-frame-num="${selectedFrameNum}"]`);
+                    if (row) {
+                        row.classList.add('selected');
+                        this.packetList.selectedRow = row;
+                    }
+                }
             }
         } catch (error) {
             debugLog('loadFrames ERROR: ' + error.message);
@@ -1153,14 +1226,15 @@ class App {
         const rows = document.querySelectorAll('#packet-body tr');
         if (rows.length === 0) return;
 
-        let currentIndex = rows.length;
+        let currentIndex = -1;
         rows.forEach((row, index) => {
             if (row.classList.contains('selected')) {
                 currentIndex = index;
             }
         });
 
-        const prevIndex = Math.max(currentIndex - 1, 0);
+        // If nothing selected, select first row; otherwise go to previous
+        const prevIndex = currentIndex <= 0 ? 0 : currentIndex - 1;
         if (prevIndex < rows.length) {
             const frameNum = parseInt(rows[prevIndex].dataset.frameNum);
             this.packetList.selectPacket(rows[prevIndex], frameNum);
