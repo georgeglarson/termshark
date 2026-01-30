@@ -88,24 +88,34 @@ func Current() *viper.Viper {
 }
 
 func ConfKeyExists(name string) bool {
-	return ConfKeyExistsIn(Current(), name) || ConfKeyExistsIn(Default(), name)
+	confMutex.Lock()
+	defer confMutex.Unlock()
+	return confKeyExistsIn(current(), name) || confKeyExistsIn(Default(), name)
 }
 
 func ConfKeyExistsIn(v *viper.Viper, name string) bool {
 	return v.Get(name) != nil
 }
 
+// confKeyExistsIn is the unlocked version. Caller must hold confMutex.
+func confKeyExistsIn(v *viper.Viper, name string) bool {
+	return v.Get(name) != nil
+}
+
 func ConfString(name string, def string) string {
-	return ConfStringFrom(Current(), Default(), name, def)
+	confMutex.Lock()
+	defer confMutex.Unlock()
+	return confStringLocked(current(), Default(), name, def)
 }
 
 func ConfStringFrom(v *viper.Viper, vd *viper.Viper, name string, def string) string {
 	confMutex.Lock()
 	defer confMutex.Unlock()
-	// Use GetString because viper will not allow deletion of keys; so I always
-	// use the assumption that "" is the same as unset for a string key; then
-	// I can fallback to the default map if the requested key's value is either ""
-	// or missing
+	return confStringLocked(v, vd, name, def)
+}
+
+// confStringLocked implements string config lookup. Caller must hold confMutex.
+func confStringLocked(v *viper.Viper, vd *viper.Viper, name string, def string) string {
 	if v != nil && v.GetString(name) != "" {
 		return v.GetString(name)
 	} else if vd.GetString(name) != "" {
@@ -116,7 +126,11 @@ func ConfStringFrom(v *viper.Viper, vd *viper.Viper, name string, def string) st
 }
 
 func SetConf(name string, val interface{}) {
-	SetConfIn(Current(), name, val)
+	confMutex.Lock()
+	defer confMutex.Unlock()
+	v := current()
+	v.Set(name, val)
+	v.WriteConfig()
 }
 
 func SetConfIn(v *viper.Viper, name string, val interface{}) {
@@ -127,13 +141,14 @@ func SetConfIn(v *viper.Viper, name string, val interface{}) {
 }
 
 func ConfStrings(name string) []string {
-	return confStrings(Current(), Default(), name)
-}
-
-func confStrings(v *viper.Viper, vd *viper.Viper, name string) []string {
 	confMutex.Lock()
 	defer confMutex.Unlock()
-	if v != nil && ConfKeyExistsIn(v, name) {
+	return confStrings(current(), Default(), name)
+}
+
+// confStrings implements string slice lookup without locking. Caller must hold confMutex.
+func confStrings(v *viper.Viper, vd *viper.Viper, name string) []string {
+	if v != nil && v.Get(name) != nil {
 		return v.GetStringSlice(name)
 	} else {
 		return vd.GetStringSlice(name)
@@ -141,23 +156,25 @@ func confStrings(v *viper.Viper, vd *viper.Viper, name string) []string {
 }
 
 func DeleteConf(name string) {
-	deleteConf(Current(), name)
-}
-
-func deleteConf(v *viper.Viper, name string) {
 	confMutex.Lock()
 	defer confMutex.Unlock()
+	deleteConf(current(), name)
+}
+
+// deleteConf deletes a config key without locking. Caller must hold confMutex.
+func deleteConf(v *viper.Viper, name string) {
 	v.Set(name, "")
 	v.WriteConfig()
 }
 
 func ConfInt(name string, def int) int {
-	return confInt(Current(), Default(), name, def)
-}
-
-func confInt(v *viper.Viper, vd *viper.Viper, name string, def int) int {
 	confMutex.Lock()
 	defer confMutex.Unlock()
+	return confInt(current(), Default(), name, def)
+}
+
+// confInt implements int config lookup without locking. Caller must hold confMutex.
+func confInt(v *viper.Viper, vd *viper.Viper, name string, def int) int {
 	if v != nil && v.Get(name) != nil {
 		return v.GetInt(name)
 	} else if vd != nil && vd.Get(name) != nil {
@@ -168,12 +185,13 @@ func confInt(v *viper.Viper, vd *viper.Viper, name string, def int) int {
 }
 
 func ConfBool(name string, def ...bool) bool {
+	confMutex.Lock()
+	defer confMutex.Unlock()
 	return confBool(vProfile, vDefault, name, def...)
 }
 
+// confBool implements bool config lookup without locking. Caller must hold confMutex.
 func confBool(v *viper.Viper, vd *viper.Viper, name string, def ...bool) bool {
-	confMutex.Lock()
-	defer confMutex.Unlock()
 	if v != nil && v.Get(name) != nil {
 		return v.GetBool(name)
 	} else if vd != nil && vd.Get(name) != nil {
@@ -188,12 +206,19 @@ func confBool(v *viper.Viper, vd *viper.Viper, name string, def ...bool) bool {
 }
 
 func ConfStringSlice(name string, def []string) []string {
-	return ConfStringSliceFrom(vProfile, vDefault, name, def)
+	confMutex.Lock()
+	defer confMutex.Unlock()
+	return confStringSliceLocked(vProfile, vDefault, name, def)
 }
 
 func ConfStringSliceFrom(v *viper.Viper, vd *viper.Viper, name string, def []string) []string {
 	confMutex.Lock()
 	defer confMutex.Unlock()
+	return confStringSliceLocked(v, vd, name, def)
+}
+
+// confStringSliceLocked implements string slice lookup. Caller must hold confMutex.
+func confStringSliceLocked(v *viper.Viper, vd *viper.Viper, name string, def []string) []string {
 	var res []string
 	if v != nil {
 		res = v.GetStringSlice(name)
