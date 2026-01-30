@@ -10,7 +10,6 @@ package filter
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"os/exec"
 	"sync"
@@ -412,7 +411,7 @@ func newMenuWidgets(ed *edit.Widget, completions []string) []gowid.IWidget {
 		)
 		clickmeStyled := styled.NewInvertedFocus(clickme, gowid.MakePaletteRef("filter-menu"))
 		clickme.OnClick(gowid.MakeWidgetCallback(gowid.ClickCB{}, func(app gowid.IApp, target gowid.IWidget) {
-			txt := ed.Text()
+			txt := []rune(ed.Text())
 			end := ed.CursorPos()
 			start := end
 		Loop1:
@@ -421,7 +420,7 @@ func newMenuWidgets(ed *edit.Widget, completions []string) []gowid.IWidget {
 					break
 				}
 				start--
-				if !isValidFilterRune(rune(txt[start])) {
+				if !isValidFilterRune(txt[start]) {
 					start++
 					break Loop1
 				}
@@ -431,13 +430,14 @@ func newMenuWidgets(ed *edit.Widget, completions []string) []gowid.IWidget {
 				if end == len(txt) {
 					break
 				}
-				if !isValidFilterRune(rune(txt[end])) {
+				if !isValidFilterRune(txt[end]) {
 					break Loop2
 				}
 				end++
 			}
-			ed.SetText(fmt.Sprintf("%s%s%s", txt[0:start], scopy, txt[end:len(txt)]), app)
-			ed.SetCursorPos(len(txt[0:start])+len(scopy), app)
+			replacement := string(txt[0:start]) + scopy + string(txt[end:])
+			ed.SetText(replacement, app)
+			ed.SetCursorPos(len(string(txt[0:start]))+len(scopy), app)
 
 		}))
 		cols := columns.New([]gowid.IContainerWidget{
@@ -508,8 +508,12 @@ func (w *Widget) UpdateCompletions(app gowid.IApp) {
 	}
 	w.edCtx, w.edCancelFn = context.WithCancel(context.Background())
 
+	// Capture text before spawning goroutine to avoid reading w.ed.Text()
+	// from a background goroutine (it's not goroutine-safe).
+	capturedText := w.ed.Text()
+
 	// don't kick things off right away in case user is typing fast
-	go func(ctx context.Context) {
+	go func(ctx context.Context, filterText string) {
 		select {
 		case <-ctx.Done():
 			return
@@ -518,12 +522,12 @@ func (w *Widget) UpdateCompletions(app gowid.IApp) {
 		}
 
 		// Send the value to be run by tshark. This will kill any other one in progress.
-		w.filterchangedchan <- &filtStruct{w.ed.Text(), app}
+		w.filterchangedchan <- &filtStruct{filterText, app}
 
 		app.Run(gowid.RunFunction(func(app gowid.IApp) {
 			_, y := app.GetScreen().Size()
 
-			txt := w.ed.Text()
+			runes := []rune(w.ed.Text())
 			end := w.ed.CursorPos()
 			start := end
 		Loop:
@@ -532,19 +536,19 @@ func (w *Widget) UpdateCompletions(app gowid.IApp) {
 					break
 				}
 				start--
-				if !isValidFilterRune(rune(txt[start])) {
+				if !isValidFilterRune(runes[start]) {
 					start++
 					break Loop
 				}
 			}
 
-			makeCompletions(w.fields, txt[start:end], y, app, func(completions []string, app gowid.IApp) {
+			makeCompletions(w.fields, string(runes[start:end]), y, app, func(completions []string, app gowid.IApp) {
 				app.Run(gowid.RunFunction(func(app gowid.IApp) {
 					w.processCompletions(completions, app)
 				}))
 			})
 		}))
-	}(w.edCtx)
+	}(w.edCtx, capturedText)
 }
 
 func (w *Widget) processCompletions(completions []string, app gowid.IApp) {

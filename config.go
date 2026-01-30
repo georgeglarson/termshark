@@ -213,7 +213,8 @@ func SaveOffsetToConfig(name string, offsets2 []resizable.Offset) {
 	} else {
 		offs, err := json.Marshal(offsets)
 		if err != nil {
-			log.Fatal(err)
+			log.Errorf("Could not marshal offsets for %s: %v", name, err)
+			return
 		}
 		profiles.SetConf("main."+name, string(offs))
 	}
@@ -276,7 +277,8 @@ func SaveGlobalMarks(m map[rune]GlobalJumpPos) {
 	} else {
 		marksJ, err := json.Marshal(marks)
 		if err != nil {
-			log.Fatal(err)
+			log.Errorf("Could not marshal marks: %v", err)
+			return
 		}
 		profiles.SetConf("main.marks", string(marksJ))
 	}

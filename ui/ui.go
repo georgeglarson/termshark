@@ -662,9 +662,7 @@ func UpdateProgressBarForFile(c *pcap.PacketLoader, prevRatio float64, app gowid
 			}
 
 			// Progress determined by how far through the pcap the pdml reader is.
-			c.PdmlLoader.Lock()
-			c2, m, err = system.ProcessProgress(c.PdmlPid, c.PcapPdml)
-			c.PdmlLoader.Unlock()
+			c2, m, err = system.ProcessProgress(c.PdmlPid(), c.PcapPdml)
 			if err == nil {
 				pdmlIdxProg.cur, pdmlIdxProg.max = c2, m
 				if currentDisplayedRow != -1 && curRowProg.max != 0 {
@@ -686,9 +684,7 @@ func UpdateProgressBarForFile(c *pcap.PacketLoader, prevRatio float64, app gowid
 			}
 
 			// Progress determined by how far through the pcap the pcap reader is.
-			c.PdmlLoader.Lock()
-			c2, m, err = system.ProcessProgress(c.PcapPid, c.PcapPcap)
-			c.PdmlLoader.Unlock()
+			c2, m, err = system.ProcessProgress(c.PcapPid(), c.PcapPcap)
 			if err == nil {
 				pcapIdxProg.cur, pcapIdxProg.max = c2, m
 				if currentDisplayedRow != -1 && curRowProg.max != 0 {

@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/gcla/gowid"
 	"github.com/gcla/termshark/v2"
@@ -40,8 +41,8 @@ type PdmlLoader struct {
 
 	Stage2FinishedChan chan struct{} // closed when entire pdml+pcap load process is done
 
-	PdmlPid int // 0 if process not started
-	PcapPid int // 0 if process not started
+	pdmlPid atomic.Int32 // 0 if process not started
+	pcapPid atomic.Int32 // 0 if process not started
 
 	sync.Mutex
 	visible                  bool // true if this pdml load is needed right now by the UI
@@ -50,6 +51,14 @@ type PdmlLoader struct {
 	killAfterReadingThisMany atomic.Int32 // A shortcut - tell pcap/pdml to read one
 
 	opt Options
+}
+
+func (c *PdmlLoader) PdmlPid() int {
+	return int(c.pdmlPid.Load())
+}
+
+func (c *PdmlLoader) PcapPid() int {
+	return int(c.pcapPid.Load())
 }
 
 type iPdmlLoaderEnv interface {
@@ -306,8 +315,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb C
 					pdmlPidChan = nil // don't select on this channel again
 					if pid != 0 {
 						pdmlState = Started
-						// gcla later todo - use lock?
-						c.PdmlPid = pid
+						c.pdmlPid.Store(int32(pid))
 						if stage2CtxChan == nil || pdmlCancelledChan == nil {
 							// means that stage2 has been cancelled (so stop the load), and
 							// pdmlCmd != nil => for sure a process was started. So kill it.
@@ -321,7 +329,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb C
 					pcapPidChan = nil // don't select on this channel again
 					if pid != 0 {
 						pcapState = Started
-						c.PcapPid = pid
+						c.pcapPid.Store(int32(pid))
 						if stage2CtxChan == nil || pcapCancelledChan == nil {
 							killPcap()
 						}
@@ -364,8 +372,8 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb C
 				// the value. In the pcap process goroutine, if I get past the stage2 cancellation check, then I need to
 				// have something to receive the pid - this goroutine. It needs to stay alive until it gets the pid, or a
 				// zero.
-				if (pdmlState == Terminated || (pdmlPidChan == nil && c.PdmlPid == 0)) &&
-					(pcapState == Terminated || (pcapPidChan == nil && c.PcapPid == 0)) {
+				if (pdmlState == Terminated || (pdmlPidChan == nil && c.pdmlPid.Load() == 0)) &&
+					(pcapState == Terminated || (pcapPidChan == nil && c.pcapPid.Load() == 0)) {
 					// nothing to select on so break
 					break loop
 				}
@@ -478,8 +486,20 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb C
 
 			}
 
-			// The Wait has to come after the last read, which is above
-			pdmlTermChan <- pdmlCmd.Wait()
+			// The Wait has to come after the last read, which is above.
+			// Use a goroutine with timeout to prevent indefinite blocking
+			// if the child process is unkillable.
+			waitDone := make(chan error, 1)
+			go func() {
+				waitDone <- pdmlCmd.Wait()
+			}()
+			select {
+			case waitErr := <-waitDone:
+				pdmlTermChan <- waitErr
+			case <-time.After(30 * time.Second):
+				log.Warnf("Timed out waiting for pdml process to exit")
+				pdmlTermChan <- fmt.Errorf("pdml process wait timed out")
+			}
 
 			// Want to preserve invariant - for simplicity - that we only add full loads
 			// to the cache
@@ -604,8 +624,20 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb C
 				}
 			}
 
-			// The Wait has to come after the last read, which is above
-			pcapTermChan <- pcapCmd.Wait()
+			// The Wait has to come after the last read, which is above.
+			// Use a goroutine with timeout to prevent indefinite blocking
+			// if the child process is unkillable.
+			waitDone := make(chan error, 1)
+			go func() {
+				waitDone <- pcapCmd.Wait()
+			}()
+			select {
+			case waitErr := <-waitDone:
+				pcapTermChan <- waitErr
+			case <-time.After(30 * time.Second):
+				log.Warnf("Timed out waiting for pcap process to exit")
+				pcapTermChan <- fmt.Errorf("pcap process wait timed out")
+			}
 
 			// I just want to ensure I read it from ram, obviously this is racey
 			// never evict row 0

@@ -175,8 +175,8 @@ type streamParseHandler struct {
 	proto            streams.Protocol
 	idx              int
 	wid              *streamwidget.Widget
-	pleaseWaitClosed bool
-	openedStreams    bool
+	pleaseWaitClosed bool // app goroutine only (accessed within app.Run closures)
+	openedStreams    bool // app goroutine only (accessed within app.Run closures)
 	sync.Mutex
 }
 
@@ -317,8 +317,9 @@ func (t *streamParseHandler) AfterEnd(code pcap.HandlerCode, app gowid.IApp) {
 
 func (t *streamParseHandler) TrackPayloadPacket(packet int) {
 	t.Lock()
-	defer t.Unlock()
-	t.pktIndices <- packet
+	ch := t.pktIndices
+	t.Unlock()
+	ch <- packet
 }
 
 func (t *streamParseHandler) OnStreamHeader(hdr streams.FollowHeader) {
@@ -331,8 +332,9 @@ func (t *streamParseHandler) OnStreamHeader(hdr streams.FollowHeader) {
 // a client/server direction.
 func (t *streamParseHandler) OnStreamChunk(chunk streams.IChunk) {
 	t.Lock()
-	defer t.Unlock()
-	t.chunks <- chunk
+	ch := t.chunks
+	t.Unlock()
+	ch <- chunk
 }
 
 func (t *streamParseHandler) OnError(code pcap.HandlerCode, app gowid.IApp, err error) {

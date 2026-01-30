@@ -158,7 +158,8 @@ func (c Commands) Iface(ifaces []string, captureFilter string, tmpfile string) I
 	// (extcap interfaces).
 	res.Cmd.Env = append(os.Environ(), "TERMSHARK_CAPTURE_MODE=1")
 	res.Cmd.Stdin = os.Stdin
-	res.Cmd.Stderr = os.Stderr
+	// Note: Stderr is set by Command.Start() to capture stderr summary.
+	// Do not set it here as Start() would overwrite it.
 	res.Cmd.Stdout = os.Stdout
 	return res
 }

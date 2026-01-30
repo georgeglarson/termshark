@@ -72,11 +72,19 @@ func Default() *viper.Viper {
 	return vDefault
 }
 
-func Current() *viper.Viper {
+// current returns the active viper instance without locking.
+// Caller must hold confMutex.
+func current() *viper.Viper {
 	if vProfile != nil {
 		return vProfile
 	}
 	return Default()
+}
+
+func Current() *viper.Viper {
+	confMutex.Lock()
+	defer confMutex.Unlock()
+	return current()
 }
 
 func ConfKeyExists(name string) bool {
@@ -216,9 +224,11 @@ func profilesDir() (string, error) {
 }
 
 func CopyToAndUse(name string) error {
-	if Default() == Current() {
+	confMutex.Lock()
+	if Default() == current() {
 		vProfile = viper.New()
 	}
+	confMutex.Unlock()
 
 	dir, err := profilesDir()
 	if err != nil {
@@ -230,13 +240,17 @@ func CopyToAndUse(name string) error {
 		return fmt.Errorf("Unexpected error making dir %s: %w", dir, err)
 	}
 
+	confMutex.Lock()
 	vProfile.SetConfigFile(filepath.Join(dir, "termshark.toml"))
 	vProfile.WriteConfig()
+	confMutex.Unlock()
 
 	return Use(name)
 }
 
 func CurrentName() string {
+	confMutex.Lock()
+	defer confMutex.Unlock()
 	if currentName == "" {
 		return "default"
 	}
@@ -330,8 +344,10 @@ func Use(name string) error {
 		return err
 	}
 
+	confMutex.Lock()
 	vProfile = vNew
 	currentName = name
+	confMutex.Unlock()
 	return nil
 }
 
