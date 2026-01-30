@@ -259,6 +259,7 @@ func (t *streamParseHandler) BeforeBegin(code pcap.HandlerCode, app gowid.IApp) 
 	})
 
 	termshark.GoWithContext(func(ctx context.Context) {
+		defer t.tick.Stop()
 	Loop:
 		for {
 			select {

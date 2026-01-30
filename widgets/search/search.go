@@ -604,13 +604,17 @@ func (w *Widget) Open(app gowid.IApp) {
 
 func (w *Widget) Close(app gowid.IApp) error {
 	// Stop any search going on
-	w.currentAlg.RequestStop(app)
+	if w.currentAlg != nil {
+		w.currentAlg.RequestStop(app)
+	}
 	filt := w.filterHolder.SubWidget().(*filter.Widget)
 	return filt.Close()
 }
 
 func (w *Widget) Clear(app gowid.IApp) {
-	w.currentAlg.RequestStop(app)
+	if w.currentAlg != nil {
+		w.currentAlg.RequestStop(app)
+	}
 
 	// Throw away all search state, cached results
 	w.listAlg = w.listFn()

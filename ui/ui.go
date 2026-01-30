@@ -666,7 +666,7 @@ func UpdateProgressBarForFile(c *pcap.PacketLoader, prevRatio float64, app gowid
 			// Data being loaded from pdml + pcap may overlap the current view
 			if x, err = c.LengthOfPdmlCacheEntry(c.LoadingRow()); err == nil {
 				pdmlPacketProg.cur = int64(x)
-				pdmlPacketProg.max = int64(c.KillAfterReadingThisMany)
+				pdmlPacketProg.max = int64(c.KillAfterReadingThisMany())
 				if currentDisplayedRow != -1 && currentDisplayedRowMod < pdmlPacketProg.max {
 					pdmlPacketProg.max = currentDisplayedRowMod + 1 // zero-based
 					if pdmlPacketProg.cur > pdmlPacketProg.max {
@@ -690,7 +690,7 @@ func UpdateProgressBarForFile(c *pcap.PacketLoader, prevRatio float64, app gowid
 			// Progress determined by how many of the (up to) pktsPerLoad pcap packets are read
 			if x, err = c.LengthOfPcapCacheEntry(c.LoadingRow()); err == nil {
 				pcapPacketProg.cur = int64(x)
-				pcapPacketProg.max = int64(c.KillAfterReadingThisMany)
+				pcapPacketProg.max = int64(c.KillAfterReadingThisMany())
 				if currentDisplayedRow != -1 && currentDisplayedRowMod < pcapPacketProg.max {
 					pcapPacketProg.max = currentDisplayedRowMod + 1 // zero-based
 					if pcapPacketProg.cur > pcapPacketProg.max {
@@ -764,6 +764,9 @@ func UpdateProgressBarForFile(c *pcap.PacketLoader, prevRatio float64, app gowid
 type psmlSummary []string
 
 func (p psmlSummary) String() string {
+	if len(p) <= 1 {
+		return ""
+	}
 	// Skip packet number
 	return strings.Join([]string(p)[1:], " : ")
 }
@@ -2210,8 +2213,8 @@ func mainKeyPress(evk *tcell.EventKey, app gowid.IApp) bool {
 
 	isrune := evk.Key() == tcell.KeyRune
 
-	if evk.Key() == tcell.KeyCtrlC && searchIsActive() {
-		stopCurrentSearch.RequestStop(app)
+	if scs := stopCurrentSearch; evk.Key() == tcell.KeyCtrlC && scs != nil {
+		scs.RequestStop(app)
 	} else if evk.Key() == tcell.KeyCtrlC && Loader.PsmlLoader.IsLoading() {
 		Loader.StopLoadPsmlAndIface(NoHandlers{}) // iface and psml
 	} else if evk.Key() == tcell.KeyTAB || evk.Key() == tcell.KeyBacktab {

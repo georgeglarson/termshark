@@ -86,6 +86,11 @@ func (r *Registry) CreateSession(name string) (*ManagedSession, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	return r.createSessionLocked(name)
+}
+
+// createSessionLocked creates a session. The caller MUST hold r.mu.
+func (r *Registry) createSessionLocked(name string) (*ManagedSession, error) {
 	id := generateSessionID()
 
 	if name == "" {
@@ -247,18 +252,18 @@ func (s *ManagedSession) Close() error {
 // GetOrCreateDefaultSession gets the default session or creates one.
 // This is useful for simple single-session scenarios.
 func (r *Registry) GetOrCreateDefaultSession() (*ManagedSession, error) {
-	r.mu.RLock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	// Look for a session named "default"
 	for _, session := range r.sessions {
 		if session.Name == "default" {
-			r.mu.RUnlock()
 			return session, nil
 		}
 	}
-	r.mu.RUnlock()
 
-	// Create default session (CreateSession acquires its own lock)
-	return r.CreateSession("default")
+	// Create default session under the same lock
+	return r.createSessionLocked("default")
 }
 
 // generateSessionID creates a short random session ID.

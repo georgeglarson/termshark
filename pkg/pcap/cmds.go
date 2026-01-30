@@ -54,8 +54,12 @@ func (c *Command) Start() error {
 	c.summaryReader = summary.New(pr)
 	c.Cmd.Stderr = io.MultiWriter(pw, termshark.ErrLogger("cmd", c.Path))
 	c.PutInNewGroupOnUnix()
-	res := c.Cmd.Start()
-	return res
+	if err := c.Cmd.Start(); err != nil {
+		pw.Close()
+		pr.Close()
+		return err
+	}
+	return nil
 }
 
 func (c *Command) Wait() error {

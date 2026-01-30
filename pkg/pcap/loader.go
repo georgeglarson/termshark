@@ -137,9 +137,10 @@ type PacketLoader struct {
 // was started with one packet source, then a new one is selected. This ensures that all
 // connected loaders that might still be doing work are cancelled.
 func (c *PacketLoader) Renew() {
-	if c.ParentLoader != nil {
-		c.ParentLoader.CloseMain()
+	if c.ParentLoader == nil {
+		return
 	}
+	c.ParentLoader.CloseMain()
 	c.ParentLoader = NewPcapLoader(c.ParentLoader.cmds, c.runner, c.ParentLoader.opt)
 }
 
@@ -169,7 +170,7 @@ type ParentLoader struct {
 }
 
 type InterfaceLoader struct {
-	state LoaderState
+	state atomic.Bool // true = loading
 
 	ifaceCtx      context.Context // cancels the iface reader process
 	ifaceCancelFn context.CancelFunc
@@ -186,7 +187,7 @@ type InterfaceLoader struct {
 }
 
 type PsmlLoader struct {
-	state LoaderState // which pieces are currently loading
+	state atomic.Bool // true = loading
 
 	PcapPsml any // Pcap file source for the psml reader - fifo if iface+!stopped; tmpfile if iface+stopped; pcap otherwise
 
@@ -225,7 +226,7 @@ type PsmlLoader struct {
 }
 
 type PdmlLoader struct {
-	state LoaderState // which pieces are currently loading
+	state atomic.Bool // true = loading
 
 	PcapPdml string // Pcap file source for the pdml reader - tmpfile if iface; pcap otherwise
 	PcapPcap string // Pcap file source for the pcap reader - tmpfile if iface; pcap otherwise
@@ -248,7 +249,7 @@ type PdmlLoader struct {
 	visible                  bool // true if this pdml load is needed right now by the UI
 	rowCurrentlyLoading      int  // set by the pdml loading stage - main goroutine only
 	highestCachedRow         int  // main goroutine only
-	KillAfterReadingThisMany int  // A shortcut - tell pcap/pdml to read one - no lock worked out yet
+	killAfterReadingThisMany atomic.Int32 // A shortcut - tell pcap/pdml to read one
 
 	opt Options
 }
@@ -753,7 +754,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb C
 
 	c.stage2Ctx, c.stage2CancelFn = context.WithCancel(ps.Context())
 
-	c.state = Loading
+	c.state.Store(true)
 	c.rowCurrentlyLoading = row
 	c.visible = visible
 
@@ -826,7 +827,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb C
 				close(p.Stage2FinishedChan)
 				HandleEnd(PdmlCode, app, cb)
 
-				p.state = NotLoading
+				p.state.Store(false)
 				p.rowCurrentlyLoading = -1
 				p.stage2CancelFn = nil
 			}))
@@ -870,7 +871,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb C
 			// don't know how large the psml will be. So we set numToRead to 1000. This might be too high, but
 			// we only use this to determine when we can kill the reading processes early. The result will be
 			// correct if we don't kill the processes, it just might load for longer.
-			c.KillAfterReadingThisMany = c.opt.PacketsPerLoad
+			c.killAfterReadingThisMany.Store(int32(c.opt.PacketsPerLoad))
 			var err error
 			if ps.DisplayFilter() == "" {
 				sidx = row + 1
@@ -882,7 +883,8 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb C
 					if len(psmlData) > row {
 						sidx, err = strconv.Atoi(psmlData[row][0])
 						if err != nil {
-							log.Fatal(err)
+							log.Errorf("Failed to parse PSML packet number: %v", err)
+							return
 						}
 						if len(psmlData) > row+c.opt.PacketsPerLoad+1 {
 							// If we have enough packets to request one more than the amount to
@@ -891,15 +893,17 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb C
 							// let me promptly kill tshark when I've read enough.
 							eidx, err = strconv.Atoi(psmlData[row+c.opt.PacketsPerLoad+1][0])
 							if err != nil {
-								log.Fatal(err)
+								log.Errorf("Failed to parse PSML packet number: %v", err)
+								return
 							}
 						} else {
 							eidx, err = strconv.Atoi(psmlData[len(psmlData)-1][0])
 							if err != nil {
-								log.Fatal(err)
+								log.Errorf("Failed to parse PSML packet number: %v", err)
+								return
 							}
 							eidx += 1 // beyond end of last frame
-							c.KillAfterReadingThisMany = len(psmlData) - row
+							c.killAfterReadingThisMany.Store(int32(len(psmlData) - row))
 						}
 					}
 				})
@@ -1140,7 +1144,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb C
 						}
 						packets = append(packets, cpacket)
 						ps.updateCacheEntryWithPdml(row, packets, false)
-						if len(packets) == c.KillAfterReadingThisMany {
+						if len(packets) == int(c.killAfterReadingThisMany.Load()) {
 							// Shortcut - we never take more than abcdex - so just kill here
 							issuedKill = true
 							readAllRequiredPdml = true
@@ -1254,7 +1258,7 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb C
 					packets = append(packets, packet)
 					packet = make([]byte, 0)
 
-					readEnough := (len(packets) >= c.KillAfterReadingThisMany)
+					readEnough := (len(packets) >= int(c.killAfterReadingThisMany.Load()))
 					ps.updateCacheEntryWithPcap(row, packets, false)
 
 					if readEnough && !issuedKill {
@@ -1417,7 +1421,7 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 
 	intPsmlCtx, intPsmlCancelFn := context.WithCancel(context.Background())
 
-	p.state = Loading
+	p.state.Store(true)
 
 	//======================================================================
 
@@ -1455,7 +1459,7 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 
 			e.MainRun(gowid.RunFunction(func(gowid.IApp) {
 				HandleEnd(PsmlCode, app, cb)
-				p.state = NotLoading
+				p.state.Store(false)
 				p.psmlCancelFn = nil
 			}))
 		}(p.PsmlFinishedChan)
@@ -1825,7 +1829,8 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 					// row with marks even if a filter is currently applied.
 					pidx, err = strconv.Atoi(curPsml[0])
 					if err != nil {
-						log.Fatal(err)
+						log.Errorf("Failed to parse PSML packet number: %v", err)
+						continue
 					}
 					p.PacketNumberMap[pidx] = len(p.packetPsmlData)
 					p.PacketNumberOrder[ppidx] = pidx
@@ -1922,7 +1927,7 @@ func (c *PsmlLoader) ReadingFromFifo() bool {
 }
 
 func (c *PsmlLoader) IsLoading() bool {
-	return c.state == Loading
+	return c.state.Load()
 }
 
 func (c *PsmlLoader) StartStage2ChanFn() chan struct{} {
@@ -1954,12 +1959,14 @@ func (p *PsmlLoader) stopLoadPsml() {
 	}
 }
 
-// PsmlData returns the packet PSML data. The caller must NOT hold p.Lock().
+// PsmlData returns a copy of the packet PSML data. The caller must NOT hold p.Lock().
 // Use PsmlDataLocked if the lock is already held.
 func (p *PsmlLoader) PsmlData() [][]string {
 	p.Lock()
 	defer p.Unlock()
-	return p.packetPsmlData
+	result := make([][]string, len(p.packetPsmlData))
+	copy(result, p.packetPsmlData)
+	return result
 }
 
 // PsmlDataLocked returns the packet PSML data. The caller MUST already hold p.Lock().
@@ -1967,17 +1974,21 @@ func (p *PsmlLoader) PsmlDataLocked() [][]string {
 	return p.packetPsmlData
 }
 
-// PsmlHeaders returns the PSML column headers. The caller must NOT hold p.Lock().
+// PsmlHeaders returns a copy of the PSML column headers. The caller must NOT hold p.Lock().
 func (p *PsmlLoader) PsmlHeaders() []string {
 	p.Lock()
 	defer p.Unlock()
-	return p.packetPsmlHeaders
+	result := make([]string, len(p.packetPsmlHeaders))
+	copy(result, p.packetPsmlHeaders)
+	return result
 }
 
 func (p *PsmlLoader) PsmlColors() []PacketColors {
 	p.Lock()
 	defer p.Unlock()
-	return p.packetPsmlColors
+	result := make([]PacketColors, len(p.packetPsmlColors))
+	copy(result, p.packetPsmlColors)
+	return result
 }
 
 func (p *PsmlLoader) PsmlAverageLengths() []gwutil.IntOption {
@@ -2061,7 +2072,7 @@ func (c *PsmlLoader) NumLoaded() int {
 //======================================================================
 
 func (c *PdmlLoader) IsLoading() bool {
-	return c.state == Loading
+	return c.state.Load()
 }
 
 func (c *PdmlLoader) LoadIsVisible() bool {
@@ -2071,6 +2082,11 @@ func (c *PdmlLoader) LoadIsVisible() bool {
 // Only call from main goroutine
 func (c *PdmlLoader) LoadingRow() int {
 	return c.rowCurrentlyLoading
+}
+
+// KillAfterReadingThisMany returns the number of packets to read before killing tshark.
+func (c *PdmlLoader) KillAfterReadingThisMany() int {
+	return int(c.killAfterReadingThisMany.Load())
 }
 
 func (p *PdmlLoader) stopLoadPdml() {
@@ -2125,7 +2141,7 @@ func (i *InterfaceLoader) loadIfacesSync(e iIfaceLoaderEnv, cb Callback, app gow
 
 	ifaceTermChan := make(chan error)
 
-	i.state = Loading
+	i.state.Store(true)
 
 	log.Infof("Started Iface command %v with pid %d", i.ifaceCmd, i.ifaceCmd.Pid())
 
@@ -2149,7 +2165,7 @@ func (i *InterfaceLoader) loadIfacesSync(e iIfaceLoaderEnv, cb Callback, app gow
 			}
 
 			e.MainRun(gowid.RunFunction(func(gowid.IApp) {
-				i.state = NotLoading
+				i.state.Store(false)
 				i.ifaceCancelFn = nil
 			}))
 
@@ -2287,7 +2303,7 @@ func (i *InterfaceLoader) stopLoadIface() {
 }
 
 func (c *InterfaceLoader) IsLoading() bool {
-	return c != nil && c.state == Loading
+	return c != nil && c.state.Load()
 }
 
 //======================================================================
@@ -2337,7 +2353,7 @@ Loop:
 			if !mloader.loadIsNecessary(ev) {
 				requests = requests[1:]
 			} else {
-				if loader.state == Loading {
+				if loader.state.Load() {
 					if ev.CancelCurrent {
 						loader.stopLoadPdml()
 					}

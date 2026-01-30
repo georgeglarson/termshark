@@ -156,10 +156,12 @@ func TestSnappyMe_UnsnappyMe_Roundtrip(t *testing.T) {
 	original := testStruct{Name: "test", Value: 42}
 
 	var buf bytes.Buffer
-	SnappyMe(original, &buf)
+	err := SnappyMe(original, &buf)
+	assert.NoError(t, err)
 
 	var recovered testStruct
-	UnsnappyMe(&recovered, &buf)
+	err = UnsnappyMe(&recovered, &buf)
+	assert.NoError(t, err)
 
 	assert.Equal(t, original, recovered)
 }
@@ -168,10 +170,12 @@ func TestSnappyMe_UnsnappyMe_Slice(t *testing.T) {
 	original := []string{"one", "two", "three"}
 
 	var buf bytes.Buffer
-	SnappyMe(original, &buf)
+	err := SnappyMe(original, &buf)
+	assert.NoError(t, err)
 
 	var recovered []string
-	UnsnappyMe(&recovered, &buf)
+	err = UnsnappyMe(&recovered, &buf)
+	assert.NoError(t, err)
 
 	assert.Equal(t, original, recovered)
 }

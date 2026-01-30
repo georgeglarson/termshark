@@ -732,19 +732,6 @@ func getFloat(m map[string]interface{}, key string, def float64) float64 {
 	return def
 }
 
-// sendError sends a JSON-RPC error response (legacy, for use before clientState is set up).
-func (s *Server) sendError(conn *websocket.Conn, id int, code int, message string) {
-	resp := JSONRPCResponse{
-		JSONRPC: "2.0",
-		ID:      id,
-		Error: &JSONRPCError{
-			Code:    code,
-			Message: message,
-		},
-	}
-	conn.WriteJSON(resp)
-}
-
 // sendErrorVia sends a JSON-RPC error response through the clientState write mutex.
 func (s *Server) sendErrorVia(cs *clientState, id int, code int, message string) {
 	resp := JSONRPCResponse{

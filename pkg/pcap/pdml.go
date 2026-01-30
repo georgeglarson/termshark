@@ -9,9 +9,11 @@ import (
 	"compress/gzip"
 	"encoding/gob"
 	"encoding/xml"
+	"fmt"
 	"io"
 
 	"github.com/mreiferson/go-snappystream"
+	log "github.com/sirupsen/logrus"
 )
 
 //======================================================================
@@ -46,13 +48,15 @@ func (p GzippedPdmlPacket) Packet() PdmlPacket {
 func (p GzippedPdmlPacket) Uncompress() PdmlPacket {
 	greader, err := gzip.NewReader(&p.Data)
 	if err != nil {
-		panic(err)
+		log.Warnf("Failed to create gzip reader for cached packet: %v", err)
+		return PdmlPacket{}
 	}
 	decoder := gob.NewDecoder(greader)
 	var res PdmlPacket
 	err = decoder.Decode(&res)
 	if err != nil {
-		panic(err)
+		log.Warnf("Failed to decode cached packet: %v", err)
+		return PdmlPacket{}
 	}
 
 	return res
@@ -64,7 +68,8 @@ func GzipPdmlPacket(p PdmlPacket) IPdmlPacket {
 	encoder := gob.NewEncoder(gwriter)
 	err := encoder.Encode(p)
 	if err != nil {
-		panic(err)
+		log.Warnf("Failed to encode packet for cache: %v", err)
+		return p // return uncompressed as fallback
 	}
 	gwriter.Close()
 	return res
@@ -84,13 +89,19 @@ func (p SnappiedPdmlPacket) Packet() PdmlPacket {
 
 func (p SnappiedPdmlPacket) Uncompress() PdmlPacket {
 	var res PdmlPacket
-	UnsnappyMe(&res, &p.Data)
+	if err := UnsnappyMe(&res, &p.Data); err != nil {
+		log.Warnf("Failed to decompress cached packet: %v", err)
+		return PdmlPacket{}
+	}
 	return res
 }
 
 func SnappyPdmlPacket(p PdmlPacket) IPdmlPacket {
 	res := SnappiedPdmlPacket{}
-	SnappyMe(p, &res.Data)
+	if err := SnappyMe(p, &res.Data); err != nil {
+		log.Warnf("Failed to compress packet for cache: %v", err)
+		return p // return uncompressed as fallback
+	}
 	return res
 }
 
@@ -98,24 +109,26 @@ func SnappyPdmlPacket(p PdmlPacket) IPdmlPacket {
 
 // SnappyMe compresses the object within interface p to the
 // writer w.
-func SnappyMe(p any, w io.Writer) {
+func SnappyMe(p any, w io.Writer) error {
 	gwriter := snappystream.NewBufferedWriter(w)
 	encoder := gob.NewEncoder(gwriter)
 	if err := encoder.Encode(p); err != nil {
-		panic(err)
+		return fmt.Errorf("snappy encode: %w", err)
 	}
 	gwriter.Close()
+	return nil
 }
 
 // UnsnappyMe decompresses from reader r into res. Afterwards,
 // res will be an interface whose type is a pointer to whatever
 // was serialized in the first place.
-func UnsnappyMe(res any, r io.Reader) {
+func UnsnappyMe(res any, r io.Reader) error {
 	greader := snappystream.NewReader(r, false)
 	decoder := gob.NewDecoder(greader)
 	if err := decoder.Decode(res); err != nil {
-		panic(err)
+		return fmt.Errorf("snappy decode: %w", err)
 	}
+	return nil
 }
 
 //======================================================================

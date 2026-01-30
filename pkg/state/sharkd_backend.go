@@ -106,12 +106,14 @@ func NewSharkdBackend(ctx context.Context) (*SharkdBackend, error) {
 	// Start sharkd process
 	sharkdBin := termshark.SharkdBin()
 	if sharkdBin == "" {
+		cancelFn()
 		return nil, fmt.Errorf("sharkd not found in PATH")
 	}
 
 	backend.cmd = exec.CommandContext(clientCtx, sharkdBin, fmt.Sprintf("unix:%s", socketPath))
 
 	if err := backend.cmd.Start(); err != nil {
+		cancelFn()
 		return nil, fmt.Errorf("failed to start sharkd: %w", err)
 	}
 

@@ -44,6 +44,10 @@ func (m *Manager) LoadFile(path string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if m.backend == nil {
+		return fmt.Errorf("backend not initialized")
+	}
+
 	// Get absolute path
 	absPath, err := filepath.Abs(path)
 	if err != nil {
@@ -165,6 +169,10 @@ func (m *Manager) SelectPacket(num int) (*PacketDetail, error) {
 func (m *Manager) ValidateFilter(filter string) (*FilterValidation, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
+	if m.backend == nil {
+		return nil, fmt.Errorf("backend not initialized")
+	}
 
 	return m.backend.ValidateFilter(m.ctx, filter)
 }

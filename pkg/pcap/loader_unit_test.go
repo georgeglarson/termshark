@@ -242,7 +242,7 @@ func TestPsmlLoader_IsLoading(t *testing.T) {
 
 	assert.False(t, loader.PsmlLoader.IsLoading())
 
-	loader.PsmlLoader.state = Loading
+	loader.PsmlLoader.state.Store(true)
 	assert.True(t, loader.PsmlLoader.IsLoading())
 }
 
@@ -341,7 +341,7 @@ func TestPdmlLoader_IsLoading(t *testing.T) {
 
 	assert.False(t, loader.PdmlLoader.IsLoading())
 
-	loader.PdmlLoader.state = Loading
+	loader.PdmlLoader.state.Store(true)
 	assert.True(t, loader.PdmlLoader.IsLoading())
 }
 
@@ -383,7 +383,7 @@ func TestInterfaceLoader_IsLoading(t *testing.T) {
 	loader.RenewIfaceLoader()
 	assert.False(t, loader.InterfaceLoader.IsLoading())
 
-	loader.InterfaceLoader.state = Loading
+	loader.InterfaceLoader.state.Store(true)
 	assert.True(t, loader.InterfaceLoader.IsLoading())
 }
 
@@ -494,14 +494,14 @@ func TestParentLoader_RenewPsmlLoader(t *testing.T) {
 
 	// Modify state
 	loader.PsmlLoader.packetPsmlData = [][]string{{"test"}}
-	loader.PsmlLoader.state = Loading
+	loader.PsmlLoader.state.Store(true)
 
 	// Renew
 	loader.RenewPsmlLoader()
 
 	// Should have fresh state
 	assert.Empty(t, loader.PsmlLoader.packetPsmlData)
-	assert.Equal(t, NotLoading, loader.PsmlLoader.state)
+	assert.False(t, loader.PsmlLoader.state.Load())
 	assert.NotNil(t, loader.PsmlLoader.PacketCache)
 }
 
@@ -511,14 +511,14 @@ func TestParentLoader_RenewPdmlLoader(t *testing.T) {
 	loader := NewPcapLoader(cmds, runner)
 
 	// Modify state
-	loader.PdmlLoader.state = Loading
+	loader.PdmlLoader.state.Store(true)
 	loader.PdmlLoader.rowCurrentlyLoading = 42
 
 	// Renew
 	loader.RenewPdmlLoader()
 
 	// Should have fresh state
-	assert.Equal(t, NotLoading, loader.PdmlLoader.state)
+	assert.False(t, loader.PdmlLoader.state.Load())
 	assert.Equal(t, -1, loader.PdmlLoader.rowCurrentlyLoading)
 }
 
@@ -532,7 +532,7 @@ func TestParentLoader_RenewIfaceLoader(t *testing.T) {
 	loader.RenewIfaceLoader()
 
 	assert.NotNil(t, loader.InterfaceLoader)
-	assert.Equal(t, NotLoading, loader.InterfaceLoader.state)
+	assert.False(t, loader.InterfaceLoader.state.Load())
 }
 
 //======================================================================
@@ -548,18 +548,18 @@ func TestParentLoader_LoadingAnything(t *testing.T) {
 	assert.False(t, loader.LoadingAnything())
 
 	// PSML loading
-	loader.PsmlLoader.state = Loading
+	loader.PsmlLoader.state.Store(true)
 	assert.True(t, loader.LoadingAnything())
-	loader.PsmlLoader.state = NotLoading
+	loader.PsmlLoader.state.Store(false)
 
 	// PDML loading
-	loader.PdmlLoader.state = Loading
+	loader.PdmlLoader.state.Store(true)
 	assert.True(t, loader.LoadingAnything())
-	loader.PdmlLoader.state = NotLoading
+	loader.PdmlLoader.state.Store(false)
 
 	// Interface loading
 	loader.RenewIfaceLoader()
-	loader.InterfaceLoader.state = Loading
+	loader.InterfaceLoader.state.Store(true)
 	assert.True(t, loader.LoadingAnything())
 }
 
@@ -1059,15 +1059,15 @@ func TestPsmlLoader_StateTransitions(t *testing.T) {
 	loader := NewPcapLoader(cmds, runner)
 
 	// Initial state
-	assert.Equal(t, NotLoading, loader.PsmlLoader.state)
+	assert.False(t, loader.PsmlLoader.state.Load())
 	assert.False(t, loader.PsmlLoader.IsLoading())
 
 	// Transition to Loading
-	loader.PsmlLoader.state = Loading
+	loader.PsmlLoader.state.Store(true)
 	assert.True(t, loader.PsmlLoader.IsLoading())
 
 	// Transition back to NotLoading
-	loader.PsmlLoader.state = NotLoading
+	loader.PsmlLoader.state.Store(false)
 	assert.False(t, loader.PsmlLoader.IsLoading())
 }
 
@@ -1077,15 +1077,15 @@ func TestPdmlLoader_StateTransitions(t *testing.T) {
 	loader := NewPcapLoader(cmds, runner)
 
 	// Initial state
-	assert.Equal(t, NotLoading, loader.PdmlLoader.state)
+	assert.False(t, loader.PdmlLoader.state.Load())
 	assert.False(t, loader.PdmlLoader.IsLoading())
 
 	// Transition to Loading
-	loader.PdmlLoader.state = Loading
+	loader.PdmlLoader.state.Store(true)
 	assert.True(t, loader.PdmlLoader.IsLoading())
 
 	// Transition back to NotLoading
-	loader.PdmlLoader.state = NotLoading
+	loader.PdmlLoader.state.Store(false)
 	assert.False(t, loader.PdmlLoader.IsLoading())
 }
 
@@ -1098,15 +1098,15 @@ func TestInterfaceLoader_StateTransitions(t *testing.T) {
 	loader.RenewIfaceLoader()
 
 	// Initial state
-	assert.Equal(t, NotLoading, loader.InterfaceLoader.state)
+	assert.False(t, loader.InterfaceLoader.state.Load())
 	assert.False(t, loader.InterfaceLoader.IsLoading())
 
 	// Transition to Loading
-	loader.InterfaceLoader.state = Loading
+	loader.InterfaceLoader.state.Store(true)
 	assert.True(t, loader.InterfaceLoader.IsLoading())
 
 	// Transition back to NotLoading
-	loader.InterfaceLoader.state = NotLoading
+	loader.InterfaceLoader.state.Store(false)
 	assert.False(t, loader.InterfaceLoader.IsLoading())
 }
 

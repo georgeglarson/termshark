@@ -564,6 +564,10 @@ func (w *Widget) realUserInput(ev interface{}, size gowid.IRenderSize, focus gow
 		}
 	}
 
+	if len(w.data) == 0 {
+		return res
+	}
+
 	pos := w.Position()
 	atBottom := false
 	atTop := false
@@ -650,6 +654,10 @@ func (t *Widget) GoHome(size gowid.IRenderSize, app gowid.IApp) {
 }
 
 func (t *Widget) GoToEnd(size gowid.IRenderSize, app gowid.IApp) {
+	if len(t.data) == 0 {
+		return
+	}
+
 	var canvasRows int
 	if box, ok := size.(gowid.IRows); ok {
 		canvasRows = box.Rows()

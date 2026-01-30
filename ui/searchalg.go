@@ -82,7 +82,11 @@ func (w *PacketSearcher) SearchPackets(term search.INeedle, cbs search.ICallback
 		res := search.Result{}
 
 		defer func() {
-			stopCurrentSearch = nil
+			tick.Stop()
+			// Clear stopCurrentSearch in the app goroutine to avoid race
+			app.Run(gowid.RunFunction(func(app gowid.IApp) {
+				stopCurrentSearch = nil
+			}))
 			cbs.SearchPacketsResult(res, app)
 		}()
 
