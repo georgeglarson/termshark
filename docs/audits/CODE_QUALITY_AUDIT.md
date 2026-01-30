@@ -525,3 +525,56 @@ Converted `for i := 0; i < len(x); i++` to `for i := range len(x)` in:
 - **ui/accessors.go**: Added accessor functions with dual-write pattern for gradual migration
 - **ui/ui.go Build()**: Updated to populate UIState fields for ~50 major widgets
 - Migration infrastructure ready - legacy globals preserved for backwards compatibility
+
+---
+
+## Latest Session Updates (2026-01-30)
+
+### Full Codebase Bug Audit
+
+Comprehensive audit across all packages found 56 issues (1 critical, 12 high, 31 medium, 12 low). The following were fixed:
+
+### Panic Fixes
+- **pkg/pcap/loader.go**: Added missing `return` after `errFn(err)` in `waitForFileData` — without it, `file.Close()` was called on a nil `*os.File`, causing a guaranteed nil pointer panic
+- **ui/ui.go**: Guarded integer division by zero when `curRowProg.max == 0` (2 locations) and float division by zero when `prog.max == 0` in progress bar calculation. Extracted `progRatio()` helper for safe `progMin`/`progMax`
+
+### Race Condition Fixes
+- **pkg/state/manager.go**: Capture callback closures now use local references (`captureRef`, `backendRef`) captured under the lock, instead of reading `m.capture`/`m.backend` without lock from the monitor goroutine. Initial load goroutine uses the same pattern. Added nil backend guards to `SetFilter`, `GetPackets`, `GetPacketDetail`
+- **pkg/state/manager.go**: `Close()` stops capture before acquiring `m.mu` to avoid blocking all Manager methods during process teardown
+- **pkg/state/server.go**: `sessions.leave` now waits on `forwardDone` channel before clearing session. `removeClient` waits on `forwardDone` before connection close, preventing writes to closed connections
+- **pkg/web/server.go**: All `sendError` calls replaced with `sendErrorVia` (uses `writeMu`). All reads/writes of `clientSt.session` protected by `clientSt.mu` (6 locations across join/leave/info/cleanup/routing)
+- **pkg/pcap/loader.go**: `checkAllBytesRead` now acquires lock before reading `totalFifoBytesWritten`, `totalFifoBytesRead`, `fifoError`. `closePipe` uses `sync.Once` instead of unsynchronized bool guard. `PsmlData`/`PsmlHeaders`/`PsmlColors`/`PsmlAverageLengths`/`PsmlMaxLengths` now acquire lock; added `PsmlDataLocked()` for callers already holding the lock (4 callsites updated in ui/searchpkt*.go and ui/ui.go)
+- **pkg/pcap/loader_adapter.go**: `PacketNumberMap()` returns a deep copy under lock (prevents concurrent map read/write panic)
+- **pkg/streams/loader.go**: Contexts initialized in `StartLoad` before spawning goroutines (prevents `StopLoad` from reading nil cancel functions). `streamCmd` captured as local variable for goroutine safety
+
+### Resource Leak Fixes
+- **pkg/state/capture.go**: `Stop()` now calls `Wait()` on `captureCmd` and `tailCmd` in background goroutines to reap child processes and prevent zombies
+- **pkg/pcap/loader.go**: `waitForFileData` watcher explicitly closed in loop body instead of deferred inside a loop (deferred watchers captured the final loop variable, leaking all intermediate FDs)
+
+### Logic Bug Fixes
+- **utils.go**: `PrunePcapCache` stores full file paths from `filepath.Walk` callback instead of using `FileInfo.Name()` (which is only the base name, causing deletions in wrong directory). Also skips directories
+- **ui/convsui.go**: IPv6 address parsing uses `strings.LastIndex(":")` to split host:port instead of `strings.Split(":")` which produces >2 parts for IPv6 addresses
+- **widgets/filter/filter.go**: `Close()` uses `close(quitchan)` instead of two synchronous sends — the old pattern deadlocked if either consumer goroutine had already exited. Fixed `len(completions) >= 0` (always true) to `> 0`
+
+### Commits
+| Commit | Description |
+|--------|-------------|
+| `8f49f67` | Fix concurrency bugs and robustness issues in state/web packages |
+| `2035e78` | Fix bugs found in codebase audit across 15 files |
+
+### Known Remaining Issues (not fixed)
+
+Issues intentionally deferred — either low severity, high risk of regression in heavily-used code paths, or requiring larger refactors:
+
+| # | Severity | Location | Issue | Reason Deferred |
+|---|----------|----------|-------|-----------------|
+| 1 | MEDIUM | `pkg/pcap/loader.go:251` | `KillAfterReadingThisMany` data race | Requires lock design across multiple goroutine boundaries |
+| 2 | MEDIUM | `pkg/pcap/loader.go:985` | `PdmlPid`/`PcapPid` written without sync | Internal to single goroutine flow, external reads rare |
+| 3 | MEDIUM | `pkg/pcap/loader.go:885` | `log.Fatal` in goroutines orphans children | Requires error propagation refactor across XML parsing |
+| 4 | MEDIUM | `pkg/pcap/pdml.go:48` | `panic()` in compression code | Would need error return plumbing through cache layer |
+| 5 | MEDIUM | `configs/profiles/profiles.go:220` | `vProfile`/`currentName` written without lock | Requires audit of all profile config callers |
+| 6 | MEDIUM | `ui/streamui.go:167` | Race on `pleaseWaitClosed`/`openedStreams` | Serialized through app.Run in practice |
+| 7 | MEDIUM | `ui/searchalg.go:55` | Race on `stopCurrentSearch` global | Accessed from app goroutine, set from bg goroutine |
+| 8 | MEDIUM | `widgets/filter/filter.go:521` | `w.ed.Text()` read from bg goroutine | Would need capturing text before spawning goroutine |
+| 9 | LOW | `pkg/pcap/loader.go:139` | `Renew()` nil-check inconsistent with dereference | ParentLoader always non-nil in practice |
+| 10 | LOW | `utils.go:711,799` | `log.Fatal` on marshal failure breaks terminal | Low probability (JSON marshal of basic types) |

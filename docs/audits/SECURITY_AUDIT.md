@@ -14,6 +14,8 @@
 | File Operations | Fixed | 6 | 6 |
 | Input Validation | Fixed | 5 | 5 |
 | Dependencies | Fixed | 2 critical, 3 medium | 2 critical |
+| Debug Server Exposure | Fixed | 1 | 1 |
+| Web UI Security | Noted | 2 | 0 (acceptable for local tool) |
 
 ---
 
@@ -137,6 +139,36 @@ Updated: Go 1.22
 
 ---
 
+## 5. Debug Server Exposure - FIXED
+
+### 5.1 pprof Bound to All Interfaces - FIXED
+
+The debug pprof HTTP server was bound to `0.0.0.0:6060`, exposing profiling data (including heap dumps with packet contents) to any network host. Changed to `127.0.0.1:6060` (localhost only).
+
+| File | Issue | Status |
+|------|-------|--------|
+| `cmd/termshark/termshark.go` | pprof on 0.0.0.0:6060 | FIXED |
+
+**Commit:** `2035e78` - Fix bugs found in codebase audit across 15 files
+
+---
+
+## 6. Web UI Security - NOTED
+
+### 6.1 WebSocket Origin Check - OPEN
+
+All WebSocket upgraders set `CheckOrigin` to always return `true`, allowing Cross-Site WebSocket Hijacking (CSWSH). If the web server is network-accessible, any website can connect.
+
+| File | Issue | Status |
+|------|-------|--------|
+| `pkg/web/server.go` | `CheckOrigin` always true | NOTED - local-use tool |
+
+### 6.2 File Loading Path Traversal - PARTIAL
+
+The `/api/load` HTTP endpoint validates with `filepath.Abs` but does not restrict which directories can be loaded. Acceptable for a local tool; would need directory restriction for network-exposed deployments.
+
+---
+
 ## Commits
 
 | Commit | Description |
@@ -148,3 +180,5 @@ Updated: Go 1.22
 | `2da7b90` | Upgrade Go to 1.22 and update dependencies |
 | `ae5af27` | Validate --profile CLI argument to prevent path traversal |
 | `c6c7e02` | Add symlink validation in profile enumeration and deletion |
+| `8f49f67` | Fix concurrency bugs and robustness issues in state/web packages |
+| `2035e78` | Fix bugs found in codebase audit across 15 files |
