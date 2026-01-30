@@ -562,19 +562,53 @@ Comprehensive audit across all packages found 56 issues (1 critical, 12 high, 31
 | `8f49f67` | Fix concurrency bugs and robustness issues in state/web packages |
 | `2035e78` | Fix bugs found in codebase audit across 15 files |
 
+### Second Fresh Audit Pass (2026-01-30)
+
+A second comprehensive 5-agent parallel audit found 24 additional issues (7 HIGH, 12 MEDIUM, 5 LOW). The following were fixed:
+
+### Crash-on-Bad-Data Fixes
+- **pkg/pcap/pdml.go**: Replaced `panic()` in all 5 compression/decompression functions (`Uncompress`, `GzipPdmlPacket`, `SnappyPdmlPacket`, `SnappyMe`, `UnsnappyMe`) with `log.Warn` + graceful fallback (return empty packet or uncompressed data). `SnappyMe`/`UnsnappyMe` now return errors
+- **pkg/pcap/loader.go**: Replaced 4 `log.Fatal` calls in PSML parsing (lines 885, 894, 899, 1829) with `log.Errorf` + return/continue — prevents killing the process without running defers or reaping child processes
+
+### Race Condition Fixes (Second Pass)
+- **pkg/pcap/loader.go**: Converted `KillAfterReadingThisMany` from plain `int` to `atomic.Int32` with accessor method — eliminates data race across stage2 mapping goroutine and pdml/pcap reader goroutines
+- **pkg/pcap/loader.go**: Converted `state` fields in `InterfaceLoader`, `PsmlLoader`, `PdmlLoader` from `LoaderState bool` to `atomic.Bool` — eliminates race between `IsLoading()` reads from sync ticker and writes from main/UI goroutines
+- **pkg/pcap/loader.go**: `PsmlData()`, `PsmlHeaders()`, `PsmlColors()` now return shallow copies of internal slices — prevents callers from sharing backing array with the PSML parser goroutine
+- **ui/searchalg.go**: `stopCurrentSearch = nil` now dispatched via `app.Run()` to serialize with the app goroutine — prevents data race and nil pointer dereference between check and use
+- **pkg/state/registry.go**: `GetOrCreateDefaultSession` uses write lock + `createSessionLocked` inner method — eliminates TOCTOU race that could create duplicate default sessions
+- **pkg/state/manager.go**: Added nil backend checks to `ValidateFilter` and `LoadFile` — prevents nil pointer dereference when called before backend initialization
+
+### Resource Leak Fixes (Second Pass)
+- **ui/searchalg.go**: Added `tick.Stop()` in defer — search ticker was never stopped after search completion
+- **ui/streamui.go**: Added `defer t.tick.Stop()` in spinner goroutine — stream ticker was never stopped
+- **pkg/pcap/cmds.go**: `Command.Start()` closes `io.Pipe` on `Cmd.Start()` failure — prevents FD leak
+- **pkg/state/sharkd_backend.go**: Call `cancelFn()` in error paths when sharkd binary not found or `cmd.Start()` fails — prevents context leak
+
+### Defensive Fixes (Second Pass)
+- **pkg/pcap/loader.go**: `Renew()` returns early if `ParentLoader` is nil — prevents nil pointer dereference (previously had inconsistent nil guard)
+- **ui/ui.go**: `psmlSummary.String()` checks `len(p) <= 1` before slicing `p[1:]` — prevents panic on empty slice
+- **ui/ui.go**: `stopCurrentSearch` captured to local variable before nil check+use — prevents race between check and dereference
+- **widgets/hexdumper2/hexdumper2.go**: Added `len(data) == 0` guards in `realUserInput` and `GoToEnd` — prevents negative position values (`len(data)-1` = -1)
+- **widgets/search/search.go**: Added `currentAlg != nil` checks in `Close()` and `Clear()` — prevents nil dereference if called before initialization
+- **pkg/web/server.go**: Removed dead `sendError` function (all callers use `sendErrorVia`)
+
+### Commits (Second Pass)
+| Commit | Description |
+|--------|-------------|
+| `e32fe42` | Fix crash-on-bad-data, race conditions, and resource leaks across 14 files |
+
 ### Known Remaining Issues (not fixed)
 
 Issues intentionally deferred — either low severity, high risk of regression in heavily-used code paths, or requiring larger refactors:
 
 | # | Severity | Location | Issue | Reason Deferred |
 |---|----------|----------|-------|-----------------|
-| 1 | MEDIUM | `pkg/pcap/loader.go:251` | `KillAfterReadingThisMany` data race | Requires lock design across multiple goroutine boundaries |
-| 2 | MEDIUM | `pkg/pcap/loader.go:985` | `PdmlPid`/`PcapPid` written without sync | Internal to single goroutine flow, external reads rare |
-| 3 | MEDIUM | `pkg/pcap/loader.go:885` | `log.Fatal` in goroutines orphans children | Requires error propagation refactor across XML parsing |
-| 4 | MEDIUM | `pkg/pcap/pdml.go:48` | `panic()` in compression code | Would need error return plumbing through cache layer |
-| 5 | MEDIUM | `configs/profiles/profiles.go:220` | `vProfile`/`currentName` written without lock | Requires audit of all profile config callers |
-| 6 | MEDIUM | `ui/streamui.go:167` | Race on `pleaseWaitClosed`/`openedStreams` | Serialized through app.Run in practice |
-| 7 | MEDIUM | `ui/searchalg.go:55` | Race on `stopCurrentSearch` global | Accessed from app goroutine, set from bg goroutine |
-| 8 | MEDIUM | `widgets/filter/filter.go:521` | `w.ed.Text()` read from bg goroutine | Would need capturing text before spawning goroutine |
-| 9 | LOW | `pkg/pcap/loader.go:139` | `Renew()` nil-check inconsistent with dereference | ParentLoader always non-nil in practice |
-| 10 | LOW | `utils.go:711,799` | `log.Fatal` on marshal failure breaks terminal | Low probability (JSON marshal of basic types) |
+| 1 | MEDIUM | `pkg/pcap/loader.go:985` | `PdmlPid`/`PcapPid` written without sync | Internal to single goroutine flow, external reads rare |
+| 2 | MEDIUM | `configs/profiles/profiles.go:220` | `vProfile`/`currentName` written without lock | Requires audit of all profile config callers |
+| 3 | MEDIUM | `ui/streamui.go:190-314` | Race on `pleaseWaitClosed`/`openedStreams` booleans | Serialized through app.Run in practice |
+| 4 | MEDIUM | `ui/streamui.go:320-334` | Buffered channel send while holding mutex can stall | Only with >1000 stream chunks before UI drains |
+| 5 | MEDIUM | `pkg/pcap/loader.go:934-1048` | Goroutine leak if child process is unkillable | Pathological case only (stuck tshark) |
+| 6 | MEDIUM | `widgets/filter/filter.go:521` | `w.ed.Text()` read from bg goroutine | Would need capturing text before spawning goroutine |
+| 7 | LOW | `pkg/pcap/cmds.go:155-158` | `Iface()` sets `Stderr` but `Command.Start()` overwrites it | Cosmetic; stderr still captured via MultiWriter |
+| 8 | LOW | `utils.go:711,799` | `log.Fatal` on marshal failure breaks terminal | Low probability (JSON marshal of basic types) |
+| 9 | LOW | `widgets/filter/filter.go:424,535` | Byte-indexing into string (incorrect for multi-byte UTF-8) | Filter syntax is ASCII-only in practice |

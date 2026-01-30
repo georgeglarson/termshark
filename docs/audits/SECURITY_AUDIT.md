@@ -16,6 +16,7 @@
 | Dependencies | Fixed | 2 critical, 3 medium | 2 critical |
 | Debug Server Exposure | Fixed | 1 | 1 |
 | Web UI Security | Noted | 2 | 0 (acceptable for local tool) |
+| Crash Resilience | Fixed | 8 | 8 |
 
 ---
 
@@ -169,6 +170,36 @@ The `/api/load` HTTP endpoint validates with `filepath.Abs` but does not restric
 
 ---
 
+## 7. Crash Resilience - FIXED
+
+### 7.1 panic() in Compression Functions - FIXED
+
+All compression/decompression functions in `pdml.go` used `panic()` on errors, which would crash the entire application if a cached packet became corrupted. Replaced with `log.Warn` and graceful fallback (return empty packet or uncompressed data).
+
+| File | Issue | Status |
+|------|-------|--------|
+| `pkg/pcap/pdml.go` | `panic()` in 5 functions | FIXED |
+
+### 7.2 log.Fatal in PSML Parsing - FIXED
+
+Four `log.Fatal` calls in PSML parsing would call `os.Exit(1)` without running defers, orphaning child processes (tshark, dumpcap, tail). Replaced with `log.Errorf` + return/continue.
+
+| File | Issue | Status |
+|------|-------|--------|
+| `pkg/pcap/loader.go` | `log.Fatal` at 4 parse sites | FIXED |
+
+### 7.3 Context Leaks in Backend Initialization - FIXED
+
+`NewSharkdBackend` created a context but did not cancel it on early error returns (sharkd not found, cmd.Start() failure).
+
+| File | Issue | Status |
+|------|-------|--------|
+| `pkg/state/sharkd_backend.go` | Context leak in error paths | FIXED |
+
+**Commit:** `e32fe42` - Fix crash-on-bad-data, race conditions, and resource leaks across 14 files
+
+---
+
 ## Commits
 
 | Commit | Description |
@@ -182,3 +213,4 @@ The `/api/load` HTTP endpoint validates with `filepath.Abs` but does not restric
 | `c6c7e02` | Add symlink validation in profile enumeration and deletion |
 | `8f49f67` | Fix concurrency bugs and robustness issues in state/web packages |
 | `2035e78` | Fix bugs found in codebase audit across 15 files |
+| `e32fe42` | Fix crash-on-bad-data, race conditions, and resource leaks across 14 files |
