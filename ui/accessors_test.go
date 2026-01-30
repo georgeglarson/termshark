@@ -145,11 +145,10 @@ func TestCloseStartUIChanAfterBuild(t *testing.T) {
 	// Save and restore UI state
 	savedUI := UI
 	savedStartUIChan := StartUIChan
-	savedStartUIOnce := StartUIOnce
 	defer func() {
 		UI = savedUI
 		StartUIChan = savedStartUIChan
-		StartUIOnce = savedStartUIOnce
+		StartUIOnce = sync.Once{}
 	}()
 
 	// Reset the sync.Once for testing

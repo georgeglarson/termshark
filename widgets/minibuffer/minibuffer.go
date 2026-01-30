@@ -2,7 +2,7 @@
 // code is governed by the MIT license that can be found in the LICENSE
 // file.
 
-// Package minibuffer todo
+// Package minibuffer provides a command-input widget with history and completion.
 package minibuffer
 
 import (

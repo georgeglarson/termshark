@@ -365,7 +365,8 @@ func initStreamWidgetCache() {
 	var err error
 	streamWidgets, err = lru.New(widgetCacheSize)
 	if err != nil {
-		log.Fatal(err)
+		log.Errorf("Failed to initialize stream widget cache: %v", err)
+		return
 	}
 
 	log.Infof("Initialized stream widget cache with %d entries.", widgetCacheSize)

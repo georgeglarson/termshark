@@ -265,7 +265,8 @@ func getCurrentStructModelWith(row int, lock sync.Locker) *pdmltree.Model {
 		if len(srca) > row%pktsPerLoad {
 			data, err := xml.Marshal(srca[row%pktsPerLoad].Packet())
 			if err != nil {
-				log.Fatal(err)
+				log.Errorf("Failed to marshal PDML packet: %v", err)
+				return nil
 			}
 
 			res = pdmltree.DecodePacket(data)

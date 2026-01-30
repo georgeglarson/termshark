@@ -36,7 +36,7 @@ func TestProtocol_String(t *testing.T) {
 
 func TestProtocol_StringPanic(t *testing.T) {
 	assert.Panics(t, func() {
-		Protocol(999).String()
+		_ = Protocol(999).String()
 	})
 }
 

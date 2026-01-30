@@ -73,8 +73,10 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				case map[string]interface{}:
 					p = v
 				default:
-					b, _ := json.Marshal(req.Params)
-					json.Unmarshal(b, &p)
+					b, err := json.Marshal(req.Params)
+					if err == nil {
+						json.Unmarshal(b, &p)
+					}
 				}
 			}
 			event, _ := p["event"].(string)
@@ -134,8 +136,10 @@ func (s *Server) handleRegistryRequest(req JSONRPCRequest, clientSt *clientState
 		case map[string]interface{}:
 			p = v
 		default:
-			b, _ := json.Marshal(req.Params)
-			json.Unmarshal(b, &p)
+			b, err := json.Marshal(req.Params)
+			if err == nil {
+				json.Unmarshal(b, &p)
+			}
 		}
 	}
 
@@ -246,8 +250,10 @@ func (s *Server) handleManagerRequestWithManager(req JSONRPCRequest, manager *st
 		case map[string]interface{}:
 			p = v
 		default:
-			b, _ := json.Marshal(req.Params)
-			json.Unmarshal(b, &p)
+			b, err := json.Marshal(req.Params)
+			if err == nil {
+				json.Unmarshal(b, &p)
+			}
 		}
 	}
 
@@ -409,8 +415,10 @@ func (s *Server) handleManagerRequest(req JSONRPCRequest) (json.RawMessage, erro
 			p = v
 		default:
 			// Try to convert via JSON
-			b, _ := json.Marshal(req.Params)
-			json.Unmarshal(b, &p)
+			b, err := json.Marshal(req.Params)
+			if err == nil {
+				json.Unmarshal(b, &p)
+			}
 		}
 	}
 

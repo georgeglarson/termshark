@@ -79,11 +79,14 @@ var InternalErr = InternalError{}
 
 //======================================================================
 
+const (
+	UserGuideURL = "https://termshark.io/userguide"
+	FAQURL       = "https://termshark.io/faq"
+	BugURL       = "https://github.com/gcla/termshark/issues/new?assignees=&labels=&template=bug_report.md&title="
+	FeatureURL   = "https://github.com/gcla/termshark/issues/new?assignees=&labels=&template=feature_request.md&title="
+)
+
 var (
-	UserGuideURL         string = "https://termshark.io/userguide"
-	FAQURL               string = "https://termshark.io/faq"
-	BugURL               string = "https://github.com/gcla/termshark/issues/new?assignees=&labels=&template=bug_report.md&title="
-	FeatureURL           string = "https://github.com/gcla/termshark/issues/new?assignees=&labels=&template=feature_request.md&title="
 	OriginalEnv          []string
 	ShouldSwitchTerminal bool
 	ShouldSwitchBack     bool

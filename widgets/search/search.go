@@ -12,6 +12,8 @@ import (
 	"regexp"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/gcla/gowid"
 	"github.com/gcla/gowid/gwutil"
 	"github.com/gcla/gowid/widgets/button"
@@ -327,7 +329,8 @@ func getValidator() filter.IValidator {
 	case "regex":
 		validator = &RegexSearchValidator{}
 	default:
-		panic(fmt.Sprintf("unknown search type: %s", s2))
+		log.Errorf("unknown search type: %s", s2)
+		return nil
 	}
 	return validator
 }
@@ -528,7 +531,8 @@ func (w *Widget) invokeSearch(app gowid.IApp) {
 			return
 		}
 	default:
-		panic(fmt.Sprintf("unknown validator type: %T", w.validator))
+		log.Errorf("unknown validator type: %T", w.validator)
+		return
 	}
 
 	w.findBtn.Disable()
@@ -751,7 +755,8 @@ func (w *Widget) updateSearchTargetFromConf(app gowid.IApp) {
 	case "filter":
 		w.currentAlg = w.filtAlg
 	default:
-		panic(fmt.Sprintf("unknown search type: %s", sAlg))
+		log.Errorf("unknown search type: %s", sAlg)
+		return
 	}
 }
 

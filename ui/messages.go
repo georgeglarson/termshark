@@ -215,7 +215,8 @@ func init() {
 
 func WriteHelp(p *flags.Parser, w io.Writer) {
 	if err := Templates.ExecuteTemplate(w, "Header", TemplateData); err != nil {
-		log.Fatal(err)
+		log.Printf("Failed to execute Header template: %v", err)
+		return
 	}
 
 	fmt.Fprintln(w)
@@ -223,7 +224,8 @@ func WriteHelp(p *flags.Parser, w io.Writer) {
 	p.WriteHelp(w)
 
 	if err := Templates.ExecuteTemplate(w, "Footer", TemplateData); err != nil {
-		log.Fatal(err)
+		log.Printf("Failed to execute Footer template: %v", err)
+		return
 	}
 	fmt.Fprintln(w)
 	fmt.Fprintln(w)
@@ -231,7 +233,8 @@ func WriteHelp(p *flags.Parser, w io.Writer) {
 
 func WriteVersion(p *flags.Parser, w io.Writer) {
 	if err := Templates.ExecuteTemplate(w, "NameVer", TemplateData); err != nil {
-		log.Fatal(err)
+		log.Printf("Failed to execute NameVer template: %v", err)
+		return
 	}
 
 	fmt.Fprintln(w)
@@ -241,7 +244,8 @@ func WriteTsharkVersion(p *flags.Parser, bin string, ver semver.Version, w io.Wr
 	TemplateData["TsharkVersion"] = ver.String()
 	TemplateData["TsharkAbsolutePath"] = bin
 	if err := Templates.ExecuteTemplate(w, "TsharkVer", TemplateData); err != nil {
-		log.Fatal(err)
+		log.Printf("Failed to execute TsharkVer template: %v", err)
+		return
 	}
 
 	fmt.Fprintln(w)
@@ -249,7 +253,8 @@ func WriteTsharkVersion(p *flags.Parser, bin string, ver semver.Version, w io.Wr
 
 func WriteMarks(p *flags.Parser, marks map[rune]int, w io.Writer) {
 	if err := Templates.ExecuteTemplate(w, "Marks", TemplateData); err != nil {
-		log.Fatal(err)
+		log.Printf("Failed to execute Marks template: %v", err)
+		return
 	}
 
 	fmt.Fprintln(w)

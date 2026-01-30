@@ -8,6 +8,8 @@ package ui
 import (
 	"fmt"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/gcla/gowid"
 	"github.com/gcla/gowid/widgets/table"
 	"github.com/gcla/termshark/v2/widgets/search"
@@ -122,7 +124,9 @@ Loop:
 		}
 
 		if packetIndex >= len(Loader.PsmlDataLocked()) {
-			panic(fmt.Sprintf("packet index %d out of range (len=%d)", packetIndex, len(Loader.PsmlDataLocked())))
+			log.Errorf("packet index %d out of range (len=%d)", packetIndex, len(Loader.PsmlDataLocked()))
+			Loader.PsmlLoader.Unlock()
+			break Loop
 		}
 
 		datas := Loader.PsmlDataLocked()[packetIndex]

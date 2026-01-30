@@ -322,7 +322,11 @@ func (c *clientConn) handleRequest(req jsonRPCRequest) jsonRPCResponse {
 	if err != nil {
 		resp.Error = &jsonRPCError{Code: -32603, Message: err.Error()}
 	} else {
-		resultJSON, _ := json.Marshal(result)
+		resultJSON, err := json.Marshal(result)
+		if err != nil {
+			resp.Error = &jsonRPCError{Code: -32603, Message: fmt.Sprintf("failed to marshal result: %v", err)}
+			return resp
+		}
 		resp.Result = resultJSON
 	}
 
@@ -339,8 +343,13 @@ func (c *clientConn) dispatch(method string, params interface{}) (interface{}, e
 			p = v
 		default:
 			// Try to convert via JSON
-			b, _ := json.Marshal(params)
-			json.Unmarshal(b, &p)
+			b, err := json.Marshal(params)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal params: %w", err)
+			}
+			if err := json.Unmarshal(b, &p); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal params: %w", err)
+			}
 		}
 	}
 

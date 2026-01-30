@@ -2,6 +2,7 @@
 // code is governed by the MIT license that can be found in the LICENSE
 // file.
 
+//go:build !windows
 // +build !windows
 
 // Package fileviewer provides a widget to view a text file in a terminal

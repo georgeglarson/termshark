@@ -33,7 +33,7 @@ go build -o termshark ./cmd/termshark
 Or install directly:
 
 ```bash
-go install github.com/gcla/termshark/v2/cmd/termshark@latest
+go install github.com/georgeglarson/termshark/v2/cmd/termshark@latest
 ```
 
 Then add `~/go/bin/` to your `PATH`.

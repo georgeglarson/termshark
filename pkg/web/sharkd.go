@@ -161,7 +161,11 @@ func (c *SharkdClient) Close() error {
 	if c.conn != nil {
 		// Send bye command to gracefully shutdown sharkd
 		req := JSONRPCRequest{JSONRPC: "2.0", ID: 0, Method: "bye"}
-		reqBytes, _ := json.Marshal(req)
+		reqBytes, err := json.Marshal(req)
+		if err != nil {
+			log.Errorf("Failed to marshal bye request: %v", err)
+			// Still try to close the connection
+		}
 		c.conn.Write(append(reqBytes, '\n'))
 		c.conn.Close()
 		c.conn = nil
