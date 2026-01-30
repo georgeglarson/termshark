@@ -6,23 +6,18 @@
 package ui
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"runtime"
-	"slices"
 	"strings"
 
 	"github.com/gcla/gowid"
 	"github.com/gcla/gowid/widgets/button"
 	"github.com/gcla/gowid/widgets/checkbox"
 	"github.com/gcla/gowid/widgets/columns"
-	"github.com/gcla/gowid/widgets/divider"
 	"github.com/gcla/gowid/widgets/framed"
 	"github.com/gcla/gowid/widgets/holder"
 	"github.com/gcla/gowid/widgets/hpadding"
 	"github.com/gcla/gowid/widgets/isselected"
-	"github.com/gcla/gowid/widgets/list"
 	"github.com/gcla/gowid/widgets/menu"
 	"github.com/gcla/gowid/widgets/null"
 	"github.com/gcla/gowid/widgets/overlay"
@@ -33,17 +28,10 @@ import (
 	"github.com/gcla/gowid/widgets/vpadding"
 	"github.com/gcla/termshark/v2"
 	"github.com/gcla/termshark/v2/configs/profiles"
-	"github.com/gcla/termshark/v2/pkg/app"
 	"github.com/gcla/termshark/v2/pkg/convs"
 	"github.com/gcla/termshark/v2/pkg/pcap"
-	"github.com/gcla/termshark/v2/pkg/psmlmodel"
-	"github.com/gcla/termshark/v2/ui/tableutil"
 	"github.com/gcla/termshark/v2/widgets/appkeys"
-	"github.com/gcla/termshark/v2/widgets/copymodetable"
-	"github.com/gcla/termshark/v2/widgets/enableselected"
 	"github.com/gcla/termshark/v2/widgets/keepselected"
-	"github.com/gcla/termshark/v2/widgets/scrollabletable"
-	"github.com/gcla/termshark/v2/widgets/withscrollbar"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -56,74 +44,6 @@ var convsPcapSize int64 // track size of source, if changes then recalculation c
 var vdiv string
 var frameRunes framed.FrameRunes
 
-type Direction int
-
-const (
-	Any  Direction = iota // 0
-	To                    // 1
-	From                  // 2
-)
-
-type ConvAddr int
-
-const (
-	IPv4Addr ConvAddr = iota // 0
-	IPv6Addr                 // 1
-	MacAddr                  // 2
-)
-
-type FilterMask int
-
-const (
-	AtfB   FilterMask = iota // 0
-	AtB                      // 1
-	BtA                      // 2
-	AtfAny                   // 3
-	AtAny                    // 4
-	AnytA                    // 5
-	AnytfB                   // 6
-	AnytB                    // 7
-	BtAny                    // 8
-)
-
-type FilterCombinator int
-
-const (
-	Selected       FilterCombinator = iota // 0
-	NotSelected                            // 1
-	AndSelected                            // 2
-	OrSelected                             // 3
-	AndNotSelected                         // 4
-	OrNotSelected                          // 5
-)
-
-// Use to construct a string like "ip.addr == 1.2.3.4 && tcp.port == 12345"
-type IFilterBuilder interface {
-	fmt.Stringer
-	FilterFrom(vals ...string) string
-	FilterTo(vals ...string) string
-	FilterAny(vals ...string) string
-	AIndex() []int
-	BIndex() []int
-}
-
-var convTypes = map[string]IFilterBuilder{}
-
-func init() {
-	convTypes[convs.Ethernet{}.Short()] = convs.Ethernet{}
-	convTypes[convs.IPv4{}.Short()] = convs.IPv4{}
-	convTypes[convs.IPv6{}.Short()] = convs.IPv6{}
-	convTypes[convs.UDP{}.Short()] = convs.UDP{}
-	convTypes[convs.TCP{}.Short()] = convs.TCP{}
-
-	if runtime.GOOS == "windows" {
-		vdiv = "│"
-		frameRunes = framed.FrameRunes{Tl: '┌', Tr: '┐', Bl: '└', Br: '┘', T: 0, B: '─', L: '│', R: '│'}
-	} else {
-		vdiv = "┃"
-		frameRunes = framed.FrameRunes{Tl: '┏', Tr: '┓', Bl: '┗', Br: '┛', T: 0, B: '━', L: '┃', R: '┃'}
-	}
-}
 
 //======================================================================
 
@@ -137,44 +57,6 @@ func (t ManageConvsCache) OnNewSource(pcap.HandlerCode, gowid.IApp) {
 	convsPcapSize = 0
 }
 
-//======================================================================
-
-type ConvsModel struct {
-	*psmlmodel.Model
-	proto IFilterBuilder
-}
-
-func (m ConvsModel) GetAFilter(row int, dir Direction) string {
-	line := m.Data[row]
-	parms := []string{}
-	for _, idx := range m.proto.AIndex() {
-		parms = append(parms, line[idx])
-	}
-	switch dir {
-	case To:
-		return m.proto.FilterTo(parms...)
-	case From:
-		return m.proto.FilterFrom(parms...)
-	default:
-		return m.proto.FilterAny(parms...)
-	}
-}
-
-func (m ConvsModel) GetBFilter(row int, dir Direction) string {
-	line := m.Data[row]
-	parms := []string{}
-	for _, idx := range m.proto.BIndex() {
-		parms = append(parms, line[idx])
-	}
-	switch dir {
-	case To:
-		return m.proto.FilterTo(parms...)
-	case From:
-		return m.proto.FilterFrom(parms...)
-	default:
-		return m.proto.FilterAny(parms...)
-	}
-}
 
 //======================================================================
 
@@ -274,6 +156,9 @@ func closeConvsUi(app gowid.IApp) {
 		setFocusOnPacketList(app)
 	}
 }
+
+//======================================================================
+
 
 //======================================================================
 
@@ -609,22 +494,6 @@ func (w *ConvsUiWidget) makeHeaderConvsUiWidget() gowid.IWidget {
 }
 
 // convsModelWithRow is able to provide an A and a B for a conversation A <-> B. It looks
-// up the model at a specific row to find the conversation.
-type convsModelWithRow struct {
-	model *ConvsModel
-	row   int
-}
-
-var _ IFilterModel = (*convsModelWithRow)(nil)
-
-func (c *convsModelWithRow) GetAFilter(dir Direction) string {
-	return c.model.GetAFilter(c.row, dir)
-}
-
-func (c *convsModelWithRow) GetBFilter(dir Direction) string {
-	return c.model.GetBFilter(c.row, dir)
-}
-
 func (w *ConvsUiWidget) doFilterMenuOp(dirOp FilterMask, app gowid.IApp) {
 	conv1 := w.convHolder.SubWidget()
 	if conv1 != nil {
@@ -658,306 +527,6 @@ func (w *ConvsUiWidget) doFilterMenuOp(dirOp FilterMask, app gowid.IApp) {
 	}
 }
 
-type IFilterModel interface {
-	GetAFilter(Direction) string
-	GetBFilter(Direction) string
-}
-
-// filterModelAdapter wraps IFilterModel to implement app.FilterModel.
-type filterModelAdapter struct {
-	model IFilterModel
-}
-
-func (a filterModelAdapter) GetAFilter(dir app.Direction) string {
-	return a.model.GetAFilter(Direction(dir))
-}
-
-func (a filterModelAdapter) GetBFilter(dir app.Direction) string {
-	return a.model.GetBFilter(Direction(dir))
-}
-
-// ComputeConvFilterOp computes a conversation filter expression.
-// Delegates to app.ComputeConversationFilter for the core logic.
-func ComputeConvFilterOp(dirOp FilterMask, comb FilterCombinator, model IFilterModel, curFilter string) string {
-	adapter := filterModelAdapter{model: model}
-	return app.ComputeConversationFilter(
-		app.FilterMask(dirOp),
-		app.FilterCombinator(comb),
-		adapter,
-		curFilter,
-	)
-}
-
-// ComputeFilterCombOp combines a new filter with an existing filter.
-// Delegates to app.CombineFilters for the core logic.
-func ComputeFilterCombOp(comb FilterCombinator, newFilter string, curFilter string) string {
-	return app.CombineFilters(app.FilterCombinator(comb), newFilter, curFilter)
-}
-
-func (w *ConvsUiWidget) OnCancel(app gowid.IApp) {
-	for _, cw := range w.convs {
-		cw.IWidget = cw.cancelledWidget
-	}
-}
-
-func (w *ConvsUiWidget) OnData(data string, app gowid.IApp) {
-	var hdrs []string
-	var wids []gowid.IWidgetDimension
-	var comps []table.ICompare
-	var cur string
-	var next string
-	var ports bool = false
-
-	var (
-		addra      string
-		porta      string
-		addrb      string
-		portb      string
-		framesto   string
-		bytesto    string
-		framesfrom string
-		bytesfrom  string
-		frames     string
-		bytes      string
-		start      string
-		durn       string
-	)
-
-	var datas [][]string
-
-	saveConversation := func(cur string) {
-		tblModel := table.NewSimpleModel(hdrs, datas, table.SimpleOptions{
-			Comparators: comps,
-			Style: table.StyleOptions{
-				HorizontalSeparator: nil,
-				TableSeparator:      divider.NewUnicode(),
-				VerticalSeparator:   nil,
-				CellStyleProvided:   true,
-				CellStyleSelected:   gowid.MakePaletteRef("packet-list-cell-selected"),
-				CellStyleFocus:      gowid.MakePaletteRef("packet-list-cell-focus"),
-				HeaderStyleProvided: true,
-				HeaderStyleFocus:    gowid.MakePaletteRef("packet-list-cell-focus"),
-			},
-			Layout: table.LayoutOptions{
-				Widths: wids,
-			},
-		})
-
-		ptblModel := psmlmodel.New(
-			tblModel,
-			gowid.MakePaletteRef("packet-list-row-focus"),
-		)
-
-		if currentShortName, ok := convs.OfficialNameToType[cur]; ok {
-
-			model := &ConvsModel{
-				Model: ptblModel,
-				proto: convTypes[currentShortName],
-			}
-
-			tbl := &table.BoundedWidget{
-				Widget: table.New(model),
-			}
-
-			boundedTbl := NewRowFocusTableWidget(
-				tbl,
-				"packet-list-row-selected",
-				"packet-list-row-focus",
-			)
-
-			var _ list.IWalker = boundedTbl
-			var _ gowid.IWidget = boundedTbl
-			var _ table.IBoundedModel = tblModel
-
-			w.convs[w.tabIndex[currentShortName]].IWidget = appkeys.New(
-				enableselected.New(
-					withscrollbar.New(
-						scrollabletable.New(
-							copymodetable.New(
-								boundedTbl,
-								CsvTableCopier{hdrs, datas},
-								CsvTableCopier{hdrs, datas},
-								"convstable",
-								copyModePalette{},
-							),
-						),
-						withscrollbar.Options{
-							HideIfContentFits: true,
-						},
-					),
-				),
-				tableutil.GotoHandler(&tableutil.GoToAdapter{
-					BoundedWidget: tbl,
-					KeyState:      &keyState,
-				}),
-			)
-
-			w.convs[w.tabIndex[currentShortName]].tbl = tbl
-			w.convs[w.tabIndex[currentShortName]].model = model
-			w.buttonLabels[currentShortName].SetText(fmt.Sprintf(" %s (%d) ", cur, len(datas)), app)
-		}
-	}
-
-	scanner := bufio.NewScanner(strings.NewReader(data))
-	var n int
-	var err error
-	for scanner.Scan() {
-		line := scanner.Text()
-		r := strings.NewReader(line)
-		n, err = fmt.Fscanf(r, "%s Conversations", &next)
-		if err == nil && n == 1 {
-			if cur != "" {
-				saveConversation(cur)
-			}
-
-			datas = make([][]string, 0)
-			cur = next
-
-			ports = slices.Contains([]string{"UDP", "TCP"}, cur)
-			ipv6 := (cur == "IPv6")
-
-			var addrComp table.ICompare = termshark.IPCompare{}
-			if slices.Contains([]string{"Ethernet"}, cur) {
-				addrComp = termshark.MACCompare{}
-			}
-
-			var convComp table.ICompare = termshark.ConvPktsCompare{}
-
-			if ports {
-				hdrs = []string{
-					"Addr A",
-					"Port A",
-					"Addr B",
-					"Port B",
-					"Pkts",
-					"Bytes",
-					"Pkts A→B",
-					"Bytes A→B",
-					"Pkts B→A",
-					"Bytes B→A",
-					"Start",
-					"Durn",
-				}
-				wids = []gowid.IWidgetDimension{
-					weightupto(400, 32), // addra
-					weightupto(200, 7),  // port
-					weightupto(400, 32), // addrb
-					weightupto(200, 7),  // port
-					weightupto(200, 8),  // pkts
-					weightupto(200, 10),
-					weightupto(200, 12), // pkts a -> b
-					weightupto(200, 12), // bytes a -> b
-					weightupto(200, 12), // pkts a -> b
-					weightupto(200, 12), // bytes a -> b
-					weightupto(500, 14), // start
-					weightupto(200, 8),  // durn
-				}
-				comps = []table.ICompare{
-					addrComp,
-					table.IntCompare{},
-					addrComp,
-					table.IntCompare{},
-					table.IntCompare{},
-					convComp,
-					table.IntCompare{},
-					convComp,
-					table.IntCompare{},
-					convComp,
-					table.FloatCompare{},
-					table.FloatCompare{},
-				}
-
-			} else {
-				hdrs = []string{
-					"Addr A",
-					"Addr B",
-					"Pkts",
-					"Bytes",
-					"Pkts A→B",
-					"Bytes A→B",
-					"Pkts B→A",
-					"Bytes B→A",
-					"Start",
-					"Durn",
-				}
-
-				wids = []gowid.IWidgetDimension{
-					weightupto(400, 32), // addra
-					weightupto(400, 32), // addrb
-					weightupto(200, 8),  // pkts
-					weightupto(200, 10),
-					weightupto(200, 12), // pkts a -> b
-					weightupto(200, 12), // bytes a -> b
-					weightupto(200, 12), // pkts a -> b
-					weightupto(200, 12), // bytes a -> b
-					weightupto(500, 14), // start
-					weightupto(200, 10), // durn
-				}
-				if ipv6 {
-					wids[0] = weightupto(500, 42)
-					wids[1] = weightupto(500, 42)
-				}
-				comps = []table.ICompare{
-					addrComp,
-					addrComp,
-					table.IntCompare{},
-					convComp,
-					table.IntCompare{},
-					convComp,
-					table.IntCompare{},
-					convComp,
-					table.FloatCompare{},
-					table.FloatCompare{},
-				}
-
-			}
-
-			continue
-		}
-
-		line = strings.ReplaceAll(line, " bytes", "")
-		line = strings.ReplaceAll(line, "bytes", "")
-		line = strings.ReplaceAll(line, " kB", "kB")
-		line = strings.ReplaceAll(line, " MB", "MB")
-		r = strings.NewReader(line)
-		n, err = fmt.Fscanf(r, "%s <-> %s %s %s %s %s %s %s %s %s",
-			&addra,
-			&addrb,
-			&framesto,
-			&bytesto,
-			&framesfrom,
-			&bytesfrom,
-			&frames,
-			&bytes,
-			&start,
-			&durn,
-		)
-		if err == nil && n == 10 {
-			bytesto = strings.ReplaceAll(bytesto, "kB", " kB")
-			bytesfrom = strings.ReplaceAll(bytesfrom, "kB", " kB")
-			bytes = strings.ReplaceAll(bytes, "kB", " kB")
-			bytesto = strings.ReplaceAll(bytesto, "MB", " MB")
-			bytesfrom = strings.ReplaceAll(bytesfrom, "MB", " MB")
-			bytes = strings.ReplaceAll(bytes, "MB", " MB")
-			if ports {
-				// Use LastIndex to handle IPv6 addresses (e.g. "[::1]:80")
-				lastColonA := strings.LastIndex(addra, ":")
-				lastColonB := strings.LastIndex(addrb, ":")
-				if lastColonA > 0 && lastColonB > 0 {
-					porta = addra[lastColonA+1:]
-					addra = addra[:lastColonA]
-					portb = addrb[lastColonB+1:]
-					addrb = addrb[:lastColonB]
-					datas = append(datas, []string{addra, porta, addrb, portb, framesto, bytesto, framesfrom, bytesfrom, frames, bytes, start, durn})
-				}
-			} else {
-				datas = append(datas, []string{addra, addrb, framesto, bytesto, framesfrom, bytesfrom, frames, bytes, start, durn})
-			}
-		}
-	}
-
-	saveConversation(cur)
-}
 
 //======================================================================
 
@@ -995,42 +564,6 @@ func newOneConv(ctype string) *oneConvWidget {
 
 //======================================================================
 
-type CsvTableCopier struct {
-	hdrs []string
-	data [][]string
-}
-
-func (c CsvTableCopier) CopyRow(id table.RowId) []gowid.ICopyResult {
-	row := strings.Join(c.data[id], ",")
-
-	return []gowid.ICopyResult{
-		gowid.CopyResult{
-			Name: "Copy conversation",
-			Val:  row,
-		},
-	}
-}
-
-func (c CsvTableCopier) CopyTable() []gowid.ICopyResult {
-	res := make([]string, 0, len(c.data)+1)
-
-	res = append(res, strings.Join(c.hdrs, ","))
-	for _, d := range c.data {
-		res = append(res, strings.Join(d, ","))
-	}
-
-	prt := strings.Join(res, "\n")
-
-	return []gowid.ICopyResult{
-		gowid.CopyResult{
-			Name: "Copy all",
-			Val:  prt,
-		},
-	}
-}
-
-var _ copymodetable.IRowCopier = CsvTableCopier{}
-var _ copymodetable.ITableCopier = CsvTableCopier{}
 
 //======================================================================
 // Local Variables:
