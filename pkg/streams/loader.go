@@ -100,6 +100,11 @@ type IIndexerCallbacks interface {
 func (c *Loader) StartLoad(pcap string, proto string, idx int, app gowid.IApp, cb IIndexerCallbacks) {
 	c.SuppressErrors = false
 
+	// Initialize contexts before spawning goroutines to prevent a race
+	// where StopLoad reads nil cancel functions.
+	c.streamCtx, c.streamCancelFn = context.WithCancel(c.mainCtx)
+	c.indexerCtx, c.indexerCancelFn = context.WithCancel(c.mainCtx)
+
 	termshark.Go(func() {
 		c.loadStreamReassemblyAsync(pcap, proto, idx, app, cb)
 	})
@@ -115,7 +120,6 @@ type ISavedData interface {
 }
 
 func (c *Loader) loadStreamReassemblyAsync(pcapf string, proto string, idx int, app gowid.IApp, cb interface{}) {
-	c.streamCtx, c.streamCancelFn = context.WithCancel(c.mainCtx)
 
 	procChan := make(chan int)
 	pid := 0
@@ -127,12 +131,13 @@ func (c *Loader) loadStreamReassemblyAsync(pcapf string, proto string, idx int, 
 	}()
 
 	c.streamCmd = c.cmds.Stream(pcapf, proto, idx)
+	streamCmd := c.streamCmd // local copy for goroutine safety
 
 	termChan := make(chan error)
 
 	termshark.Go(func() {
 		var err error
-		origCmd := c.streamCmd
+		origCmd := streamCmd
 		cancelled := c.streamCtx.Done()
 		procChan := procChan
 		state := pcap.NotStarted
@@ -234,8 +239,6 @@ func (c *Loader) startStreamIndexerAsync(pcapf string, proto string, idx int, ap
 			close(procChan)
 		}
 	}()
-
-	c.indexerCtx, c.indexerCancelFn = context.WithCancel(c.mainCtx)
 
 	c.indexerCmd = c.cmds.Indexer(pcapf, proto, idx)
 

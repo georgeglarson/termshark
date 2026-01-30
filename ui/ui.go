@@ -653,7 +653,7 @@ func UpdateProgressBarForFile(c *pcap.PacketLoader, prevRatio float64, app gowid
 				// Rounded to 1000 by default
 				currentDisplayedRowDiv = (currentDisplayedRow / pktsPerLoad) * pktsPerLoad
 				c.PsmlLoader.Lock()
-				curRowProg.cur, curRowProg.max = int64(currentDisplayedRow), int64(len(c.PsmlData()))
+				curRowProg.cur, curRowProg.max = int64(currentDisplayedRow), int64(len(c.PsmlDataLocked()))
 				c.PsmlLoader.Unlock()
 			}
 		}
@@ -681,7 +681,7 @@ func UpdateProgressBarForFile(c *pcap.PacketLoader, prevRatio float64, app gowid
 			c.PdmlLoader.Unlock()
 			if err == nil {
 				pdmlIdxProg.cur, pdmlIdxProg.max = c2, m
-				if currentDisplayedRow != -1 {
+				if currentDisplayedRow != -1 && curRowProg.max != 0 {
 					// Only need to look this far into the psml file before my view is populated
 					m = m * (curRowProg.cur / curRowProg.max)
 				}
@@ -705,7 +705,7 @@ func UpdateProgressBarForFile(c *pcap.PacketLoader, prevRatio float64, app gowid
 			c.PdmlLoader.Unlock()
 			if err == nil {
 				pcapIdxProg.cur, pcapIdxProg.max = c2, m
-				if currentDisplayedRow != -1 {
+				if currentDisplayedRow != -1 && curRowProg.max != 0 {
 					// Only need to look this far into the psml file before my view is populated
 					m = m * (curRowProg.cur / curRowProg.max)
 				}
@@ -745,7 +745,10 @@ func UpdateProgressBarForFile(c *pcap.PacketLoader, prevRatio float64, app gowid
 		)
 	}
 
-	curRatio := float64(prog.cur) / float64(prog.max)
+	var curRatio float64
+	if prog.max != 0 {
+		curRatio = float64(prog.cur) / float64(prog.max)
+	}
 
 	if prevRatio < curRatio {
 		loadProgress.SetTarget(app, int(prog.max))
@@ -3203,8 +3206,15 @@ func (p Prog) Add(y Prog) Prog {
 	return Prog{cur: p.cur + y.cur, max: p.max + y.max}
 }
 
+func progRatio(p Prog) float64 {
+	if p.max == 0 {
+		return 0
+	}
+	return float64(p.cur) / float64(p.max)
+}
+
 func progMin(x, y Prog) Prog {
-	if float64(x.cur)/float64(x.max) < float64(y.cur)/float64(y.max) {
+	if progRatio(x) < progRatio(y) {
 		return x
 	} else {
 		return y
@@ -3212,7 +3222,7 @@ func progMin(x, y Prog) Prog {
 }
 
 func progMax(x, y Prog) Prog {
-	if float64(x.cur)/float64(x.max) > float64(y.cur)/float64(y.max) {
+	if progRatio(x) > progRatio(y) {
 		return x
 	} else {
 		return y

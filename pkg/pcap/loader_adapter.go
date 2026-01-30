@@ -50,12 +50,18 @@ func (a *PacketLoaderAdapter) PsmlColors() []state.PacketColor {
 	return result
 }
 
-// PacketNumberMap returns mapping from packet number to row index.
+// PacketNumberMap returns a copy of the mapping from packet number to row index.
 func (a *PacketLoaderAdapter) PacketNumberMap() map[int]int {
 	if a.loader == nil || a.loader.PsmlLoader == nil {
 		return nil
 	}
-	return a.loader.PsmlLoader.PacketNumberMap
+	a.loader.PsmlLoader.Lock()
+	defer a.loader.PsmlLoader.Unlock()
+	result := make(map[int]int, len(a.loader.PsmlLoader.PacketNumberMap))
+	for k, v := range a.loader.PsmlLoader.PacketNumberMap {
+		result[k] = v
+	}
+	return result
 }
 
 // DisplayFilter returns the current display filter.

@@ -568,7 +568,7 @@ func (w *Widget) processCompletions(completions []string, app gowid.IApp) {
 		// and scroll if necessary. This means the menu isn't cut off at the bottom of
 		// the screen. This assumes I'm not displaying the individual widgets in flow
 		// mode because then each might take more than one line
-		if len(w.completions) >= 0 { // account for the frame...
+		if len(w.completions) > 0 { // account for the frame...
 			w.dropDown.SetHeight(gowid.RenderWithUnits{U: len(w.completions) + 2}, app)
 		} else {
 			w.dropDown.SetHeight(fixed, app)
@@ -577,9 +577,9 @@ func (w *Widget) processCompletions(completions []string, app gowid.IApp) {
 }
 
 func (w *Widget) Close() error {
-	// Two for the aggregator goroutine and the filter runner goroutine
-	w.quitchan <- struct{}{}
-	w.quitchan <- struct{}{}
+	// Signal both the aggregator and filter runner goroutines to stop.
+	// close() unblocks all receivers, avoiding deadlock if one goroutine already exited.
+	close(w.quitchan)
 	return nil
 }
 

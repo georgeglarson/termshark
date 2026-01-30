@@ -175,8 +175,11 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		delete(s.clients, conn)
 		s.mu.Unlock()
 		// Leave session if in one
-		if clientSt.session != nil {
-			clientSt.session.RemoveClient(nil)
+		clientSt.mu.RLock()
+		sess := clientSt.session
+		clientSt.mu.RUnlock()
+		if sess != nil {
+			sess.RemoveClient(nil)
 		}
 	}()
 
@@ -195,7 +198,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		// Parse the JSON-RPC request
 		var req JSONRPCRequest
 		if err := json.Unmarshal(message, &req); err != nil {
-			s.sendError(conn, 0, -32700, "Parse error")
+			s.sendErrorVia(clientSt, 0, -32700, "Parse error")
 			continue
 		}
 
@@ -213,7 +216,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			event, _ := p["event"].(string)
 			if event == "" {
-				s.sendError(conn, req.ID, -32602, "event parameter required")
+				s.sendErrorVia(clientSt, req.ID, -32602, "event parameter required")
 				continue
 			}
 			if req.Method == "subscribe" {
@@ -300,28 +303,41 @@ func (s *Server) handleRegistryRequest(req JSONRPCRequest, clientSt *clientState
 			return nil, fmt.Errorf("session not found: %s", sessionID)
 		}
 		// Leave current session if any
-		if clientSt.session != nil {
-			clientSt.session.RemoveClient(nil)
+		clientSt.mu.Lock()
+		oldSession := clientSt.session
+		clientSt.mu.Unlock()
+		if oldSession != nil {
+			oldSession.RemoveClient(nil)
 		}
+		clientSt.mu.Lock()
 		clientSt.session = session
+		clientSt.mu.Unlock()
 		session.AddClient(nil)
 		result = session.Info()
 		return json.Marshal(result)
 
 	case "sessions.leave":
-		if clientSt.session == nil {
+		clientSt.mu.RLock()
+		sess := clientSt.session
+		clientSt.mu.RUnlock()
+		if sess == nil {
 			return nil, fmt.Errorf("not in a session")
 		}
-		clientSt.session.RemoveClient(nil)
+		sess.RemoveClient(nil)
+		clientSt.mu.Lock()
 		clientSt.session = nil
+		clientSt.mu.Unlock()
 		result = map[string]bool{"left": true}
 		return json.Marshal(result)
 
 	case "sessions.info":
 		sessionID, _ := p["id"].(string)
 		if sessionID == "" {
-			if clientSt.session != nil {
-				result = clientSt.session.Info()
+			clientSt.mu.RLock()
+			infoSess := clientSt.session
+			clientSt.mu.RUnlock()
+			if infoSess != nil {
+				result = infoSess.Info()
 				return json.Marshal(result)
 			}
 			return nil, fmt.Errorf("not in a session and no id provided")
@@ -346,12 +362,15 @@ func (s *Server) handleRegistryRequest(req JSONRPCRequest, clientSt *clientState
 	}
 
 	// For other methods, require an active session
-	if clientSt.session == nil {
+	clientSt.mu.RLock()
+	sess := clientSt.session
+	clientSt.mu.RUnlock()
+	if sess == nil {
 		return nil, fmt.Errorf("no session active - use sessions.join first")
 	}
 
 	// Route through the session's manager
-	manager := clientSt.session.Manager
+	manager := sess.Manager
 	return s.handleManagerRequestWithManager(req, manager)
 }
 

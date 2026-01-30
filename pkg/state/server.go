@@ -235,6 +235,11 @@ func (s *Server) removeClient(client *clientConn) {
 		client.unsubFn()
 	}
 
+	// Wait for forwardStateChanges goroutine to finish before closing connection
+	if client.forwardDone != nil {
+		<-client.forwardDone
+	}
+
 	log.Info("Client disconnected")
 }
 
@@ -388,6 +393,10 @@ func (c *clientConn) dispatch(method string, params interface{}) (interface{}, e
 			c.session.RemoveClient(c)
 			if c.unsubFn != nil {
 				c.unsubFn()
+			}
+			// Wait for forwardStateChanges goroutine to finish
+			if c.forwardDone != nil {
+				<-c.forwardDone
 			}
 			c.session = nil
 			return map[string]bool{"left": true}, nil

@@ -121,11 +121,11 @@ Loop:
 			break
 		}
 
-		if packetIndex >= len(Loader.PsmlData()) {
-			panic(fmt.Sprintf("packet index %d out of range (len=%d)", packetIndex, len(Loader.PsmlData())))
+		if packetIndex >= len(Loader.PsmlDataLocked()) {
+			panic(fmt.Sprintf("packet index %d out of range (len=%d)", packetIndex, len(Loader.PsmlDataLocked())))
 		}
 
-		datas := Loader.PsmlData()[packetIndex]
+		datas := Loader.PsmlDataLocked()[packetIndex]
 
 		Loader.PsmlLoader.Unlock()
 

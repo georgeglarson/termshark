@@ -129,6 +129,22 @@ func (c *CaptureCoordinator) Stop() error {
 		c.tailCmd.Process.Kill()
 	}
 
+	// Reap child processes in background to prevent zombies.
+	// These goroutines will exit once the processes terminate (which context
+	// cancellation and SIGTERM/SIGKILL above guarantee).
+	captureCmd := c.captureCmd
+	tailCmd := c.tailCmd
+	go func() {
+		if captureCmd != nil {
+			captureCmd.Wait()
+		}
+	}()
+	go func() {
+		if tailCmd != nil {
+			tailCmd.Wait()
+		}
+	}()
+
 	c.running = false
 	callback := c.onStopped
 	c.mu.Unlock()

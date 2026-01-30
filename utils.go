@@ -930,13 +930,18 @@ func PrunePcapCache() error {
 
 	log.Infof("Pruning termshark's pcap disk cache at %s...", PcapDir())
 
+	type cachedFile struct {
+		path string
+		info os.FileInfo
+	}
+
 	var totalSize int64
-	var fileInfos []os.FileInfo
+	var files []cachedFile
 	err := filepath.Walk(PcapDir(),
 		func(path string, info os.FileInfo, err error) error {
-			if err == nil {
+			if err == nil && !info.IsDir() {
 				totalSize += info.Size()
-				fileInfos = append(fileInfos, info)
+				files = append(files, cachedFile{path: path, info: info})
 			}
 			return nil
 		},
@@ -945,21 +950,21 @@ func PrunePcapCache() error {
 		return err
 	}
 
-	slices.SortFunc(fileInfos, func(a, b os.FileInfo) int {
-		return a.ModTime().Compare(b.ModTime())
+	slices.SortFunc(files, func(a, b cachedFile) int {
+		return a.info.ModTime().Compare(b.info.ModTime())
 	})
 
 	filesRemoved := 0
 	curCacheSize := totalSize
-	for len(fileInfos) > 0 && curCacheSize > diskCacheSize {
-		err = os.Remove(filepath.Join(PcapDir(), fileInfos[0].Name()))
+	for len(files) > 0 && curCacheSize > diskCacheSize {
+		err = os.Remove(files[0].path)
 		if err != nil {
-			log.Warnf("Could not remove pcap cache file %s while pruning - %v", fileInfos[0].Name(), err)
+			log.Warnf("Could not remove pcap cache file %s while pruning - %v", files[0].path, err)
 		} else {
-			curCacheSize = curCacheSize - fileInfos[0].Size()
+			curCacheSize = curCacheSize - files[0].info.Size()
 			filesRemoved++
 		}
-		fileInfos = fileInfos[1:]
+		files = files[1:]
 	}
 
 	if filesRemoved > 0 {

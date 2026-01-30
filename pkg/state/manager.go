@@ -102,6 +102,10 @@ func (m *Manager) SetFilter(filter string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if m.backend == nil {
+		return fmt.Errorf("no backend available")
+	}
+
 	// Validate filter first
 	if filter != "" {
 		validation, err := m.backend.ValidateFilter(m.ctx, filter)
@@ -122,6 +126,10 @@ func (m *Manager) GetPackets(start, count int) ([]PacketSummary, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
+	if m.backend == nil {
+		return nil, fmt.Errorf("no backend available")
+	}
+
 	filter := m.session.GetStatus().DisplayFilter
 	return m.backend.GetPackets(m.ctx, filter, start, count)
 }
@@ -130,6 +138,10 @@ func (m *Manager) GetPackets(start, count int) ([]PacketSummary, error) {
 func (m *Manager) GetPacketDetail(num int) (*PacketDetail, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
+	if m.backend == nil {
+		return nil, fmt.Errorf("no backend available")
+	}
 
 	return m.backend.GetPacketDetail(m.ctx, num)
 }
@@ -178,18 +190,21 @@ func (m *Manager) StartCapture(iface string, captureFilter string) error {
 	// Create new capture coordinator
 	m.capture = NewCaptureCoordinator()
 
+	// Capture local references for use in callbacks -- avoids reading m.capture
+	// and m.backend without holding m.mu from the monitor goroutine.
+	captureRef := m.capture
+	backendRef := m.backend
+
 	// Set up callbacks to update session state
 	m.capture.SetCallbacks(
 		func(count int) {
 			// Packets added - reload from backend
-			if m.capture != nil && m.backend != nil {
-				tmpFile := m.capture.TempFile()
-				if tmpFile != "" {
-					m.backend.LoadFile(m.ctx, tmpFile)
-					status, err := m.backend.GetStatus(m.ctx)
-					if err == nil {
-						m.session.SetPacketCount(status.PacketCount)
-					}
+			tmpFile := captureRef.TempFile()
+			if tmpFile != "" && backendRef != nil {
+				backendRef.LoadFile(m.ctx, tmpFile)
+				status, err := backendRef.GetStatus(m.ctx)
+				if err == nil {
+					m.session.SetPacketCount(status.PacketCount)
 				}
 			}
 		},
@@ -217,7 +232,8 @@ func (m *Manager) StartCapture(iface string, captureFilter string) error {
 	m.session.SetCaptureRunning(true)
 	m.session.SetCaptureFile(m.capture.TempFile())
 
-	// Wait briefly for initial packets, then load the file
+	// Wait briefly for initial packets, then load the file.
+	// Use captured references to avoid reading m.capture/m.backend without lock.
 	go func() {
 		select {
 		case <-time.After(1 * time.Second):
@@ -225,14 +241,11 @@ func (m *Manager) StartCapture(iface string, captureFilter string) error {
 			return
 		}
 
-		m.mu.Lock()
-		defer m.mu.Unlock()
-
-		if m.capture != nil && m.capture.IsRunning() && m.backend != nil {
-			tmpFile := m.capture.TempFile()
+		if captureRef.IsRunning() && backendRef != nil {
+			tmpFile := captureRef.TempFile()
 			if tmpFile != "" {
-				m.backend.LoadFile(m.ctx, tmpFile)
-				status, err := m.backend.GetStatus(m.ctx)
+				backendRef.LoadFile(m.ctx, tmpFile)
+				status, err := backendRef.GetStatus(m.ctx)
 				if err == nil {
 					m.session.SetPacketCount(status.PacketCount)
 					m.session.SetColumns(status.Columns)
@@ -296,12 +309,20 @@ func (m *Manager) FollowStream(protocol string, streamIndex int) ([]byte, error)
 func (m *Manager) Close() error {
 	m.cancel()
 
+	// Stop capture before acquiring m.mu to avoid blocking all Manager
+	// methods while the capture process is being torn down.
+	m.mu.RLock()
+	capture := m.capture
+	m.mu.RUnlock()
+
+	if capture != nil {
+		capture.Stop()
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Stop any active capture
 	if m.capture != nil {
-		m.capture.Stop()
 		m.capture.Cleanup()
 	}
 

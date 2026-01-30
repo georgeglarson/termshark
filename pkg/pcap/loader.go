@@ -1322,7 +1322,6 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb C
 // pcap file (empty), and restart the watcher. And importantly, don't let
 // the tail process start until the WRITE event is seen.
 func waitForFileData(ctx context.Context, filename string, errFn func(error)) {
-OuterLoop:
 	for {
 		// this set up is so that I can detect when there are actually packets to read (e.g
 		// maybe there's no traffic on the interface). When there's something to read, the
@@ -1335,33 +1334,24 @@ OuterLoop:
 			errFn(err)
 			return
 		}
-		defer watcher.Close()
 
 		file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0644)
 		if err != nil {
+			watcher.Close()
 			err = fmt.Errorf("Could not touch temporary pcap file %s: %w", filename, err)
 			errFn(err)
+			return
 		}
 		file.Close()
 
 		if err := watcher.Add(filename); err != nil {
+			watcher.Close()
 			err = fmt.Errorf("Could not set up watcher for %s: %w", filename, err)
 			errFn(err)
 			return
 		}
 
-		removeWatcher := func(file string) {
-			if watcher != nil {
-				watcher.Remove(file)
-				watcher = nil
-			}
-		}
-
-		// Make sure that no matter what happens from here on, the watcher is not leaked. But we'll remove
-		// it earlier under normal operation so that setting and removing watches with new loaders do not
-		// race.
-		defer removeWatcher(filename)
-
+		retry := false
 	NotifyLoop:
 		for {
 			select {
@@ -1369,22 +1359,29 @@ OuterLoop:
 				if fe.Name == filename {
 					switch fe.Op {
 					case fsnotify.Remove:
-						removeWatcher(filename)
-						continue OuterLoop
+						retry = true
+						break NotifyLoop
 					default:
 						break NotifyLoop
 					}
 				}
 			case err := <-watcher.Errors:
+				watcher.Close()
 				err = fmt.Errorf("Unexpected watcher error for %s: %w", filename, err)
 				errFn(err)
 				return
 			case <-ctx.Done():
+				watcher.Close()
 				return
 			}
 		}
 
-		break OuterLoop
+		// Close the watcher explicitly before potentially looping to avoid FD leak
+		watcher.Close()
+
+		if !retry {
+			return
+		}
 	}
 }
 
@@ -1477,13 +1474,12 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 
 		//======================================================================
 
-		closedPipe := false
+		var closePipeOnce sync.Once
 		closePipe := func() {
-			if !closedPipe {
+			closePipeOnce.Do(func() {
 				fifoPipeWriter.Close()
 				fifoPipeReader.Close()
-				closedPipe = true
-			}
+			})
 		}
 
 		if p.ReadingFromFifo() {
@@ -1958,19 +1954,35 @@ func (p *PsmlLoader) stopLoadPsml() {
 	}
 }
 
+// PsmlData returns the packet PSML data. The caller must NOT hold p.Lock().
+// Use PsmlDataLocked if the lock is already held.
 func (p *PsmlLoader) PsmlData() [][]string {
+	p.Lock()
+	defer p.Unlock()
 	return p.packetPsmlData
 }
 
+// PsmlDataLocked returns the packet PSML data. The caller MUST already hold p.Lock().
+func (p *PsmlLoader) PsmlDataLocked() [][]string {
+	return p.packetPsmlData
+}
+
+// PsmlHeaders returns the PSML column headers. The caller must NOT hold p.Lock().
 func (p *PsmlLoader) PsmlHeaders() []string {
+	p.Lock()
+	defer p.Unlock()
 	return p.packetPsmlHeaders
 }
 
 func (p *PsmlLoader) PsmlColors() []PacketColors {
+	p.Lock()
+	defer p.Unlock()
 	return p.packetPsmlColors
 }
 
 func (p *PsmlLoader) PsmlAverageLengths() []gwutil.IntOption {
+	p.Lock()
+	defer p.Unlock()
 	res := make([]gwutil.IntOption, 0, len(p.packetAverageLength))
 	for _, avg := range p.packetAverageLength {
 		res = append(res, avg.average())
@@ -1979,6 +1991,8 @@ func (p *PsmlLoader) PsmlAverageLengths() []gwutil.IntOption {
 }
 
 func (p *PsmlLoader) PsmlMaxLengths() []int {
+	p.Lock()
+	defer p.Unlock()
 	res := make([]int, 0, len(p.packetMaxLength))
 	for _, maxer := range p.packetMaxLength {
 		res = append(res, int(maxer.max()))
@@ -2241,6 +2255,7 @@ func (i *InterfaceLoader) loadIfacesSync(e iIfaceLoaderEnv, cb Callback, app gow
 // which will trigger the psml reading process to shut down, and termshark
 // will turn off its loading UI.
 func (i *InterfaceLoader) checkAllBytesRead(e iTailCommand, cb Callback, app gowid.IApp) {
+	i.Lock()
 	cancel := false
 	if !i.totalFifoBytesWritten.IsNone() && !i.totalFifoBytesRead.IsNone() {
 		if i.totalFifoBytesRead.Val() == i.totalFifoBytesWritten.Val() {
@@ -2250,12 +2265,14 @@ func (i *InterfaceLoader) checkAllBytesRead(e iTailCommand, cb Callback, app gow
 	if i.fifoError != nil {
 		cancel = true
 	}
+	fifoErr := i.fifoError
+	i.Unlock()
 
 	// if there was a fifo error, OR we have read all the bytes that were written, then
 	// we need to stop the tail command
 	if cancel {
-		if i.fifoError != nil {
-			err := fmt.Errorf("Fifo error: %v", i.fifoError)
+		if fifoErr != nil {
+			err := fmt.Errorf("Fifo error: %v", fifoErr)
 			HandleError(IfaceCode, app, err, cb)
 		}
 

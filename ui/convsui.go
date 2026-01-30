@@ -940,13 +940,14 @@ func (w *ConvsUiWidget) OnData(data string, app gowid.IApp) {
 			bytesfrom = strings.ReplaceAll(bytesfrom, "MB", " MB")
 			bytes = strings.ReplaceAll(bytes, "MB", " MB")
 			if ports {
-				pa := strings.Split(addra, ":")
-				pb := strings.Split(addrb, ":")
-				if len(pa) == 2 && len(pb) == 2 {
-					addra = pa[0]
-					porta = pa[1]
-					addrb = pb[0]
-					portb = pb[1]
+				// Use LastIndex to handle IPv6 addresses (e.g. "[::1]:80")
+				lastColonA := strings.LastIndex(addra, ":")
+				lastColonB := strings.LastIndex(addrb, ":")
+				if lastColonA > 0 && lastColonB > 0 {
+					porta = addra[lastColonA+1:]
+					addra = addra[:lastColonA]
+					portb = addrb[lastColonB+1:]
+					addrb = addrb[:lastColonB]
 					datas = append(datas, []string{addra, porta, addrb, portb, framesto, bytesto, framesfrom, bytesfrom, frames, bytes, start, durn})
 				}
 			} else {
