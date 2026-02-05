@@ -353,7 +353,7 @@ You can find more detail at https://wiki.wireshark.org/CaptureSetup/CapturePrivi
 
 ## Why is termshark generating traffic on port 5037?
 
-See [this issue](https://github.com/gcla/termshark/issues/98).
+See [this issue](https://github.com/gcla/termshark/issues/98) from the original project.
 
 TL;DR - try deleting `/usr/lib/wireshark/extcap/androiddump`.
 

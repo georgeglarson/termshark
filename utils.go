@@ -80,10 +80,10 @@ var InternalErr = InternalError{}
 //======================================================================
 
 const (
-	UserGuideURL = "https://termshark.io/userguide"
-	FAQURL       = "https://termshark.io/faq"
-	BugURL       = "https://github.com/gcla/termshark/issues/new?assignees=&labels=&template=bug_report.md&title="
-	FeatureURL   = "https://github.com/gcla/termshark/issues/new?assignees=&labels=&template=feature_request.md&title="
+	UserGuideURL = "https://github.com/georgeglarson/termshark/blob/master/docs/UserGuide.md"
+	FAQURL       = "https://github.com/georgeglarson/termshark/blob/master/docs/FAQ.md"
+	BugURL       = "https://github.com/georgeglarson/termshark/issues/new?assignees=&labels=&template=bug_report.md&title="
+	FeatureURL   = "https://github.com/georgeglarson/termshark/issues/new?assignees=&labels=&template=feature_request.md&title="
 )
 
 var (

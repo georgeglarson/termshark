@@ -37,7 +37,7 @@ var Templates = template.Must(template.New("Help").Funcs(funcMap).Parse(`
 {{define "Header"}}{{template "NameVer" .}}
 
 {{template "OneLine"}}
-See https://termshark.io for more information.{{end}}
+See https://github.com/georgeglarson/termshark for more information.{{end}}
 
 {{define "Footer"}}
 If --pass-thru is true (or auto, and stdout is not a tty), tshark will be

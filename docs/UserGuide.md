@@ -44,7 +44,7 @@ $ termshark -h
 termshark v2.4.0
 
 A wireshark-inspired terminal user interface for tshark. Analyze network traffic interactively from your terminal.
-See https://termshark.io for more information.
+See https://github.com/georgeglarson/termshark for more information.
 
 Usage:
   termshark [FilterOrPcap]

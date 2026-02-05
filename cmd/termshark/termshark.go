@@ -837,7 +837,7 @@ func (s *appState) printInterfaceError() {
 			fmt.Fprintf(os.Stderr, "You might need: sudo setcap cap_net_raw,cap_net_admin+eip %s\n", termshark.PrivilegedBin())
 			fmt.Fprintf(os.Stderr, "Or try running with sudo or as root.\n")
 		}
-		fmt.Fprintf(os.Stderr, "See https://termshark.io/no-root for more info.\n")
+		fmt.Fprintf(os.Stderr, "See https://github.com/georgeglarson/termshark/blob/master/docs/FAQ.md for more info.\n")
 	}
 }
 
