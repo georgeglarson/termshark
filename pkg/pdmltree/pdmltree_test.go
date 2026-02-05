@@ -4,6 +4,8 @@
 package pdmltree
 
 import (
+	"encoding/xml"
+	"strings"
 	"testing"
 
 	"github.com/gcla/gowid/widgets/tree"
@@ -573,6 +575,978 @@ func TestModel_SetCollapsed_RootNode(t *testing.T) {
 	root.SetCollapsed(nil, true)
 	assert.False(t, root.Expanded)
 	assert.Equal(t, 0, len(paths))
+}
+
+//======================================================================
+// UnmarshalXML attribute parsing tests
+//======================================================================
+
+func TestUnmarshalXML_AllAttributes(t *testing.T) {
+	xmlData := `<proto name="eth" showname="Ethernet II" show="eth_show" pos="14" size="20" hide="no">
+	  <field name="eth.src" showname="Source" show="00:11:22:33:44:55" pos="6" size="6" hide="yes"/>
+	</proto>`
+
+	var m Model
+	err := xml.Unmarshal([]byte(xmlData), &m)
+	assert.NoError(t, err)
+
+	// Verify all parsed attributes on the proto element
+	assert.Equal(t, "eth", m.Name)
+	assert.Equal(t, "Ethernet II", m.UiName) // showname takes precedence over show
+	assert.Equal(t, "eth_show", m.Show)
+	assert.Equal(t, 14, m.Pos)
+	assert.Equal(t, 20, m.Size)
+	assert.False(t, m.Hide) // "no" is not "yes"
+	assert.Equal(t, "proto", m.NodeName)
+
+	// Verify the Attrs map contains all attributes
+	assert.Equal(t, "eth", m.Attrs["name"])
+	assert.Equal(t, "Ethernet II", m.Attrs["showname"])
+	assert.Equal(t, "eth_show", m.Attrs["show"])
+	assert.Equal(t, "14", m.Attrs["pos"])
+	assert.Equal(t, "20", m.Attrs["size"])
+	assert.Equal(t, "no", m.Attrs["hide"])
+
+	// Verify the child field
+	assert.Equal(t, 1, len(m.Children_))
+	child := m.Children_[0]
+	assert.Equal(t, "eth.src", child.Name)
+	assert.Equal(t, "Source", child.UiName) // showname takes precedence
+	assert.Equal(t, "00:11:22:33:44:55", child.Show)
+	assert.Equal(t, 6, child.Pos)
+	assert.Equal(t, 6, child.Size)
+	assert.True(t, child.Hide) // "yes" means hide
+	assert.Equal(t, "field", child.NodeName)
+}
+
+func TestUnmarshalXML_ShowFallback(t *testing.T) {
+	// When showname is absent, UiName should fall back to show
+	xmlData := `<field name="test" show="fallback_value" pos="0" size="0"/>`
+
+	var m Model
+	err := xml.Unmarshal([]byte(xmlData), &m)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "fallback_value", m.UiName)
+	assert.Equal(t, "fallback_value", m.Show)
+}
+
+func TestUnmarshalXML_ShownameOverridesShow(t *testing.T) {
+	// When both showname and show are present, showname wins for UiName
+	xmlData := `<field name="test" showname="Display Name" show="raw_value" pos="0" size="0"/>`
+
+	var m Model
+	err := xml.Unmarshal([]byte(xmlData), &m)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "Display Name", m.UiName)
+	assert.Equal(t, "raw_value", m.Show)
+}
+
+func TestUnmarshalXML_HideAttribute(t *testing.T) {
+	// Test various hide attribute values
+	tests := []struct {
+		xml      string
+		expected bool
+	}{
+		{`<field name="a" hide="yes" pos="0" size="0"/>`, true},
+		{`<field name="b" hide="no" pos="0" size="0"/>`, false},
+		{`<field name="c" hide="" pos="0" size="0"/>`, false},
+		{`<field name="d" pos="0" size="0"/>`, false}, // no hide attribute
+	}
+
+	for _, tc := range tests {
+		var m Model
+		err := xml.Unmarshal([]byte(tc.xml), &m)
+		assert.NoError(t, err)
+		assert.Equal(t, tc.expected, m.Hide, "for xml: %s", tc.xml)
+	}
+}
+
+func TestUnmarshalXML_InvalidPos(t *testing.T) {
+	xmlData := `<field name="test" pos="notanumber" size="0"/>`
+
+	var m Model
+	err := xml.Unmarshal([]byte(xmlData), &m)
+	assert.Error(t, err)
+}
+
+func TestUnmarshalXML_InvalidSize(t *testing.T) {
+	xmlData := `<field name="test" pos="0" size="notanumber"/>`
+
+	var m Model
+	err := xml.Unmarshal([]byte(xmlData), &m)
+	assert.Error(t, err)
+}
+
+func TestUnmarshalXML_NestedElements(t *testing.T) {
+	// Three levels of nesting: proto -> field -> field
+	xmlData := `<proto name="tcp" showname="TCP" pos="34" size="20">
+	  <field name="tcp.flags" showname="Flags" pos="46" size="2">
+	    <field name="tcp.flags.syn" showname="SYN" pos="47" size="1"/>
+	    <field name="tcp.flags.ack" showname="ACK" pos="47" size="1"/>
+	  </field>
+	  <field name="tcp.srcport" showname="Source Port" pos="34" size="2"/>
+	</proto>`
+
+	var m Model
+	err := xml.Unmarshal([]byte(xmlData), &m)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "tcp", m.Name)
+	assert.Equal(t, 2, len(m.Children_))
+
+	// First child: tcp.flags with two sub-fields
+	flags := m.Children_[0]
+	assert.Equal(t, "tcp.flags", flags.Name)
+	assert.Equal(t, 2, len(flags.Children_))
+	assert.Equal(t, "tcp.flags.syn", flags.Children_[0].Name)
+	assert.Equal(t, "tcp.flags.ack", flags.Children_[1].Name)
+
+	// Second child: tcp.srcport with no sub-fields
+	srcport := m.Children_[1]
+	assert.Equal(t, "tcp.srcport", srcport.Name)
+	assert.Equal(t, 0, len(srcport.Children_))
+}
+
+func TestUnmarshalXML_CustomAttrsPreserved(t *testing.T) {
+	// Attributes not explicitly handled (like "value", "unmaskedvalue") should be in Attrs map
+	xmlData := `<field name="ip.version" showname="Version: 4" pos="14" size="1" show="4" value="4" unmaskedvalue="45"/>`
+
+	var m Model
+	err := xml.Unmarshal([]byte(xmlData), &m)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "4", m.Attrs["value"])
+	assert.Equal(t, "45", m.Attrs["unmaskedvalue"])
+}
+
+//======================================================================
+// DecodePacket comprehensive tests
+//======================================================================
+
+func TestDecodePacket_FiltersGeninfo(t *testing.T) {
+	xmlData := `<packet>
+	  <proto name="geninfo" showname="General info" pos="0" size="100">
+	    <field name="num" pos="0" show="1" showname="Number" size="100"/>
+	  </proto>
+	  <proto name="frame" showname="Frame 1" pos="0" size="100">
+	    <field name="frame.len" showname="Frame Length: 100" pos="0" size="0" show="100"/>
+	  </proto>
+	</packet>`
+
+	result := DecodePacket([]byte(xmlData))
+	assert.NotNil(t, result)
+
+	// geninfo should be filtered out, only frame remains
+	assert.Equal(t, 1, len(result.Children_))
+	assert.Equal(t, "frame", result.Children_[0].Name)
+}
+
+func TestDecodePacket_FiltersHiddenFields(t *testing.T) {
+	xmlData := `<packet>
+	  <proto name="eth" showname="Ethernet" pos="0" size="14">
+	    <field name="eth.dst" showname="Destination" pos="0" size="6" show="ff:ff:ff:ff:ff:ff"/>
+	    <field name="eth.dst_resolved" showname="Resolved" pos="0" size="6" show="Broadcast" hide="yes"/>
+	  </proto>
+	</packet>`
+
+	result := DecodePacket([]byte(xmlData))
+	assert.NotNil(t, result)
+
+	eth := result.Children_[0]
+	// Hidden field should be removed
+	assert.Equal(t, 1, len(eth.Children_))
+	assert.Equal(t, "eth.dst", eth.Children_[0].Name)
+}
+
+func TestDecodePacket_FiltersFakeFieldWrapper(t *testing.T) {
+	xmlData := `<packet>
+	  <proto name="eth" showname="Ethernet" pos="0" size="14">
+	    <field name="eth.dst" showname="Destination" pos="0" size="6" show="ff:ff:ff:ff:ff:ff"/>
+	  </proto>
+	  <proto name="fake-field-wrapper" showname="Fake" pos="0" size="0"/>
+	</packet>`
+
+	result := DecodePacket([]byte(xmlData))
+	assert.NotNil(t, result)
+
+	// fake-field-wrapper should be filtered out
+	assert.Equal(t, 1, len(result.Children_))
+	assert.Equal(t, "eth", result.Children_[0].Name)
+}
+
+func TestDecodePacket_NestedHiddenFiltering(t *testing.T) {
+	// Hidden fields nested inside visible fields should be removed
+	xmlData := `<packet>
+	  <proto name="ip" showname="IPv4" pos="14" size="20">
+	    <field name="ip.src" showname="Source" pos="26" size="4" show="10.0.0.1">
+	      <field name="ip.src_host" showname="Host" pos="26" size="4" show="10.0.0.1" hide="yes"/>
+	    </field>
+	    <field name="ip.dst" showname="Destination" pos="30" size="4" show="10.0.0.2"/>
+	  </proto>
+	</packet>`
+
+	result := DecodePacket([]byte(xmlData))
+	assert.NotNil(t, result)
+
+	ip := result.Children_[0]
+	assert.Equal(t, 2, len(ip.Children_))
+
+	// ip.src should have its hidden child removed
+	src := ip.Children_[0]
+	assert.Equal(t, "ip.src", src.Name)
+	assert.Equal(t, 0, len(src.Children_))
+}
+
+func TestDecodePacket_EmptyPacket(t *testing.T) {
+	xmlData := `<packet></packet>`
+
+	result := DecodePacket([]byte(xmlData))
+	assert.NotNil(t, result)
+	assert.Equal(t, 0, len(result.Children_))
+}
+
+func TestDecodePacket_SingleProto(t *testing.T) {
+	xmlData := `<packet>
+	  <proto name="frame" showname="Frame 1" pos="0" size="64"/>
+	</packet>`
+
+	result := DecodePacket([]byte(xmlData))
+	assert.NotNil(t, result)
+	assert.Equal(t, 1, len(result.Children_))
+	assert.Equal(t, "frame", result.Children_[0].Name)
+	assert.False(t, result.Children_[0].HasChildren())
+}
+
+func TestDecodePacket_QueryModelCreated(t *testing.T) {
+	// DecodePacket should create a QueryModel for xpath queries
+	xmlData := `<packet>
+	  <proto name="frame" showname="Frame 1" pos="0" size="64">
+	    <field name="frame.len" showname="Frame Length: 64" pos="0" size="0" show="64"/>
+	  </proto>
+	</packet>`
+
+	result := DecodePacket([]byte(xmlData))
+	assert.NotNil(t, result)
+	assert.NotNil(t, result.QueryModel)
+}
+
+func TestDecodePacket_TCPStreamIndex(t *testing.T) {
+	// Test TCP stream index extraction via QueryModel
+	result := DecodePacket([]byte(p1))
+	assert.NotNil(t, result)
+
+	// p1 contains tcp.stream with show="0"
+	idx := result.TCPStreamIndex()
+	assert.True(t, idx.IsNone() == false, "TCP stream index should be present")
+	assert.Equal(t, 0, idx.Val())
+}
+
+func TestDecodePacket_UDPStreamIndex_NotPresent(t *testing.T) {
+	// p1 is a TCP packet, so UDP stream index should be None
+	result := DecodePacket([]byte(p1))
+	assert.NotNil(t, result)
+
+	idx := result.UDPStreamIndex()
+	assert.True(t, idx.IsNone(), "UDP stream index should not be present in TCP packet")
+}
+
+func TestDecodePacket_StreamIndex_NoQueryModel(t *testing.T) {
+	// A packet without tcp.stream should return None
+	xmlData := `<packet>
+	  <proto name="eth" showname="Ethernet" pos="0" size="14">
+	    <field name="eth.type" showname="Type" pos="12" size="2" show="0x0800"/>
+	  </proto>
+	</packet>`
+
+	result := DecodePacket([]byte(xmlData))
+	assert.NotNil(t, result)
+
+	tcpIdx := result.TCPStreamIndex()
+	assert.True(t, tcpIdx.IsNone())
+
+	udpIdx := result.UDPStreamIndex()
+	assert.True(t, udpIdx.IsNone())
+}
+
+//======================================================================
+// Tree construction from the large p1 XML - deep structural verification
+//======================================================================
+
+func TestDecodePacket_P1_StructureVerification(t *testing.T) {
+	dummy := make(ExpandedPaths, 0)
+	tr := DecodePacket([]byte(p1))
+	tr.ApplyExpandedPaths(&dummy)
+
+	// p1 has 9 protos: geninfo, frame, eth, ip, gre, erspan, eth, ip, tcp
+	// geninfo is filtered out, leaving 8
+	assert.Equal(t, 8, len(tr.Children_))
+
+	// Verify protocol names in order
+	expectedNames := []string{"frame", "eth", "ip", "gre", "erspan", "eth", "ip", "tcp"}
+	for i, expected := range expectedNames {
+		assert.Equal(t, expected, tr.Children_[i].Name, "Child %d name", i)
+	}
+
+	// Verify frame protocol has 13 visible fields
+	frame := tr.Children_[0]
+	assert.Equal(t, "frame", frame.Name)
+	assert.Equal(t, 13, len(frame.Children_))
+
+	// Verify first eth has 3 visible children (dst, src, type) after hiding resolved fields
+	eth0 := tr.Children_[1]
+	assert.Equal(t, "eth", eth0.Name)
+	assert.Equal(t, 3, len(eth0.Children_))
+
+	// eth.dst should have nested children (non-hidden ones: addr, lg, ig)
+	ethDst := eth0.Children_[0]
+	assert.Equal(t, "eth.dst", ethDst.Name)
+	assert.True(t, len(ethDst.Children_) > 0)
+
+	// gre protocol
+	gre := tr.Children_[3]
+	assert.Equal(t, "gre", gre.Name)
+	assert.Equal(t, 2, len(gre.Children_))
+
+	// erspan protocol - empty (no children in the XML)
+	erspan := tr.Children_[4]
+	assert.Equal(t, "erspan", erspan.Name)
+	assert.Equal(t, 0, len(erspan.Children_))
+
+	// tcp protocol - has many children with nesting
+	tcp := tr.Children_[7]
+	assert.Equal(t, "tcp", tcp.Name)
+	assert.True(t, len(tcp.Children_) > 5)
+}
+
+func TestDecodePacket_P1_DeepNesting(t *testing.T) {
+	// Verify deep nesting: tcp -> tcp.options -> tcp.options.timestamp -> tcp.option_kind
+	tr := DecodePacket([]byte(p1))
+	assert.NotNil(t, tr)
+
+	tcp := tr.Children_[7]
+	assert.Equal(t, "tcp", tcp.Name)
+
+	// Find tcp.options field
+	var tcpOptions *Model
+	for _, child := range tcp.Children_ {
+		if child.Name == "tcp.options" {
+			tcpOptions = child
+			break
+		}
+	}
+	assert.NotNil(t, tcpOptions, "tcp.options should exist")
+
+	// tcp.options has children: two nop fields and a timestamp field
+	assert.True(t, len(tcpOptions.Children_) >= 3)
+
+	// Find the timestamp option
+	var tsOption *Model
+	for _, child := range tcpOptions.Children_ {
+		if child.Name == "tcp.options.timestamp" {
+			tsOption = child
+			break
+		}
+	}
+	assert.NotNil(t, tsOption, "tcp.options.timestamp should exist")
+
+	// Timestamp has children: option_kind, option_len, tsval, tsecr
+	assert.Equal(t, 4, len(tsOption.Children_))
+	assert.Equal(t, "tcp.option_kind", tsOption.Children_[0].Name)
+	assert.Equal(t, "tcp.option_len", tsOption.Children_[1].Name)
+	assert.Equal(t, "tcp.options.timestamp.tsval", tsOption.Children_[2].Name)
+	assert.Equal(t, "tcp.options.timestamp.tsecr", tsOption.Children_[3].Name)
+}
+
+func TestDecodePacket_P1_PositionAndSize(t *testing.T) {
+	tr := DecodePacket([]byte(p1))
+	assert.NotNil(t, tr)
+
+	// Verify pos and size attributes for known protocols
+	frame := tr.Children_[0]
+	assert.Equal(t, 0, frame.Pos)
+	assert.Equal(t, 1453, frame.Size)
+
+	eth0 := tr.Children_[1]
+	assert.Equal(t, 0, eth0.Pos)
+	assert.Equal(t, 14, eth0.Size)
+
+	ip0 := tr.Children_[2]
+	assert.Equal(t, 14, ip0.Pos)
+	assert.Equal(t, 20, ip0.Size)
+
+	tcp := tr.Children_[7]
+	assert.Equal(t, 72, tcp.Pos)
+	assert.Equal(t, 32, tcp.Size)
+}
+
+//======================================================================
+// String representation tests
+//======================================================================
+
+func TestModel_String_ExactFormat_LeafNode(t *testing.T) {
+	m := &Model{UiName: "leaf"}
+	assert.Equal(t, "[leaf]", m.String())
+}
+
+func TestModel_String_ExactFormat_WithChildren(t *testing.T) {
+	child1 := &Model{UiName: "c1"}
+	child2 := &Model{UiName: "c2"}
+	root := &Model{UiName: "root", Children_: []*Model{child1, child2}}
+
+	s := root.String()
+	// String() calls stringAt(1). For children, it calls stringAt(2) and then
+	// prepends 2*1=2 spaces (using the parent's level). The child's own
+	// stringAt(2) produces "[c1]" (no grandchildren). So children get 2 spaces.
+	lines := strings.Split(s, "\n")
+	assert.Equal(t, 3, len(lines))
+	assert.Equal(t, "[root]", lines[0])
+	assert.Equal(t, "  [c1]", lines[1]) // 2*1 = 2 spaces (parent level=1)
+	assert.Equal(t, "  [c2]", lines[2]) // 2*1 = 2 spaces (parent level=1)
+}
+
+func TestModel_String_DeeplyNested(t *testing.T) {
+	leaf := &Model{UiName: "leaf"}
+	mid := &Model{UiName: "mid", Children_: []*Model{leaf}}
+	root := &Model{UiName: "root", Children_: []*Model{mid}}
+
+	s := root.String()
+	// root.String() -> root.stringAt(1)
+	//   mid.stringAt(2) -> produces "[mid]\n    [leaf]" (leaf indented by 2*2=4 spaces)
+	//   then prepends 2*1=2 spaces to "mid" line -> "  [mid]\n    [leaf]"
+	// Final: "[root]\n  [mid]\n    [leaf]"
+	lines := strings.Split(s, "\n")
+	assert.Equal(t, 3, len(lines))
+	assert.Equal(t, "[root]", lines[0])
+	assert.Equal(t, "  [mid]", lines[1])    // 2 spaces (parent level=1)
+	assert.Equal(t, "    [leaf]", lines[2]) // 4 spaces (parent level=2)
+}
+
+func TestExpandedModel_String_MatchesModel(t *testing.T) {
+	child := &Model{UiName: "child"}
+	root := &Model{UiName: "root", Children_: []*Model{child}}
+	em := (*ExpandedModel)(root)
+
+	ms := root.String()
+	es := em.String()
+	assert.Equal(t, ms, es)
+}
+
+//======================================================================
+// Edge cases
+//======================================================================
+
+func TestModel_EmptyTree(t *testing.T) {
+	m := &Model{}
+	assert.False(t, m.HasChildren())
+	assert.Equal(t, "", m.Leaf())
+	assert.Equal(t, "[]", m.String())
+	assert.True(t, m.IsCollapsed())
+
+	// Children of collapsed empty model returns EmptyIterator
+	it := m.Children()
+	_, ok := it.(EmptyIterator)
+	assert.True(t, ok)
+
+	// Even if expanded, empty children list still gives iterator with no elements
+	m.Expanded = true
+	it = m.Children()
+	assert.False(t, it.Next())
+}
+
+func TestModel_SingleNodeTree(t *testing.T) {
+	m := &Model{
+		UiName: "alone",
+		Name:   "single",
+		Pos:    42,
+		Size:   10,
+	}
+
+	assert.Equal(t, "alone", m.Leaf())
+	assert.Equal(t, "[alone]", m.String())
+	assert.False(t, m.HasChildren())
+	assert.Equal(t, []string{"single"}, m.PathToRoot())
+}
+
+func TestModel_DeeplyNested_5Levels(t *testing.T) {
+	// Build a 5-level deep tree
+	l5 := &Model{Name: "l5", UiName: "Level 5"}
+	l4 := &Model{Name: "l4", UiName: "Level 4", Children_: []*Model{l5}}
+	l3 := &Model{Name: "l3", UiName: "Level 3", Children_: []*Model{l4}}
+	l2 := &Model{Name: "l2", UiName: "Level 2", Children_: []*Model{l3}}
+	l1 := &Model{Name: "l1", UiName: "Level 1", Children_: []*Model{l2}}
+
+	// Set up parent links
+	paths := ExpandedPaths{}
+	l1.MakeParentLinks(&paths)
+
+	// Verify PathToRoot from deepest node
+	assert.Equal(t, []string{"l1", "l2", "l3", "l4", "l5"}, l5.PathToRoot())
+
+	// Verify expand by position reaches the deepest level
+	pos := tree.NewPosExt([]int{0, 0, 0, 0})
+	l1.ExpandByPosition(pos)
+	assert.True(t, l1.Expanded)
+	assert.True(t, l2.Expanded)
+	assert.True(t, l3.Expanded)
+	assert.True(t, l4.Expanded)
+	assert.False(t, l5.Expanded) // Leaf of the path, gets empty pos
+
+	// Verify String output has 5 lines (one per level)
+	s := l1.String()
+	lines := strings.Split(s, "\n")
+	assert.Equal(t, 5, len(lines))
+
+	// Verify ExpandedModel iterates all levels
+	em := (*ExpandedModel)(l1)
+	it := em.Children()
+	assert.True(t, it.Next())
+	l2em := it.Value().(*ExpandedModel)
+	assert.Equal(t, "Level 2", l2em.UiName)
+	assert.False(t, it.Next())
+
+	// Continue from l2
+	it2 := l2em.Children()
+	assert.True(t, it2.Next())
+	l3em := it2.Value().(*ExpandedModel)
+	assert.Equal(t, "Level 3", l3em.UiName)
+}
+
+func TestModel_WideTree(t *testing.T) {
+	// A tree with many siblings
+	children := make([]*Model, 10)
+	for i := 0; i < 10; i++ {
+		children[i] = &Model{
+			Name:   "child",
+			UiName: "Child",
+			Pos:    i * 10,
+			Size:   10,
+		}
+	}
+	root := &Model{Name: "root", UiName: "Root", Children_: children, Expanded: true}
+
+	assert.True(t, root.HasChildren())
+	assert.Equal(t, 10, len(root.Children_))
+
+	// Iterate all children
+	it := root.Children()
+	count := 0
+	for it.Next() {
+		_ = it.Value()
+		count++
+	}
+	assert.Equal(t, 10, count)
+}
+
+//======================================================================
+// HexLayers comprehensive tests
+//======================================================================
+
+func TestModel_HexLayers_IncludeFirst_Detailed(t *testing.T) {
+	field := &Model{Name: "first.field", Pos: 5, Size: 5}
+	first := &Model{Name: "first", Pos: 0, Size: 100, Children_: []*Model{field}}
+	second := &Model{Name: "second", Pos: 10, Size: 20}
+	root := &Model{Name: "packet", Children_: []*Model{first, second}}
+
+	// With includeFirst=true, first child is included
+	layers := root.HexLayers(7, true)
+	assert.Equal(t, 2, len(layers))
+	// Layer from first proto
+	assert.Equal(t, 0, layers[0].Start)
+	assert.Equal(t, 100, layers[0].End)
+	// Field within first proto
+	assert.Equal(t, 5, layers[1].Start)
+	assert.Equal(t, 10, layers[1].End)
+
+	// With includeFirst=false, first child is skipped
+	layers = root.HexLayers(7, false)
+	assert.Equal(t, 0, len(layers)) // Position 7 is not in second (10-30)
+}
+
+func TestModel_HexLayers_MultipleLayerMatches(t *testing.T) {
+	// When position falls in multiple top-level children (overlapping ranges)
+	field1 := &Model{Name: "f1", Pos: 10, Size: 5}
+	child1 := &Model{Name: "c1", Pos: 0, Size: 20, Children_: []*Model{field1}}
+	field2 := &Model{Name: "f2", Pos: 10, Size: 10}
+	child2 := &Model{Name: "c2", Pos: 5, Size: 20, Children_: []*Model{field2}}
+	skip := &Model{Name: "skip", Pos: 0, Size: 0} // First child (skipped)
+	root := &Model{Name: "root", Children_: []*Model{skip, child1, child2}}
+
+	layers := root.HexLayers(12, false)
+	// child1 covers 0-20, child2 covers 5-25 -- both match pos=12
+	// field1 covers 10-15, field2 covers 10-20 -- both match pos=12
+	assert.Equal(t, 4, len(layers))
+}
+
+func TestModel_HexLayers_PositionAtBoundary(t *testing.T) {
+	field := &Model{Name: "f", Pos: 10, Size: 5} // 10-14
+	child := &Model{Name: "c", Pos: 10, Size: 10, Children_: []*Model{field}} // 10-19
+	skip := &Model{Name: "skip", Pos: 0, Size: 0}
+	root := &Model{Name: "root", Children_: []*Model{skip, child}}
+
+	// At the start of range (inclusive)
+	layers := root.HexLayers(10, false)
+	assert.Equal(t, 2, len(layers))
+
+	// At the end of range (exclusive -- should not match)
+	layers = root.HexLayers(20, false)
+	assert.Equal(t, 0, len(layers))
+
+	// One before end
+	layers = root.HexLayers(19, false)
+	assert.Equal(t, 1, len(layers)) // Child matches but field (10-14) does not
+
+	// At end of field
+	layers = root.HexLayers(15, false)
+	assert.Equal(t, 1, len(layers)) // Child matches but field (10-14) does not match 15
+}
+
+func TestModel_HexLayers_NoChildren(t *testing.T) {
+	skip := &Model{Name: "skip", Pos: 0, Size: 0}
+	child := &Model{Name: "c", Pos: 0, Size: 50} // No Children_
+	root := &Model{Name: "root", Children_: []*Model{skip, child}}
+
+	layers := root.HexLayers(25, false)
+	assert.Equal(t, 1, len(layers)) // Only the layer, no field
+	assert.Equal(t, "hex-layer-unselected", layers[0].ColUnselected)
+	assert.Equal(t, "hex-layer-selected", layers[0].ColSelected)
+}
+
+//======================================================================
+// ExpandedPaths comprehensive tests
+//======================================================================
+
+func TestExpandedPaths_Empty(t *testing.T) {
+	var paths ExpandedPaths
+
+	removed := paths.removeExpanded([]string{"anything"})
+	assert.False(t, removed)
+	assert.Equal(t, 0, len(paths))
+}
+
+func TestExpandedPaths_SingleElement(t *testing.T) {
+	var paths ExpandedPaths
+
+	added := paths.addExpanded([]string{"root"})
+	assert.True(t, added)
+	assert.Equal(t, 1, len(paths))
+
+	// Add same again
+	added = paths.addExpanded([]string{"root"})
+	assert.False(t, added)
+	assert.Equal(t, 1, len(paths))
+
+	removed := paths.removeExpanded([]string{"root"})
+	assert.True(t, removed)
+	assert.Equal(t, 0, len(paths))
+}
+
+func TestExpandedPaths_MultipleOperations(t *testing.T) {
+	var paths ExpandedPaths
+
+	paths.addExpanded([]string{"a"})
+	paths.addExpanded([]string{"a", "b"})
+	paths.addExpanded([]string{"a", "b", "c"})
+	paths.addExpanded([]string{"x", "y"})
+	assert.Equal(t, 4, len(paths))
+
+	// Remove middle path
+	paths.removeExpanded([]string{"a", "b"})
+	assert.Equal(t, 3, len(paths))
+
+	// The remaining paths should still be intact
+	paths.removeExpanded([]string{"a"})
+	assert.Equal(t, 2, len(paths))
+
+	paths.removeExpanded([]string{"a", "b", "c"})
+	assert.Equal(t, 1, len(paths))
+
+	paths.removeExpanded([]string{"x", "y"})
+	assert.Equal(t, 0, len(paths))
+}
+
+//======================================================================
+// SetCollapsed with path verification
+//======================================================================
+
+func TestModel_SetCollapsed_ExpandedPathContents(t *testing.T) {
+	paths := ExpandedPaths{}
+	grandchild := &Model{Name: "gc", Expanded: false, ExpandedFields: &paths}
+	child := &Model{Name: "child", Expanded: false, ExpandedFields: &paths, Children_: []*Model{grandchild}}
+	root := &Model{Name: "root", Expanded: false, ExpandedFields: &paths, Children_: []*Model{child}}
+	child.Parent = root
+	grandchild.Parent = child
+
+	// Expand grandchild -- should add paths for root, child, and grandchild
+	grandchild.SetCollapsed(nil, false)
+	assert.True(t, grandchild.Expanded)
+	assert.Equal(t, 3, len(paths))
+
+	// Verify all path prefixes are present
+	containsPath := func(paths ExpandedPaths, target []string) bool {
+		for _, p := range paths {
+			if len(p) == len(target) {
+				match := true
+				for i := range p {
+					if p[i] != target[i] {
+						match = false
+						break
+					}
+				}
+				if match {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	assert.True(t, containsPath(paths, []string{"root"}))
+	assert.True(t, containsPath(paths, []string{"root", "child"}))
+	assert.True(t, containsPath(paths, []string{"root", "child", "gc"}))
+
+	// Collapse grandchild -- only removes the grandchild path
+	grandchild.SetCollapsed(nil, true)
+	assert.False(t, grandchild.Expanded)
+	assert.Equal(t, 2, len(paths))
+	assert.False(t, containsPath(paths, []string{"root", "child", "gc"}))
+	assert.True(t, containsPath(paths, []string{"root"}))
+	assert.True(t, containsPath(paths, []string{"root", "child"}))
+}
+
+//======================================================================
+// expandAllPaths test
+//======================================================================
+
+func TestModel_ExpandAllPaths_MultiplePaths(t *testing.T) {
+	tcpPort := &Model{Name: "tcp.port", Expanded: false}
+	tcpFlags := &Model{Name: "tcp.flags", Expanded: false}
+	tcp := &Model{Name: "tcp", Expanded: false, Children_: []*Model{tcpPort, tcpFlags}}
+	udpPort := &Model{Name: "udp.port", Expanded: false}
+	udp := &Model{Name: "udp", Expanded: false, Children_: []*Model{udpPort}}
+	root := &Model{Name: "packet", Children_: []*Model{tcp, udp}}
+
+	paths := ExpandedPaths{
+		[]string{"packet"},
+		[]string{"packet", "tcp"},              // expands just "tcp" (not children)
+		[]string{"packet", "tcp", "tcp.port"},  // expands "tcp.port" (leaf)
+		[]string{"packet", "udp"},
+		[]string{"packet", "udp", "udp.port"},
+	}
+
+	// expandAllPaths walks from root for each path
+	root.expandAllPaths(paths)
+
+	// Only leaves of paths get expanded
+	assert.True(t, root.Expanded)        // leaf of ["packet"]
+	assert.True(t, tcp.Expanded)         // leaf of ["packet", "tcp"]
+	assert.True(t, tcpPort.Expanded)     // leaf of ["packet", "tcp", "tcp.port"]
+	assert.False(t, tcpFlags.Expanded)   // not in any path
+	assert.True(t, udp.Expanded)         // leaf of ["packet", "udp"]
+	assert.True(t, udpPort.Expanded)     // leaf of ["packet", "udp", "udp.port"]
+}
+
+//======================================================================
+// ExpandByPosition deeper tests
+//======================================================================
+
+func TestModel_ExpandByPosition_DeepPath(t *testing.T) {
+	l4 := &Model{Name: "l4", Expanded: false}
+	l3 := &Model{Name: "l3", Expanded: false, Children_: []*Model{l4}}
+	l2 := &Model{Name: "l2", Expanded: false, Children_: []*Model{l3}}
+	l1 := &Model{Name: "l1", Expanded: false, Children_: []*Model{l2}}
+
+	pos := tree.NewPosExt([]int{0, 0, 0})
+	l1.ExpandByPosition(pos)
+
+	assert.True(t, l1.Expanded)
+	assert.True(t, l2.Expanded)
+	assert.True(t, l3.Expanded)
+	assert.False(t, l4.Expanded)
+}
+
+func TestModel_ExpandByPosition_SecondChild(t *testing.T) {
+	grandchild := &Model{Name: "gc", Expanded: false}
+	child0 := &Model{Name: "c0", Expanded: false}
+	child1 := &Model{Name: "c1", Expanded: false, Children_: []*Model{grandchild}}
+	root := &Model{Name: "root", Expanded: false, Children_: []*Model{child0, child1}}
+
+	// Expand into second child's first grandchild: [1, 0]
+	pos := tree.NewPosExt([]int{1, 0})
+	root.ExpandByPosition(pos)
+
+	assert.True(t, root.Expanded)
+	assert.False(t, child0.Expanded)     // Not on the path
+	assert.True(t, child1.Expanded)      // On the path
+	assert.False(t, grandchild.Expanded) // Leaf of path, receives empty pos
+}
+
+//======================================================================
+// Iterator edge cases
+//======================================================================
+
+func TestIterator_NoChildren(t *testing.T) {
+	parent := &Model{UiName: "parent", Expanded: true}
+	it := parent.Children().(*Iterator)
+	assert.False(t, it.Next())
+}
+
+func TestExpandedIterator_NoChildren(t *testing.T) {
+	parent := &Model{UiName: "parent"}
+	em := (*ExpandedModel)(parent)
+	it := em.Children().(*ExpandedIterator)
+	assert.False(t, it.Next())
+}
+
+func TestIterator_SingleChild(t *testing.T) {
+	child := &Model{UiName: "only"}
+	parent := &Model{UiName: "parent", Expanded: true, Children_: []*Model{child}}
+
+	it := parent.Children()
+	assert.True(t, it.Next())
+	assert.Equal(t, child, it.Value())
+	assert.False(t, it.Next())
+}
+
+//======================================================================
+// Content and NodeName tests
+//======================================================================
+
+func TestUnmarshalXML_ContentCaptured(t *testing.T) {
+	xmlData := `<proto name="test" pos="0" size="0"><field name="inner" pos="0" size="0"/></proto>`
+
+	var m Model
+	err := xml.Unmarshal([]byte(xmlData), &m)
+	assert.NoError(t, err)
+
+	// Content should contain the inner XML
+	assert.True(t, len(m.Content) > 0)
+	assert.Contains(t, string(m.Content), "inner")
+}
+
+func TestUnmarshalXML_NodeName_Proto(t *testing.T) {
+	xmlData := `<proto name="test" pos="0" size="0"/>`
+
+	var m Model
+	err := xml.Unmarshal([]byte(xmlData), &m)
+	assert.NoError(t, err)
+	assert.Equal(t, "proto", m.NodeName)
+}
+
+func TestUnmarshalXML_NodeName_Field(t *testing.T) {
+	xmlData := `<field name="test" pos="0" size="0"/>`
+
+	var m Model
+	err := xml.Unmarshal([]byte(xmlData), &m)
+	assert.NoError(t, err)
+	assert.Equal(t, "field", m.NodeName)
+}
+
+//======================================================================
+// removeUnneeded edge cases (tested through DecodePacket)
+//======================================================================
+
+func TestDecodePacket_AllProtosHidden(t *testing.T) {
+	xmlData := `<packet>
+	  <proto name="geninfo" showname="General info" pos="0" size="0"/>
+	  <proto name="fake-field-wrapper" showname="Fake" pos="0" size="0"/>
+	</packet>`
+
+	result := DecodePacket([]byte(xmlData))
+	assert.NotNil(t, result)
+	assert.Equal(t, 0, len(result.Children_))
+}
+
+func TestDecodePacket_MixedHiddenAndVisible(t *testing.T) {
+	xmlData := `<packet>
+	  <proto name="geninfo" showname="Gen" pos="0" size="0"/>
+	  <proto name="frame" showname="Frame" pos="0" size="100">
+	    <field name="visible" showname="Visible" pos="0" size="10" show="yes"/>
+	    <field name="hidden" showname="Hidden" pos="10" size="10" show="no" hide="yes"/>
+	    <field name="also_visible" showname="Also Visible" pos="20" size="10" show="yes"/>
+	  </proto>
+	  <proto name="fake-field-wrapper" showname="Fake" pos="0" size="0"/>
+	  <proto name="eth" showname="Ethernet" pos="0" size="14"/>
+	</packet>`
+
+	result := DecodePacket([]byte(xmlData))
+	assert.NotNil(t, result)
+
+	// geninfo and fake-field-wrapper filtered, leaving frame and eth
+	assert.Equal(t, 2, len(result.Children_))
+	assert.Equal(t, "frame", result.Children_[0].Name)
+	assert.Equal(t, "eth", result.Children_[1].Name)
+
+	// frame has 2 visible fields (hidden one removed)
+	assert.Equal(t, 2, len(result.Children_[0].Children_))
+	assert.Equal(t, "visible", result.Children_[0].Children_[0].Name)
+	assert.Equal(t, "also_visible", result.Children_[0].Children_[1].Name)
+}
+
+//======================================================================
+// MakeParentLinks with expanded fields propagation
+//======================================================================
+
+func TestModel_MakeParentLinks_DeepTree(t *testing.T) {
+	d := &Model{Name: "d"}
+	c := &Model{Name: "c", Children_: []*Model{d}}
+	b := &Model{Name: "b", Children_: []*Model{c}}
+	a := &Model{Name: "a", Children_: []*Model{b}}
+
+	paths := ExpandedPaths{}
+	a.MakeParentLinks(&paths)
+
+	// Verify all parent links
+	assert.Nil(t, a.Parent)
+	assert.Equal(t, a, b.Parent)
+	assert.Equal(t, b, c.Parent)
+	assert.Equal(t, c, d.Parent)
+
+	// Verify all ExpandedFields point to the same paths
+	assert.Equal(t, &paths, a.ExpandedFields)
+	assert.Equal(t, &paths, b.ExpandedFields)
+	assert.Equal(t, &paths, c.ExpandedFields)
+	assert.Equal(t, &paths, d.ExpandedFields)
+}
+
+func TestModel_MakeParentLinks_MultipleChildren(t *testing.T) {
+	c1 := &Model{Name: "c1"}
+	c2 := &Model{Name: "c2"}
+	c3 := &Model{Name: "c3"}
+	root := &Model{Name: "root", Children_: []*Model{c1, c2, c3}}
+
+	paths := ExpandedPaths{}
+	root.MakeParentLinks(&paths)
+
+	assert.Equal(t, root, c1.Parent)
+	assert.Equal(t, root, c2.Parent)
+	assert.Equal(t, root, c3.Parent)
+}
+
+//======================================================================
+// Interface compliance tests
+//======================================================================
+
+func TestModel_ImplementsIModel(t *testing.T) {
+	var m tree.IModel = &Model{UiName: "test"}
+	assert.NotNil(t, m)
+
+	// Verify Leaf works through the interface
+	assert.Equal(t, "test", m.Leaf())
+}
+
+func TestModel_ImplementsICollapsible(t *testing.T) {
+	paths := ExpandedPaths{}
+	var m tree.ICollapsible = &Model{Name: "test", ExpandedFields: &paths}
+	assert.NotNil(t, m)
+	assert.True(t, m.IsCollapsed())
+}
+
+func TestExpandedModel_ImplementsIModel(t *testing.T) {
+	m := &Model{UiName: "test"}
+	var em tree.IModel = (*ExpandedModel)(m)
+	assert.NotNil(t, em)
+	assert.Equal(t, "test", em.Leaf())
 }
 
 //======================================================================
