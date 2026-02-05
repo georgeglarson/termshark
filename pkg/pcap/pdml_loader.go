@@ -30,7 +30,7 @@ type PdmlLoader struct {
 	PcapPdml string // Pcap file source for the pdml reader - tmpfile if iface; pcap otherwise
 	PcapPcap string // Pcap file source for the pcap reader - tmpfile if iface; pcap otherwise
 
-	pdmlStoppedDeliberately_ bool // true if loader is in a transient state due to a user operation e.g. stop, reload, etc
+	pdmlStoppedDeliberately_ atomic.Bool // true if loader is in a transient state due to a user operation e.g. stop, reload, etc
 
 	stage2Ctx      context.Context // cancels the pcap/pdml loading process
 	stage2CancelFn context.CancelFunc
@@ -47,7 +47,7 @@ type PdmlLoader struct {
 	sync.Mutex
 	visible                  bool // true if this pdml load is needed right now by the UI
 	rowCurrentlyLoading      int  // set by the pdml loading stage - main goroutine only
-	highestCachedRow         int  // main goroutine only
+	highestCachedRow         atomic.Int32 // accessed from pdml and pcap goroutines
 	killAfterReadingThisMany atomic.Int32 // A shortcut - tell pcap/pdml to read one
 
 	opt Options
@@ -465,19 +465,14 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb C
 							}
 							break Loop
 						}
-						// Enabled for now - do something more subtle perhaps in the future
-						if true {
-							cpacket = SnappyPdmlPacket(packet)
-						} else {
-							cpacket = packet
-						}
+						cpacket = SnappyPdmlPacket(packet)
 						packets = append(packets, cpacket)
 						ps.updateCacheEntryWithPdml(row, packets, false)
 						if len(packets) == int(c.killAfterReadingThisMany.Load()) {
 							// Shortcut - we never take more than abcdex - so just kill here
 							issuedKill = true
 							readAllRequiredPdml = true
-							c.pdmlStoppedDeliberately_ = true
+							c.pdmlStoppedDeliberately_.Store(true)
 							pdmlCancelFn()
 						}
 					}
@@ -507,9 +502,9 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb C
 			ps.MainRun(gowid.RunFunction(func(gowid.IApp) {
 				// never evict row 0
 				ps.PacketCacheFn().Get(0)
-				if c.highestCachedRow != -1 {
+				if c.highestCachedRow.Load() != -1 {
 					// try not to evict "end"
-					ps.PacketCacheFn().Get(c.highestCachedRow)
+					ps.PacketCacheFn().Get(int(c.highestCachedRow.Load()))
 				}
 
 				// the cache entry is marked complete if we are not reading from a fifo, which implies
@@ -524,8 +519,8 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb C
 					markComplete = true
 				}
 				ps.updateCacheEntryWithPdml(row, packets, markComplete)
-				if row > c.highestCachedRow {
-					c.highestCachedRow = row
+				if int32(row) > c.highestCachedRow.Load() {
+					c.highestCachedRow.Store(int32(row))
 				}
 			}))
 		})
@@ -642,9 +637,9 @@ func (c *PdmlLoader) loadPcapSync(row int, visible bool, ps iPdmlLoaderEnv, cb C
 			// I just want to ensure I read it from ram, obviously this is racey
 			// never evict row 0
 			ps.PacketCacheFn().Get(0)
-			if c.highestCachedRow != -1 {
+			if c.highestCachedRow.Load() != -1 {
 				// try not to evict "end"
-				ps.PacketCacheFn().Get(c.highestCachedRow)
+				ps.PacketCacheFn().Get(int(c.highestCachedRow.Load()))
 			}
 			markComplete := false
 			if !ps.ReadingFromFifo() && readAllRequiredPcap {
@@ -679,7 +674,7 @@ func (c *PdmlLoader) KillAfterReadingThisMany() int {
 }
 
 func (p *PdmlLoader) stopLoadPdml() {
-	p.pdmlStoppedDeliberately_ = true
+	p.pdmlStoppedDeliberately_.Store(true)
 	if p.stage2CancelFn != nil {
 		p.stage2CancelFn()
 	}

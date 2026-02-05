@@ -32,7 +32,7 @@ type PsmlLoader struct {
 
 	PcapPsml any // Pcap file source for the psml reader - fifo if iface+!stopped; tmpfile if iface+stopped; pcap otherwise
 
-	psmlStoppedDeliberately_ bool // true if loader is in a transient state due to a user operation e.g. stop, reload, etc
+	psmlStoppedDeliberately_ atomic.Bool // true if loader is in a transient state due to a user operation e.g. stop, reload, etc
 
 	psmlCtx      context.Context // cancels the psml loading process
 	psmlCancelFn context.CancelFunc
@@ -387,7 +387,7 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 				select {
 				case err = <-psmlTermChan:
 					state = Terminated
-					if !p.psmlStoppedDeliberately_ {
+					if !p.psmlStoppedDeliberately_.Load() {
 						if err != nil {
 							var exerr *exec.ExitError
 							if errors.As(err, &exerr) {
@@ -512,7 +512,7 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 						// Close the pipe so that the psml reader gets EOF and will also terminate;
 						// otherwise the PSML reader will block waiting for more data from the pipe
 						fifoPipeWriter.Close()
-						if !p.psmlStoppedDeliberately_ && !e.TailStoppedDeliberately() {
+						if !p.psmlStoppedDeliberately_.Load() && !e.TailStoppedDeliberately() {
 							if err != nil {
 								var exerr *exec.ExitError
 								if errors.As(err, &exerr) {
@@ -655,6 +655,7 @@ func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb
 					pidx, err = strconv.Atoi(curPsml[0])
 					if err != nil {
 						log.Errorf("Failed to parse PSML packet number: %v", err)
+						p.Unlock()
 						continue
 					}
 					p.PacketNumberMap[pidx] = len(p.packetPsmlData)
@@ -770,7 +771,7 @@ func (p *PsmlLoader) PacketsPerLoad() int {
 }
 
 func (p *PsmlLoader) stopLoadPsml() {
-	p.psmlStoppedDeliberately_ = true
+	p.psmlStoppedDeliberately_.Store(true)
 	if p.psmlCancelFn != nil {
 		p.psmlCancelFn()
 	}

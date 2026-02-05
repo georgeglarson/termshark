@@ -226,8 +226,8 @@ func TestParentLoader_CloseMain(t *testing.T) {
 
 	loader.CloseMain()
 
-	assert.True(t, loader.psmlStoppedDeliberately_)
-	assert.True(t, loader.pdmlStoppedDeliberately_)
+	assert.True(t, loader.psmlStoppedDeliberately_.Load())
+	assert.True(t, loader.pdmlStoppedDeliberately_.Load())
 	assert.Nil(t, loader.mainCancelFn)
 }
 
@@ -895,7 +895,7 @@ func TestParentLoader_PsmlStoppedDeliberately(t *testing.T) {
 
 	assert.False(t, loader.PsmlStoppedDeliberately())
 
-	loader.psmlStoppedDeliberately_ = true
+	loader.psmlStoppedDeliberately_.Store(true)
 	assert.True(t, loader.PsmlStoppedDeliberately())
 }
 
@@ -906,7 +906,7 @@ func TestParentLoader_TailStoppedDeliberately(t *testing.T) {
 
 	assert.False(t, loader.TailStoppedDeliberately())
 
-	loader.tailStoppedDeliberately = true
+	loader.tailStoppedDeliberately.Store(true)
 	assert.True(t, loader.TailStoppedDeliberately())
 }
 
@@ -917,7 +917,7 @@ func TestParentLoader_LoadWasCancelled(t *testing.T) {
 
 	assert.False(t, loader.LoadWasCancelled())
 
-	loader.loadWasCancelled = true
+	loader.loadWasCancelled.Store(true)
 	assert.True(t, loader.LoadWasCancelled())
 }
 
@@ -982,15 +982,15 @@ func TestParentLoader_StopLoadPsmlAndIface(t *testing.T) {
 	loader.RenewIfaceLoader()
 
 	// Initially not stopped
-	assert.False(t, loader.psmlStoppedDeliberately_)
-	assert.False(t, loader.loadWasCancelled)
+	assert.False(t, loader.psmlStoppedDeliberately_.Load())
+	assert.False(t, loader.loadWasCancelled.Load())
 
 	// Call stop
 	loader.StopLoadPsmlAndIface(nil)
 
 	// Should set flags
-	assert.True(t, loader.psmlStoppedDeliberately_)
-	assert.True(t, loader.loadWasCancelled)
+	assert.True(t, loader.psmlStoppedDeliberately_.Load())
+	assert.True(t, loader.loadWasCancelled.Load())
 }
 
 //======================================================================
@@ -1147,10 +1147,10 @@ func TestPdmlLoader_HighestCachedRowField(t *testing.T) {
 	runner := NewMockMainRunner(true)
 	loader := NewPcapLoader(cmds, runner)
 
-	assert.Equal(t, -1, loader.PdmlLoader.highestCachedRow)
+	assert.Equal(t, int32(-1), loader.PdmlLoader.highestCachedRow.Load())
 
-	loader.PdmlLoader.highestCachedRow = 500
-	assert.Equal(t, 500, loader.PdmlLoader.highestCachedRow)
+	loader.PdmlLoader.highestCachedRow.Store(500)
+	assert.Equal(t, int32(500), loader.PdmlLoader.highestCachedRow.Load())
 }
 
 //======================================================================

@@ -23,6 +23,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mreiferson/go-snappystream v0.2.3
 	github.com/psanford/wormhole-william v1.0.6-0.20210402190004-049df45b8d5a
+	github.com/rakyll/statik v0.1.7
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0

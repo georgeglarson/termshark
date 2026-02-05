@@ -71,7 +71,10 @@ func GzipPdmlPacket(p PdmlPacket) IPdmlPacket {
 		log.Warnf("Failed to encode packet for cache: %v", err)
 		return p // return uncompressed as fallback
 	}
-	gwriter.Close()
+	if err := gwriter.Close(); err != nil {
+		log.Warnf("Failed to close gzip writer: %v", err)
+		return p
+	}
 	return res
 }
 
@@ -115,7 +118,9 @@ func SnappyMe(p any, w io.Writer) error {
 	if err := encoder.Encode(p); err != nil {
 		return fmt.Errorf("snappy encode: %w", err)
 	}
-	gwriter.Close()
+	if err := gwriter.Close(); err != nil {
+		return fmt.Errorf("snappy close: %w", err)
+	}
 	return nil
 }
 

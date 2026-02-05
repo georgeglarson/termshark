@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync/atomic"
 
 	"github.com/gcla/gowid"
 	"github.com/gcla/termshark/v2"
@@ -34,10 +35,6 @@ func init() {
 
 //======================================================================
 
-
-type RunFn func()
-
-//======================================================================
 
 type LoaderState bool
 
@@ -80,7 +77,7 @@ type ParentLoader struct {
 
 	cmds ILoaderCmds
 
-	tailStoppedDeliberately bool // true if tail is stopped because its packet feed has run out
+	tailStoppedDeliberately atomic.Bool // true if tail is stopped because its packet feed has run out
 
 	psrcs         []IPacketSource // The canonical struct for the loader's current packet source.
 	displayFilter string
@@ -91,7 +88,7 @@ type ParentLoader struct {
 	mainCtx      context.Context // cancelling this cancels the dependent contexts - used to close whole loader.
 	mainCancelFn context.CancelFunc
 
-	loadWasCancelled bool // True if the last load (iface or file) was halted by the stop button or ctrl-c
+	loadWasCancelled atomic.Bool // True if the last load (iface or file) was halted by the stop button or ctrl-c
 
 	runner IMainRunner
 	opt    Options // held only to pass to the PDML and PSML loaders when renewed
@@ -183,13 +180,14 @@ func (c *ParentLoader) RenewPsmlLoader() {
 }
 
 func (c *ParentLoader) RenewPdmlLoader() {
-	c.PdmlLoader = &PdmlLoader{
+	pdml := &PdmlLoader{
 		PcapPdml:            c.PcapPdml,
 		PcapPcap:            c.PcapPcap,
 		rowCurrentlyLoading: -1,
-		highestCachedRow:    -1,
 		opt:                 c.opt,
 	}
+	pdml.highestCachedRow.Store(-1)
+	c.PdmlLoader = pdml
 }
 
 func (c *ParentLoader) RenewIfaceLoader() {
@@ -227,15 +225,15 @@ func (p *ParentLoader) PacketSources() []IPacketSource {
 }
 
 func (p *ParentLoader) PsmlStoppedDeliberately() bool {
-	return p.psmlStoppedDeliberately_
+	return p.psmlStoppedDeliberately_.Load()
 }
 
 func (p *ParentLoader) TailStoppedDeliberately() bool {
-	return p.tailStoppedDeliberately
+	return p.tailStoppedDeliberately.Load()
 }
 
 func (p *ParentLoader) LoadWasCancelled() bool {
-	return p.loadWasCancelled
+	return p.loadWasCancelled.Load()
 }
 
 func (p *ParentLoader) Commands() ILoaderCmds {
@@ -253,8 +251,8 @@ func (p *ParentLoader) MainRun(fn gowid.RunFunction) {
 // CloseMain shuts down the whole loader, including progress monitoring goroutines. Use this only
 // when about to load a new pcap (use a new loader)
 func (c *ParentLoader) CloseMain() {
-	c.psmlStoppedDeliberately_ = true
-	c.pdmlStoppedDeliberately_ = true
+	c.psmlStoppedDeliberately_.Store(true)
+	c.pdmlStoppedDeliberately_.Store(true)
 	if c.mainCancelFn != nil {
 		c.mainCancelFn()
 		c.mainCancelFn = nil
@@ -264,8 +262,8 @@ func (c *ParentLoader) CloseMain() {
 func (c *ParentLoader) StopLoadPsmlAndIface(cb Callback) {
 	log.Infof("Requested stop psml + iface")
 
-	c.psmlStoppedDeliberately_ = true
-	c.loadWasCancelled = true
+	c.psmlStoppedDeliberately_.Store(true)
+	c.loadWasCancelled.Store(true)
 
 	c.stopTail()
 	c.stopLoadPsml()
@@ -347,7 +345,7 @@ func (c *PacketLoader) ClearPcap(cb Callback) {
 
 	if c.InterfaceLoader != nil {
 		// Don't restart if the previous interface load was deliberately cancelled
-		if !c.loadWasCancelled {
+		if !c.loadWasCancelled.Load() {
 			startIfaceAgain = true
 			for _, psrc := range c.psrcs {
 				startIfaceAgain = startIfaceAgain && CanRestart(psrc) // Only try to restart if the packet source allows
@@ -360,7 +358,7 @@ func (c *PacketLoader) ClearPcap(cb Callback) {
 	// We may not have anything running, but it's ok - then the op channel
 	// will be enabled
 	if !startIfaceAgain {
-		c.loadWasCancelled = true
+		c.loadWasCancelled.Store(true)
 	}
 	c.stopTail()
 	c.stopLoadPsml()
@@ -369,7 +367,7 @@ func (c *PacketLoader) ClearPcap(cb Callback) {
 	// When stop is done, launch the clear and restart
 	OpsChan <- gowid.RunFunction(func(app gowid.IApp) {
 		// Don't CloseMain - that will stop the interface process too
-		c.loadWasCancelled = false
+		c.loadWasCancelled.Store(false)
 		c.RenewPsmlLoader()
 		c.RenewPdmlLoader()
 
@@ -512,7 +510,7 @@ func (c *ParentLoader) loadIsNecessary(ev LoadPcapSlice) bool {
 
 // Assumes this is a clean stop, not an error
 func (p *ParentLoader) stopTail() {
-	p.tailStoppedDeliberately = true
+	p.tailStoppedDeliberately.Store(true)
 	if p.tailCancelFn != nil {
 		p.tailCancelFn()
 	}
@@ -558,8 +556,7 @@ Loop:
 					}
 				} else {
 					mloader.RenewPdmlLoader()
-					// ops?
-					mloader.loadPcapSync(ev.Row, ev.CancelCurrent, mloader, cb, app)
+										mloader.loadPcapSync(ev.Row, true, mloader, cb, app)
 					requests = requests[1:]
 				}
 				break Loop

@@ -209,7 +209,9 @@ func packetNumberFromCurrentTableRow() (termshark.JumpPos, error) {
 
 func tableRowFromPacketNumber(savedPacket int) (int, error) {
 	// Map e.g. packet number #123 to the index in the PSML array - e.g. index 10 (order of psml load)
+	Loader.PsmlLoader.Lock()
 	packetRowId, ok := Loader.PacketNumberMap[savedPacket]
+	Loader.PsmlLoader.Unlock()
 	if !ok {
 		return -1, fmt.Errorf("Error finding packet %v", savedPacket)
 	}
@@ -399,7 +401,10 @@ func vimKeysMainView(evk *tcell.EventKey, app gowid.IApp) bool {
 				savedPacket := lastJumpPos
 				if savedPacket != -1 {
 					// Map that packet number #123 to the index in the PSML array - e.g. index 10 (order of psml load)
-					if packetRowId, ok := Loader.PacketNumberMap[savedPacket]; !ok {
+					Loader.PsmlLoader.Lock()
+					packetRowId, ok := Loader.PacketNumberMap[savedPacket]
+					Loader.PsmlLoader.Unlock()
+					if !ok {
 						OpenError(fmt.Sprintf("Error finding packet %v", savedPacket), app)
 					} else {
 						// This psml order is also the table RowId order. The table might be sorted though, so

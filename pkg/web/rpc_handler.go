@@ -75,7 +75,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				default:
 					b, err := json.Marshal(req.Params)
 					if err == nil {
-						json.Unmarshal(b, &p)
+						_ = json.Unmarshal(b, &p)
 					}
 				}
 			}
@@ -138,7 +138,7 @@ func (s *Server) handleRegistryRequest(req JSONRPCRequest, clientSt *clientState
 		default:
 			b, err := json.Marshal(req.Params)
 			if err == nil {
-				json.Unmarshal(b, &p)
+				_ = json.Unmarshal(b, &p)
 			}
 		}
 	}
@@ -252,7 +252,7 @@ func (s *Server) handleManagerRequestWithManager(req JSONRPCRequest, manager *st
 		default:
 			b, err := json.Marshal(req.Params)
 			if err == nil {
-				json.Unmarshal(b, &p)
+				_ = json.Unmarshal(b, &p)
 			}
 		}
 	}
@@ -417,7 +417,7 @@ func (s *Server) handleManagerRequest(req JSONRPCRequest) (json.RawMessage, erro
 			// Try to convert via JSON
 			b, err := json.Marshal(req.Params)
 			if err == nil {
-				json.Unmarshal(b, &p)
+				_ = json.Unmarshal(b, &p)
 			}
 		}
 	}

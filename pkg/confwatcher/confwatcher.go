@@ -26,7 +26,7 @@ type ConfigWatcher struct {
 func New() (*ConfigWatcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	change := make(chan struct{})
