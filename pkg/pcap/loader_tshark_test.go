@@ -11,11 +11,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/gcla/gowid"
 	"github.com/gcla/termshark/v2"
 	"github.com/gcla/termshark/v2/pkg/lifecycle"
 
@@ -30,96 +32,87 @@ func init() {
 }
 
 //======================================================================
+// Test callback handler
+//======================================================================
 
-// Test using same commands that termshark uses - load 1.pcap. Also tests re-use of a loader.
-func TestRealProcs(t *testing.T) {
-	loader := NewPcapLoader(Commands{})
-	// Make sure we can re-use the same loader, because that's what termshark does
-	for range 3 {
-		assert.NotEqual(t, nil, loader)
+type testCallbacks struct {
+	errors []error
+}
 
-		// Save now because when psml load finishes, a new one is created
-		psmlFinChan := loader.PsmlFinishedChan
-		pdmlFinChan := loader.Stage2FinishedChan
+var _ IOnError = (*testCallbacks)(nil)
 
-		fmt.Printf("about to load real pcap\n")
-		updater := struct {
-			*pdmlAction
-			*waitForEnd
-			//*whenIdler
-		}{
-			newPdmlAction(), newWaitForEnd(),
-		}
-		loader.doLoadPcapOperation("testdata/1.pcap", "", updater, func() {})
-
-		<-updater.end
-		fmt.Printf("done loading real pcap\n")
-
-		assert.Equal(t, 18, len(loader.PacketPsmlData))
-		assert.Equal(t, "192.168.86.246", loader.PacketPsmlData[0][2])
-
-		<-psmlFinChan
-		assert.Equal(t, LoaderState(LoadingPsml), loader.State())
-		loader.SetState(loader.State() & ^LoadingPsml)
-
-		// No pdml yet
-		_, ok := loader.PacketCache.Get(0)
-		assert.Equal(t, false, ok)
-
-		updater = struct {
-			*pdmlAction
-			*waitForEnd
-		}{
-			newPdmlAction(), newWaitForEnd(),
-		}
-		instructions := []LoadPcapSlice{{0, false}}
-
-		// Won't work yet because state needs to be LoadingPdml - so call again below
-		instructionsAfter := ProcessPdmlRequests(instructions, loader, updater)
-		assert.Equal(t, LoaderState(LoadingPdml), loader.State())
-		assert.Equal(t, 1, len(instructionsAfter)) // not done yet - need to get to right state
-
-		// Load first 1000 rows of pcap as pdml+pcap
-		instructionsAfter = ProcessPdmlRequests(instructions, loader, updater)
-		<-pdmlFinChan
-		assert.Equal(t, LoaderState(LoadingPdml), loader.State())
-		loader.SetState(loader.State() & ^LoadingPdml) // manually reset state, termshark handles this
-		assert.Equal(t, 0, len(instructionsAfter))
-
-		cei, ok := loader.PacketCache.Get(0)
-		assert.Equal(t, true, ok)
-		ce := cei.(CacheEntry)
-		assert.Equal(t, true, ce.PdmlComplete)
-		assert.Equal(t, true, ce.PcapComplete)
-		assert.Equal(t, 18, len(ce.Pdml))
-		assert.Equal(t, 18, len(ce.Pcap))
-
-		assert.Equal(t, loader.State(), LoaderState(0))
-
-		// Now clear for next run
-		fmt.Printf("ABOUT TO CLEAR\n")
-		waitForClear := newWaitForClear()
-		loader.doClearPcapOperation(waitForClear, func() {})
-
-		assert.Equal(t, loader.State(), LoaderState(0))
-		// for _, fn := range waitForClear.idle {
-		// 	fn()
-		// }
-		<-waitForClear.end
-
-		_, ok = loader.PacketCache.Get(0)
-		assert.Equal(t, false, ok)
-
-		// So that the next run isn't rejected for being the same
-		fmt.Printf("clearing filename state\n")
-		loader.pcap = ""
-		loader.displayFilter = ""
-	}
+func (c *testCallbacks) OnError(_ HandlerCode, _ gowid.IApp, err error) {
+	c.errors = append(c.errors, err)
 }
 
 //======================================================================
+// iStopLoop - controls when fake packet generation stops
+//======================================================================
 
-// an io.Reader that will never hit EOF and will provide data like reading from an interface
+type iStopLoop interface {
+	shouldStop() error
+}
+
+//======================================================================
+// loopReader - reads from a maker function, looping up to `loops` times
+//======================================================================
+
+type bodyMakerFn func() io.ReadCloser
+
+type loopReader struct {
+	maker   bodyMakerFn
+	loops   int
+	stopper iStopLoop
+	body    io.ReadCloser
+	numdone int
+}
+
+var _ io.Reader = (*loopReader)(nil)
+
+func newLoopReader(maker bodyMakerFn, loops int, stopper iStopLoop) *loopReader {
+	res := &loopReader{
+		maker:   maker,
+		loops:   loops,
+		stopper: stopper,
+	}
+	res.body = maker()
+	return res
+}
+
+func (r *loopReader) Read(p []byte) (int, error) {
+	read := 0
+	for read < len(p) {
+		if r.numdone == r.loops {
+			return read, io.EOF
+		}
+		req := len(p[read:])
+		n, err := r.body.Read(p[read:])
+		read += n
+		if err != nil {
+			if err != io.EOF {
+				return read, err
+			}
+			r.numdone += 1 // EOF
+			r.body.Close()
+			r.body = r.maker()
+			if r.stopper != nil {
+				err = r.stopper.shouldStop()
+				if err != nil {
+					return read, err
+				}
+			}
+		} else if n < req {
+			break
+		}
+	}
+
+	return read, nil
+}
+
+//======================================================================
+// pcapLooper - an io.Reader that loops pcap body data forever (until stopper)
+//======================================================================
+
 type pcapLooper struct {
 	io.Reader
 }
@@ -147,6 +140,8 @@ func newPcapLooper(prefix string, suffix string, stopper iStopLoop) *pcapLooper 
 	return res
 }
 
+//======================================================================
+// hackedPacket - a packet with a controllable source port
 //======================================================================
 
 var hdr []byte = []byte{
@@ -191,11 +186,11 @@ func (r *hackedPacket) Read(p []byte) (int, error) {
 			}
 		}
 
-		data := []byte(pkt)
-		p := r.port()
-		data[r.idx+1] = byte(p & 0xff)
-		data[r.idx+0] = byte((p & 0xff00) >> 8)
-		//r.actual = strings.NewReader(string(data))
+		data := make([]byte, len(pkt))
+		copy(data, pkt)
+		port := r.port()
+		data[r.idx+1] = byte(port & 0xff)
+		data[r.idx+0] = byte((port & 0xff00) >> 8)
 		r.actual = bytes.NewReader(data)
 	}
 	resi, rese := r.actual.Read(p)
@@ -212,88 +207,76 @@ func newPortLooper(pfn portfn, stopper iStopLoop) io.Reader {
 }
 
 //======================================================================
+// fakeIfaceCmd - writes pcap data from an io.Reader to a tmpfile
+//======================================================================
 
 type fakeIfaceCmd struct {
-	*simpleCmd
-	output io.Writer
-	input  io.Reader
+	input   io.Reader
+	tmpfile string
+	waitCh  chan error
 }
 
-func newLoopingIfaceCmd(prefix string, stopper iStopLoop) *fakeIfaceCmd {
-	return &fakeIfaceCmd{
-		simpleCmd: newSimpleCmd(strings.NewReader("")),
-		input:     newPcapLooper(prefix, "pcap", stopper), // loop forever until stopper signals to end
-	}
-}
+var _ IBasicCommand = (*fakeIfaceCmd)(nil)
 
-func newHackedIfaceCmd(pfn portfn, stopper iStopLoop) *fakeIfaceCmd {
-	return &fakeIfaceCmd{
-		simpleCmd: newSimpleCmd(strings.NewReader("")),
-		input:     newPortLooper(pfn, stopper), // loop forever until stopper signals to end
-	}
-}
+func (f *fakeIfaceCmd) String() string        { return "fake-dumpcap" }
+func (f *fakeIfaceCmd) Pid() int              { return 12345 }
+func (f *fakeIfaceCmd) StderrSummary() []string { return nil }
 
 func (f *fakeIfaceCmd) Start() error {
-	err := f.simpleCmd.Start()
-	if err != nil {
-		return err
-	}
+	f.waitCh = make(chan error, 1)
 	termshark.Go(func() {
-		_, err := io.Copy(f.output, f.input)
+		// Give waitForFileData time to set up the inotify watcher
+		time.Sleep(200 * time.Millisecond)
+		file, err := os.OpenFile(f.tmpfile, os.O_WRONLY|os.O_CREATE, 0644)
 		if err != nil {
-			//panic(err)
-			//log.Infof("GCLA: err is %T", err)
+			f.waitCh <- err
+			return
 		}
+		defer file.Close()
+		_, _ = io.Copy(file, f.input)
+		f.waitCh <- nil
 	})
 	return nil
 }
 
+func (f *fakeIfaceCmd) Wait() error {
+	return <-f.waitCh
+}
+
 func (f *fakeIfaceCmd) Kill() error {
-	return f.simpleCmd.Kill()
-}
-
-func (f *fakeIfaceCmd) Signal(s os.Signal) error {
-	return f.Kill()
-}
-
-func (f *fakeIfaceCmd) StdoutPipe() (io.ReadCloser, error) {
-	panic("StdoutPipe not implemented in fakeIfaceCmd")
-}
-
-func (f *fakeIfaceCmd) Stdout() io.Writer {
-	return f.output
-}
-
-func (f *fakeIfaceCmd) SetStdout(w io.WriteCloser) {
-	f.output = w
+	return nil
 }
 
 //======================================================================
+// Fake interface command factories
+//======================================================================
+
+type IIface interface {
+	Iface(ifaces []string, captureFilter string, tmpfile string) IBasicCommand
+}
 
 type fakeIface struct {
 	prefix  string
 	stopper iStopLoop
 }
 
-func (f *fakeIface) Iface(iface string, filter string, tmpfile string) IBasicCommand {
-	return newLoopingIfaceCmd(f.prefix, f.stopper)
+func (f *fakeIface) Iface(_ []string, _ string, tmpfile string) IBasicCommand {
+	return &fakeIfaceCmd{
+		input:   newPcapLooper(f.prefix, "pcap", f.stopper),
+		tmpfile: tmpfile,
+	}
 }
-
-//======================================================================
 
 type hackedIface struct {
 	stopper iStopLoop
 	pfn     portfn
 }
 
-func (f *hackedIface) Iface(iface string, filter string, tmpfile string) IBasicCommand {
-	return newHackedIfaceCmd(f.pfn, f.stopper)
-}
-
-//======================================================================
-
-type IIface interface {
-	Iface(iface string, filter string, tmpfile string) IBasicCommand
+func (f *hackedIface) Iface(_ []string, _ string, tmpfile string) IBasicCommand {
+	return &fakeIfaceCmd{
+		input:   newPortLooper(f.pfn, f.stopper),
+		tmpfile: tmpfile,
+	}
 }
 
 type fakeIfaceCommands struct {
@@ -303,10 +286,12 @@ type fakeIfaceCommands struct {
 
 var _ ILoaderCmds = fakeIfaceCommands{}
 
-func (c fakeIfaceCommands) Iface(iface string, captureFilter string, tmpfile string) IBasicCommand {
-	return c.fake.Iface(iface, captureFilter, tmpfile)
+func (c fakeIfaceCommands) Iface(ifaces []string, captureFilter string, tmpfile string) IBasicCommand {
+	return c.fake.Iface(ifaces, captureFilter, tmpfile)
 }
 
+//======================================================================
+// Stopper types for controlling packet generation
 //======================================================================
 
 type inputStoppedError struct{}
@@ -339,6 +324,79 @@ func (s *waitForAnswer) shouldStop() error {
 
 //======================================================================
 
+// Test using real tshark commands - load testdata/1.pcap, verify PSML and
+// PDML data. Also tests re-use of a loader across multiple loads.
+func TestRealProcs(t *testing.T) {
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(Commands{}, runner)
+
+	// Make sure we can re-use the same loader, because that's what termshark does
+	for range 3 {
+		assert.NotNil(t, loader)
+
+		psmlFinChan := loader.PsmlLoader.PsmlFinishedChan
+
+		// Set up state like LoadPcap does internally
+		loader.psrcs = []IPacketSource{FileSource{Filename: "testdata/1.pcap"}}
+		loader.PcapPsml = "testdata/1.pcap"
+		loader.PcapPdml = "testdata/1.pcap"
+		loader.PcapPcap = "testdata/1.pcap"
+		loader.displayFilter = ""
+
+		fmt.Printf("about to load real pcap\n")
+		cb := &testCallbacks{}
+
+		loader.PsmlLoader.loadPsmlSync(nil, loader, cb, nil)
+
+		<-psmlFinChan
+		fmt.Printf("done loading real pcap\n")
+
+		assert.Empty(t, cb.errors, "unexpected errors during PSML load: %v", cb.errors)
+		assert.False(t, loader.PsmlLoader.IsLoading())
+
+		data := loader.PsmlLoader.PsmlData()
+		assert.Equal(t, 18, len(data))
+		assert.Equal(t, "192.168.86.246", data[0][2])
+
+		// No pdml yet
+		_, ok := loader.PsmlLoader.PacketCache.Get(0)
+		assert.Equal(t, false, ok)
+
+		// Load first 1000 rows of pcap as pdml+pcap
+		cb2 := &testCallbacks{}
+		instructions := []LoadPcapSlice{{Row: 0}}
+
+		instructionsAfter := ProcessPdmlRequests(instructions, loader, loader.PdmlLoader, cb2, nil)
+		assert.Equal(t, 0, len(instructionsAfter))
+
+		<-loader.PdmlLoader.Stage2FinishedChan
+		fmt.Printf("done loading PDML\n")
+
+		assert.Empty(t, cb2.errors, "unexpected errors during PDML load: %v", cb2.errors)
+		assert.False(t, loader.PdmlLoader.IsLoading())
+
+		cei, ok := loader.PsmlLoader.PacketCache.Get(0)
+		assert.Equal(t, true, ok)
+		ce := cei.(CacheEntry)
+		assert.Equal(t, true, ce.PdmlComplete)
+		assert.Equal(t, true, ce.PcapComplete)
+		assert.Equal(t, 18, len(ce.Pdml))
+		assert.Equal(t, 18, len(ce.Pcap))
+
+		// Now clear for next run
+		fmt.Printf("ABOUT TO CLEAR\n")
+		loader.RenewPsmlLoader()
+		loader.RenewPdmlLoader()
+		loader.psrcs = nil
+		loader.displayFilter = ""
+
+		_, ok = loader.PsmlLoader.PacketCache.Get(0)
+		assert.Equal(t, false, ok)
+	}
+}
+
+//======================================================================
+
 func TestIface1(t *testing.T) {
 	answerChan := make(chan chanerr)
 	getChan := func() <-chan chanerr {
@@ -351,20 +409,23 @@ func TestIface1(t *testing.T) {
 			ch: getChan,
 		},
 	}
+	runner := NewMockMainRunner(true)
 	loader := NewPcapLoader(fakeIfaceCommands{
 		fake: fakeIfaceCmd,
-	})
+	}, runner)
 
-	// Save now because when psml load finishes, a new one is created
-	psmlFinChan := loader.PsmlFinishedChan
-	//ifaceFinChan := loader.IfaceFinishedChan
+	psmlFinChan := loader.PsmlLoader.PsmlFinishedChan
 
-	updater := newWaitForEnd()
-	ch := make(chan struct{})
+	cb := &testCallbacks{}
+
+	tmpfile := filepath.Join(t.TempDir(), "test-iface1.pcap")
+	psrcs := []IPacketSource{InterfaceSource{Iface: "dummy"}}
+
+	loader.RenewIfaceLoader()
 
 	// Start the packet generation and reading process
-	loader.doLoadInterfaceOperation("dummy", "", "", updater, func() { close(ch) })
-	<-ch
+	err := loader.loadInterfaces(psrcs, "", "", tmpfile, cb, nil)
+	assert.NoError(t, err)
 
 	fmt.Printf("fake sleep\n")
 	time.Sleep(1 * time.Second)
@@ -379,51 +440,35 @@ func TestIface1(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	fmt.Printf("stopping iface read\n")
-	ch = make(chan struct{})
-	updater = newWaitForEnd()
-
-	// Stop the packet generation and reading process
-	loader.doStopLoadOperation(updater, func() {
-		close(ch)
-	})
+	// Close answerChan to stop packet production; the pipeline will
+	// drain naturally: iface finishes writing → tail reads all bytes →
+	// checkAllBytesRead triggers stopTail → tshark finishes → PSML done
 	close(answerChan)
+
 	fmt.Printf("waiting for loader to signal end\n")
 	<-psmlFinChan
 
 	fmt.Printf("done loading interface pcap\n")
 
-	assert.NotEqual(t, 0, len(loader.PacketPsmlData))
-	assert.Equal(t, read, len(loader.PacketPsmlData))
-	assert.Equal(t, "192.168.44.123", loader.PacketPsmlData[0][2])
+	data := loader.PsmlLoader.PsmlData()
+	assert.NotEqual(t, 0, len(data))
+	assert.Equal(t, read, len(data))
+	assert.Equal(t, "192.168.44.123", data[0][2])
 
-	assert.Equal(t, LoaderState(LoadingPsml|LoadingIface), loader.State())
-	loader.SetState(loader.State() & ^(LoadingPsml | LoadingIface))
+	assert.False(t, loader.PsmlLoader.IsLoading())
 
-	// After SetState call, state should be idle, meaning my channel will be closed at last
-	<-ch
-	fmt.Printf("waiting for updater end to signal end\n")
-	<-updater.end
-
-	// Now clear for next run
+	// Now clear
 	fmt.Printf("about to clear\n")
-	waitForClear := newWaitForClear()
-	ch = make(chan struct{})
-	loader.doClearPcapOperation(waitForClear, func() { close(ch) })
-	<-ch
-
-	assert.Equal(t, loader.State(), LoaderState(0))
-	// for _, fn := range waitForClear.idle {
-	// 	fn()
-	// }
-	<-waitForClear.end
-
-	assert.Equal(t, 0, len(loader.PacketPsmlData))
-
-	// So that the next run isn't rejected for being the same
-	fmt.Printf("clearing filename state\n")
-	loader.pcap = ""
+	loader.RenewPsmlLoader()
+	loader.RenewPdmlLoader()
+	loader.psrcs = nil
 	loader.displayFilter = ""
+
+	data = loader.PsmlLoader.PsmlData()
+	assert.Equal(t, 0, len(data))
 }
+
+//======================================================================
 
 func TestIfaceNewFilter(t *testing.T) {
 	port := 0
@@ -448,17 +493,22 @@ func TestIfaceNewFilter(t *testing.T) {
 	cmds := fakeIfaceCommands{
 		fake: hackedIfaceCmd,
 	}
-	loader := NewPcapLoader(cmds)
+	runner := NewMockMainRunner(true)
+	loader := NewPcapLoader(cmds, runner)
 
-	// Save now because when psml load finishes, a new one is created
-	psmlFinChan := loader.PsmlFinishedChan
+	psmlFinChan := loader.PsmlLoader.PsmlFinishedChan
 
 	filtcount := 1000
-	updater := newWaitForEnd()
-	fmt.Printf("buggy foo doing load interface op\n")
-	ch := make(chan struct{})
-	loader.doLoadInterfaceOperation("dummy", "", fmt.Sprintf("frame.number <= %d", filtcount), updater, func() { close(ch) })
-	<-ch
+	cb := &testCallbacks{}
+
+	tmpfile := filepath.Join(t.TempDir(), "test-iface-filter.pcap")
+	psrcs := []IPacketSource{InterfaceSource{Iface: "dummy"}}
+
+	loader.RenewIfaceLoader()
+
+	fmt.Printf("doing load interface op with filter\n")
+	err := loader.loadInterfaces(psrcs, "", fmt.Sprintf("frame.number <= %d", filtcount), tmpfile, cb, nil)
+	assert.NoError(t, err)
 
 	fmt.Printf("fake sleep\n")
 	time.Sleep(1 * time.Second)
@@ -466,17 +516,13 @@ func TestIfaceNewFilter(t *testing.T) {
 	read := 30000
 	fmt.Printf("fake reading %d packets from looper\n", read)
 	for i := 0; i < read; i++ {
-		//fmt.Printf("loop 1: sending answerchan for %d\n", i)
 		answerChan <- chanerr{err: nil, valid: true}
-		//fmt.Printf("loop 1: sending answerchan for %d\n", i)
 	}
 
 	fmt.Printf("fake giving processes time to catch up\n")
 	time.Sleep(2 * time.Second)
 
 	fmt.Printf("fake stopping iface read\n")
-	ch = make(chan struct{})
-	loader.doStopLoadToIfaceOperation(func() { close(ch) })
 	close(answerChan)
 
 	fmt.Printf("fake waiting for loader to signal end\n")
@@ -484,16 +530,17 @@ func TestIfaceNewFilter(t *testing.T) {
 
 	fmt.Printf("fake done loading interface pcap\n")
 
-	fmt.Printf("fake num packets was %d\n", len(loader.PacketPsmlData))
-	assert.NotEqual(t, 0, len(loader.PacketPsmlData))
-	assert.Equal(t, filtcount, len(loader.PacketPsmlData))
-	assert.Equal(t, "192.168.86.246", loader.PacketPsmlData[0][2])
+	data := loader.PsmlLoader.PsmlData()
+	fmt.Printf("fake num packets was %d\n", len(data))
+	assert.NotEqual(t, 0, len(data))
+	assert.Equal(t, filtcount, len(data))
+	assert.Equal(t, "192.168.86.246", data[0][2])
 
 	re, _ := regexp.Compile("^[0-9]+ ")
 
 	// Check the source port is correct for each packet read
 	for i := 0; i < filtcount; i++ {
-		s := loader.PacketPsmlData[i][6]
+		s := data[i][6]
 		if re.MatchString(s) { // rule out those where tshark converts port to name
 			pref := fmt.Sprintf("%d", i)
 			res := strings.HasPrefix(s, pref)
@@ -501,57 +548,40 @@ func TestIfaceNewFilter(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, LoaderState(LoadingPsml|LoadingIface), loader.State())
-	loader.SetState(loader.State() & ^LoadingPsml)
+	assert.False(t, loader.PsmlLoader.IsLoading())
 
-	// Now SetState called, can get these channel results
-	fmt.Printf("fake waiting for updater end to signal end\n")
-	<-updater.end
-	<-ch
+	//======================================================================
+	// Second pass: reload from tmpfile with a new display filter.
+	// The first pass captured packets to tmpfile. We now re-read that
+	// file with a different filter to test filter reapplication.
+	//======================================================================
 
-	// Now reload with new filter
+	// Reset for second pass - reload from the captured tmpfile as a pcap file
+	loader.RenewPsmlLoader()
+	loader.RenewPdmlLoader()
+	psmlFinChan = loader.PsmlLoader.PsmlFinishedChan
 
-	// Save now because when psml load finishes, a new one is created
-	psmlFinChan = loader.PsmlFinishedChan
+	// Read from the tmpfile created by the first pass (it has 30000 packets)
+	loader.psrcs = []IPacketSource{FileSource{Filename: tmpfile}}
+	loader.PcapPsml = tmpfile
+	loader.PcapPdml = tmpfile
+	loader.PcapPcap = tmpfile
+	loader.displayFilter = fmt.Sprintf("frame.number > 500 && frame.number <= %d", filtcount+500)
 
-	answerChan = make(chan chanerr)
-	filtcount = 1000
-	port = 0
-	updater = newWaitForEnd()
+	cb2 := &testCallbacks{}
+	loader.PsmlLoader.loadPsmlSync(nil, loader, cb2, nil)
 
-	fmt.Printf("buggy foo fake doing load interface op\n")
-	ch = make(chan struct{})
-	loader.doLoadInterfaceOperation("dummy", "", fmt.Sprintf("frame.number > 500 && frame.number <= %d", filtcount+500), updater, func() { close(ch) })
-	<-ch
-	//loader.doLoadInterfaceOperation("dummy", fmt.Sprintf("frame.number <= %d", filtcount+1), gwtest.D, updater)
-
-	fmt.Printf("fake sleep 22\n")
-	time.Sleep(1 * time.Second)
-
-	// The iface reader doesn't need to read more packets - we are only applying a new filter
-
-	fmt.Printf("loop 2: fake giving processes time to catch up\n")
-	time.Sleep(2 * time.Second)
-
-	fmt.Printf("loop 2: fake stopping iface read\n")
-	ich := loader.IfaceFinishedChan // save the channel here, because it is reassigned before closing
-	updater = newWaitForEnd()
-	ch = make(chan struct{})
-	loader.doStopLoadOperation(updater, func() { close(ch) })
-	// in case the read is blocked here
-	close(answerChan)
-
-	fmt.Printf("loop 2: fake waiting for loader to signal end\n")
+	fmt.Printf("loop 2: waiting for loader to signal end\n")
 	<-psmlFinChan
 
-	fmt.Printf("fake num packets was %d\n", len(loader.PacketPsmlData))
-	assert.NotEqual(t, 0, len(loader.PacketPsmlData))
-	assert.Equal(t, filtcount, len(loader.PacketPsmlData))
-	// assert.Equal(t, "192.168.86.246", loader.PacketPsmlData[0][2])
+	data = loader.PsmlLoader.PsmlData()
+	fmt.Printf("fake num packets was %d\n", len(data))
+	assert.NotEqual(t, 0, len(data))
+	assert.Equal(t, filtcount, len(data))
 
 	// Check the source port is correct for each packet read
 	for i := 0; i < filtcount; i++ {
-		s := loader.PacketPsmlData[i][6]
+		s := data[i][6]
 		if re.MatchString(s) { // rule out those where tshark converts port to name
 			pref := fmt.Sprintf("%d", i+500)
 			res := strings.HasPrefix(s, pref)
@@ -559,34 +589,35 @@ func TestIfaceNewFilter(t *testing.T) {
 		}
 	}
 
-	// stop iface
-	fmt.Printf("fake waiting for iface to stop\n")
-	//loader.stopLoadIface()
-	<-ich
-	fmt.Printf("fake iface stopped\n")
+	assert.False(t, loader.PsmlLoader.IsLoading())
 
-	assert.Equal(t, LoaderState(LoadingPsml|LoadingIface), loader.State())
-	loader.SetState(0)
+	// Final cleanup
+	loader.RenewPsmlLoader()
+	loader.RenewPdmlLoader()
+	loader.psrcs = nil
+	loader.displayFilter = ""
 
-	<-ch
-	fmt.Printf("loop 2: waiting for updater end to signal end\n")
-	<-updater.end
-	fmt.Printf("loop 2: done loading interface pcap\n")
-
-	// Now clear and test
-	fmt.Printf("loop 2: about to clear\n")
-	waitForClear := newWaitForClear()
-	ch = make(chan struct{})
-	loader.doClearPcapOperation(waitForClear, func() { close(ch) })
-	<-ch
-
-	assert.Equal(t, loader.State(), LoaderState(0))
-	<-waitForClear.end
-
-	assert.Equal(t, 0, len(loader.PacketPsmlData))
+	data = loader.PsmlLoader.PsmlData()
+	assert.Equal(t, 0, len(data))
 }
 
 //======================================================================
+
+func TestKeepThisLast(t *testing.T) {
+	fmt.Printf("Waiting for test goroutines to stop\n")
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-done:
+			return
+		case <-time.After(10 * time.Second):
+			assert.FailNow(t, "Not all test goroutines terminated in 10s")
+		}
+	}()
+	termshark.Tracker().Wait()
+	close(done)
+	fmt.Printf("Done waiting for test goroutines to stop\n")
+}
 
 func TestKeepThisLast2(t *testing.T) {
 	TestKeepThisLast(t)

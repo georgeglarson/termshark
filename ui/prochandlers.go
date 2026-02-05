@@ -83,8 +83,9 @@ func (t updatePacketViews) BeforeBegin(code pcap.HandlerCode, app gowid.IApp) {
 	}
 	ch2 := Loader.PsmlFinishedChan
 	clearPacketViews(app)
-	t.Ld.PsmlLoader.Lock()
-	defer t.Ld.PsmlLoader.Unlock()
+	// Don't lock PsmlLoader here - setPacketListWidgets calls methods
+	// (PsmlHeaders, PsmlColors, etc.) that acquire the lock themselves.
+	// Locking here would deadlock since Go's sync.Mutex is not reentrant.
 	setPacketListWidgets(t.Ld, app)
 
 	// Start this after widgets have been cleared, to get focus change
