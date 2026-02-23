@@ -256,11 +256,23 @@ func (w *ColumnsFromTshark) InitNoCache() error {
 
 	scanner := bufio.NewScanner(out)
 	for scanner.Scan() {
-		fields := whitespaceRe.Split(scanner.Text(), 2)
-		if len(fields) == 2 && strings.HasPrefix(fields[0], "%") {
+		// tshark -G column-formats outputs tab-separated fields:
+		// TOKEN\tNAME[\tFIELD_NAME]
+		// Newer tshark versions (4.6+) include a third column.
+		// Split on tab first; fall back to whitespace for older versions.
+		line := scanner.Text()
+		var token, name string
+		if parts := strings.SplitN(line, "\t", 3); len(parts) >= 2 {
+			token = strings.TrimSpace(parts[0])
+			name = strings.TrimSpace(parts[1])
+		} else if parts := whitespaceRe.Split(line, 2); len(parts) == 2 {
+			token = parts[0]
+			name = parts[1]
+		}
+		if token != "" && strings.HasPrefix(token, "%") {
 			w.fields = append(w.fields, PsmlColumnSpec{
-				Field: PsmlField{Token: fields[0]},
-				Name:  fields[1],
+				Field: PsmlField{Token: token},
+				Name:  name,
 			})
 		}
 	}
