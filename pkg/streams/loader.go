@@ -339,8 +339,8 @@ func decodeStreamXml(streamOut io.Reader, proto string, ctx context.Context, cb 
 		if tokenErr != nil {
 			if errors.Is(tokenErr, io.EOF) {
 				res = true
-				break
 			}
+			break
 		}
 		switch t := t.(type) {
 		case xml.EndElement:

@@ -208,6 +208,9 @@ func (p *Model) UDPStreamIndex() gwutil.IntOption {
 // Return None if not TCP
 func (p *Model) streamIndex(proto string) gwutil.IntOption {
 	var res gwutil.IntOption
+	if p.QueryModel == nil {
+		return res
+	}
 	if showNode := xmlquery.FindOne(p.QueryModel, fmt.Sprintf("//field[@name='%s.stream']/@show", proto)); showNode != nil {
 		idx, err := strconv.Atoi(showNode.InnerText())
 		if err != nil {
