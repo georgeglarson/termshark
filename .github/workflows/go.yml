@@ -17,7 +17,11 @@ jobs:
       uses: actions/checkout@v5
     - name: Format check
       run: |
-        unformatted=$(gofmt -l .)
+        # Check tracked .go files, excluding generated code (statik embeds
+        # assets and does not emit gofmt-clean output). `|| exit 1` surfaces a
+        # gofmt parse error instead of it looking clean via empty stdout.
+        files=$(git ls-files '*.go' | grep -v '^assets/statik/')
+        unformatted=$(gofmt -l $files) || exit 1
         if [ -n "$unformatted" ]; then
           echo "These files are not gofmt-clean:"
           echo "$unformatted"

@@ -341,7 +341,8 @@ func setPacketColorsWithSync(enabled bool) {
 	AppController.State.SetPacketColors(enabled)
 }
 
-// ======================================================================
+//======================================================================
+
 // calculateAndSyncPrefetchRequests uses the Controller's prefetch algorithm and syncs
 // with the CacheRequests global for backward compatibility.
 func calculateAndSyncPrefetchRequests(currentRow, pktsPerLoad int) {
