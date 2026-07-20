@@ -22,16 +22,16 @@ import (
 // fullScrollingListBox implements IScrollSubWidget with all optional interfaces
 type fullScrollingListBox struct {
 	*list.Widget
-	scrollPos    int
-	scrollLen    int
-	upCalled     int
-	downCalled   int
-	upPageCalled int
+	scrollPos      int
+	scrollLen      int
+	upCalled       int
+	downCalled     int
+	upPageCalled   int
 	downPageCalled int
-	homeCalled   bool
-	endCalled    bool
-	setPosCalled bool
-	setPosVal    int
+	homeCalled     bool
+	endCalled      bool
+	setPosCalled   bool
+	setPosVal      int
 }
 
 func (t *fullScrollingListBox) Up(lines int, size gowid.IRenderSize, app gowid.IApp) {

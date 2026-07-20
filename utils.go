@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"slices"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"text/template"
@@ -104,12 +104,9 @@ func ReverseStringSlice(s []string) {
 	}
 }
 
-
 func KeyPressIsPrintable(key gowid.IKey) bool {
 	return unicode.IsPrint(key.Rune()) && key.Modifiers() & ^tcell.ModShift == 0
 }
-
-
 
 // Must succeed - use on internal templates
 func TemplateToString(tmpl *template.Template, name string, data interface{}) string {

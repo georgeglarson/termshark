@@ -249,7 +249,6 @@ var foldersRE = regexp.MustCompile(`:\s*`)
 // Temp:                   /foo
 // Personal configuration: /home/gcla/.config/wireshark
 // Global configuration:   /usr/share/wireshark
-//
 func TsharkSetting(field string) (string, error) {
 	res, err := TsharkSettings(field)
 	if err != nil {
@@ -312,7 +311,6 @@ func WiresharkProfileNames() []string {
 //======================================================================
 
 // From http://blog.kamilkisiel.net/blog/2012/07/05/using-the-go-regexp-package/
-//
 type tsregexp struct {
 	*regexp.Regexp
 }

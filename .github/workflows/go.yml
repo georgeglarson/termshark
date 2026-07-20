@@ -15,6 +15,21 @@ jobs:
         go-version: '1.22'
     - name: Check out code
       uses: actions/checkout@v5
+    - name: Format check
+      run: |
+        # gofmt-check every tracked .go file except generated code. statik and
+        # the pigeon PEG parsers carry the standard "Code generated ... DO NOT
+        # EDIT." marker and do not emit gofmt-clean output, so a regeneration
+        # must not fail this gate; keying on the marker also covers any future
+        # generated file. Per-file so a gofmt parse error surfaces (via the
+        # non-zero exit) instead of an empty stdout looking clean.
+        fail=0
+        while IFS= read -r f; do
+          grep -qE '^// Code generated .* DO NOT EDIT\.$' "$f" && continue
+          out=$(gofmt -l "$f") || { echo "gofmt failed on $f"; fail=1; continue; }
+          [ -n "$out" ] && { echo "not gofmt-clean: $f"; fail=1; }
+        done < <(git ls-files '*.go')
+        [ "$fail" = 0 ]
     - name: Build
       run: go build -v ./...
     - name: Vet

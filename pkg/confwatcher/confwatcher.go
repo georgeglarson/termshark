@@ -9,8 +9,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/gcla/termshark/v2"
 	"github.com/fsnotify/fsnotify"
+	"github.com/gcla/termshark/v2"
 	log "github.com/sirupsen/logrus"
 )
 

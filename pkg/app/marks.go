@@ -131,7 +131,7 @@ func SetMark(state *State, mark rune, currentPacket int, summary string, current
 // Parameters:
 //   - state: the application state
 //   - mark: the mark character to jump to
-//   - currentPacket: the current packet position (saved for '' functionality)
+//   - currentPacket: the current packet position (saved for jump-to-previous-position)
 //   - currentPcap: the current pcap filename
 //
 // Returns a JumpResult indicating whether the jump can be performed
@@ -174,7 +174,7 @@ func JumpToMark(state *State, mark rune, currentPacket int, currentPcap string) 
 }
 
 // JumpToLastPosition jumps back to the last position before a mark jump.
-// This implements the '' (two single quotes) functionality.
+// This implements the vi jump-to-previous-position command (two single quotes).
 //
 // Parameters:
 //   - state: the application state

@@ -28,16 +28,16 @@ type Termshark struct {
 	CaptureFilter   string         `short:"f" description:"Apply capture filter." value-name:"<capture filter>"`
 	TimestampFormat string         `short:"t" description:"Set the format of the packet timestamp printed in summary lines." choice:"a" choice:"ad" choice:"adoy" choice:"d" choice:"dd" choice:"e" choice:"r" choice:"u" choice:"ud" choice:"udoy" value-name:"<timestamp format>"`
 	PlatformSwitches
-	Profile  string   `long:"profile" short:"C" description:"Start with this configuration profile." value-name:"<profile>"`
-	PassThru string   `long:"pass-thru" default:"auto" optional:"true" optional-value:"true" choice:"auto" choice:"true" choice:"false" description:"Run tshark instead (auto => if stdout is not a tty)."`
-	LogTty   bool     `long:"log-tty" optional:"true" optional-value:"true" description:"Log to the terminal."`
-	Debug    TriState `long:"debug" default:"unset" hidden:"true" optional:"true" optional-value:"true" description:"Enable termshark debugging. See https://github.com/georgeglarson/termshark/blob/master/docs/UserGuide.md"`
-	Help     bool     `long:"help" short:"h" optional:"true" optional-value:"true" description:"Show this help message."`
-	Version  []bool   `long:"version" short:"v" optional:"true" optional-value:"true" description:"Show version information."`
-	Web         bool   `long:"web" optional:"true" optional-value:"true" description:"Start web UI server instead of terminal UI."`
-	WebAddr     string `long:"web-addr" default:"127.0.0.1:8080" description:"Address for web server to listen on."`
-	WebSessions bool   `long:"web-sessions" optional:"true" optional-value:"true" description:"Enable multi-session mode for web UI (allows multiple users to share sessions)."`
-	SessionName string `long:"session-name" description:"Name for the session when using multi-session mode." value-name:"<name>"`
+	Profile     string   `long:"profile" short:"C" description:"Start with this configuration profile." value-name:"<profile>"`
+	PassThru    string   `long:"pass-thru" default:"auto" optional:"true" optional-value:"true" choice:"auto" choice:"true" choice:"false" description:"Run tshark instead (auto => if stdout is not a tty)."`
+	LogTty      bool     `long:"log-tty" optional:"true" optional-value:"true" description:"Log to the terminal."`
+	Debug       TriState `long:"debug" default:"unset" hidden:"true" optional:"true" optional-value:"true" description:"Enable termshark debugging. See https://github.com/georgeglarson/termshark/blob/master/docs/UserGuide.md"`
+	Help        bool     `long:"help" short:"h" optional:"true" optional-value:"true" description:"Show this help message."`
+	Version     []bool   `long:"version" short:"v" optional:"true" optional-value:"true" description:"Show version information."`
+	Web         bool     `long:"web" optional:"true" optional-value:"true" description:"Start web UI server instead of terminal UI."`
+	WebAddr     string   `long:"web-addr" default:"127.0.0.1:8080" description:"Address for web server to listen on."`
+	WebSessions bool     `long:"web-sessions" optional:"true" optional-value:"true" description:"Enable multi-session mode for web UI (allows multiple users to share sessions)."`
+	SessionName string   `long:"session-name" description:"Name for the session when using multi-session mode." value-name:"<name>"`
 
 	Args struct {
 		FilterOrPcap string `value-name:"<filter-or-file>" description:"Filter (capture for iface, display for pcap), or pcap to read."`

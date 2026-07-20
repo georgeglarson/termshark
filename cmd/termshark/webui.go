@@ -4,7 +4,6 @@
 
 package main
 
-
 import (
 	"context"
 	"fmt"
@@ -185,4 +184,3 @@ func (f *sharkdBackendFactory) Available() bool {
 	_, err := exec.LookPath("sharkd")
 	return err == nil
 }
-

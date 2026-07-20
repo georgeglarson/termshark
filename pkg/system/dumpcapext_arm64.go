@@ -3,8 +3,7 @@
 // file.
 
 //go:build !darwin && !linux
-// +build !darwin
-// +build !linux
+// +build !darwin,!linux
 
 package system
 

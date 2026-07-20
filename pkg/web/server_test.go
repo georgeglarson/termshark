@@ -1738,8 +1738,8 @@ func createTempPcap(t *testing.T) (string, error) {
 	// Minimal pcap global header (24 bytes) with no packets
 	pcapHeader := []byte{
 		0xd4, 0xc3, 0xb2, 0xa1, // Magic number (little-endian)
-		0x02, 0x00,             // Major version
-		0x04, 0x00,             // Minor version
+		0x02, 0x00, // Major version
+		0x04, 0x00, // Minor version
 		0x00, 0x00, 0x00, 0x00, // Timezone
 		0x00, 0x00, 0x00, 0x00, // Sigfigs
 		0xff, 0xff, 0x00, 0x00, // Snaplen

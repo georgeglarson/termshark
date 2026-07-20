@@ -848,4 +848,3 @@ func (s *appState) printPcapSaveMessage() {
 			pcap.SourcesString(s.psrcs), s.ifacePcapFilename)
 	}
 }
-

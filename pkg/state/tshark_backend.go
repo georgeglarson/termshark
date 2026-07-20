@@ -14,12 +14,12 @@ import (
 // This allows the terminal UI to use the state.Manager while keeping
 // its existing tshark-based loading infrastructure.
 type TsharkBackend struct {
-	mu           sync.RWMutex
-	loader       LoaderAdapter
-	currentFile  string
-	packetCount  int
-	columns      []string
-	duration     float64
+	mu          sync.RWMutex
+	loader      LoaderAdapter
+	currentFile string
+	packetCount int
+	columns     []string
+	duration    float64
 }
 
 // LoaderAdapter defines the interface that a packet loader must implement

@@ -20,7 +20,7 @@ import (
 
 // mockPcapCommand implements pcap.IPcapCommand for testing without real processes.
 type mockPcapCommand struct {
-	args    []string
+	args     []string
 	pcapfile string
 }
 

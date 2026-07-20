@@ -1180,7 +1180,7 @@ func TestModel_HexLayers_MultipleLayerMatches(t *testing.T) {
 }
 
 func TestModel_HexLayers_PositionAtBoundary(t *testing.T) {
-	field := &Model{Name: "f", Pos: 10, Size: 5} // 10-14
+	field := &Model{Name: "f", Pos: 10, Size: 5}                              // 10-14
 	child := &Model{Name: "c", Pos: 10, Size: 10, Children_: []*Model{field}} // 10-19
 	skip := &Model{Name: "skip", Pos: 0, Size: 0}
 	root := &Model{Name: "root", Children_: []*Model{skip, child}}
@@ -1328,8 +1328,8 @@ func TestModel_ExpandAllPaths_MultiplePaths(t *testing.T) {
 
 	paths := ExpandedPaths{
 		[]string{"packet"},
-		[]string{"packet", "tcp"},              // expands just "tcp" (not children)
-		[]string{"packet", "tcp", "tcp.port"},  // expands "tcp.port" (leaf)
+		[]string{"packet", "tcp"},             // expands just "tcp" (not children)
+		[]string{"packet", "tcp", "tcp.port"}, // expands "tcp.port" (leaf)
 		[]string{"packet", "udp"},
 		[]string{"packet", "udp", "udp.port"},
 	}
@@ -1338,12 +1338,12 @@ func TestModel_ExpandAllPaths_MultiplePaths(t *testing.T) {
 	root.expandAllPaths(paths)
 
 	// Only leaves of paths get expanded
-	assert.True(t, root.Expanded)        // leaf of ["packet"]
-	assert.True(t, tcp.Expanded)         // leaf of ["packet", "tcp"]
-	assert.True(t, tcpPort.Expanded)     // leaf of ["packet", "tcp", "tcp.port"]
-	assert.False(t, tcpFlags.Expanded)   // not in any path
-	assert.True(t, udp.Expanded)         // leaf of ["packet", "udp"]
-	assert.True(t, udpPort.Expanded)     // leaf of ["packet", "udp", "udp.port"]
+	assert.True(t, root.Expanded)      // leaf of ["packet"]
+	assert.True(t, tcp.Expanded)       // leaf of ["packet", "tcp"]
+	assert.True(t, tcpPort.Expanded)   // leaf of ["packet", "tcp", "tcp.port"]
+	assert.False(t, tcpFlags.Expanded) // not in any path
+	assert.True(t, udp.Expanded)       // leaf of ["packet", "udp"]
+	assert.True(t, udpPort.Expanded)   // leaf of ["packet", "udp", "udp.port"]
 }
 
 //======================================================================

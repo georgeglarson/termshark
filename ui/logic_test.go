@@ -665,8 +665,8 @@ func TestFilterModelAdapter_GetAFilter(t *testing.T) {
 	adapter := filterModelAdapter{model: model}
 	// app.Direction values mirror ui.Direction values
 	assert.Equal(t, "any-a", adapter.GetAFilter(0))  // Any
-	assert.Equal(t, "to-a", adapter.GetAFilter(1))    // To
-	assert.Equal(t, "from-a", adapter.GetAFilter(2))   // From
+	assert.Equal(t, "to-a", adapter.GetAFilter(1))   // To
+	assert.Equal(t, "from-a", adapter.GetAFilter(2)) // From
 }
 
 func TestFilterModelAdapter_GetBFilter(t *testing.T) {

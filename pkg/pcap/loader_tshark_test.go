@@ -218,8 +218,8 @@ type fakeIfaceCmd struct {
 
 var _ IBasicCommand = (*fakeIfaceCmd)(nil)
 
-func (f *fakeIfaceCmd) String() string        { return "fake-dumpcap" }
-func (f *fakeIfaceCmd) Pid() int              { return 12345 }
+func (f *fakeIfaceCmd) String() string          { return "fake-dumpcap" }
+func (f *fakeIfaceCmd) Pid() int                { return 12345 }
 func (f *fakeIfaceCmd) StderrSummary() []string { return nil }
 
 func (f *fakeIfaceCmd) Start() error {

@@ -21,7 +21,6 @@ import (
 
 type FieldType uint
 
-//
 // from epan/ftypes/ftypes.h
 //
 // enum ftenum {

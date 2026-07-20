@@ -81,7 +81,7 @@ type State struct {
 	mu sync.RWMutex
 
 	// Packet navigation
-	CurrentPacket int
+	CurrentPacket  int
 	StructPosition tree.IPos
 	ExpandedNodes  pdmltree.ExpandedPaths
 

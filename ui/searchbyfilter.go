@@ -42,7 +42,6 @@ func (s FilterResult) PacketNumber() int {
 //======================================================================
 
 // Search via a display filter
-//
 type FilterSearchCallbacks struct {
 	*commonSearchCallbacks
 	curSearchTerm string

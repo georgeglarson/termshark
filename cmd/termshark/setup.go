@@ -4,7 +4,6 @@
 
 package main
 
-
 import (
 	"fmt"
 	"os"
@@ -210,4 +209,3 @@ func configureBase16Colors() {
 		}
 	}
 }
-

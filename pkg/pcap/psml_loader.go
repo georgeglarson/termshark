@@ -16,11 +16,11 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/gcla/gowid"
 	"github.com/gcla/gowid/gwutil"
 	"github.com/gcla/termshark/v2"
 	"github.com/gcla/termshark/v2/pkg/format"
-	"github.com/fsnotify/fsnotify"
 	lru "github.com/hashicorp/golang-lru"
 	log "github.com/sirupsen/logrus"
 )
@@ -227,14 +227,15 @@ func waitForFileData(ctx context.Context, filename string, errFn func(error)) {
 // - if the source of packets is a fifo/interface then
 //   - create a pipe
 //   - set PcapPsml to a Reader object that tracks bytes read from the pipe
+//
 // - start the PSML tshark command and get its stdout
 // - if the source of packets is a fifo/interface then
 //   - use inotify to wait for the tmp pcap file to appear
 //   - start the tail command to read the tmp file created by the interface loader
+//
 // - read the PSML and add to data structures
 //
 // Goroutines are started to track the process lifetimes of both processes.
-//
 func (p *PsmlLoader) loadPsmlSync(iloader *InterfaceLoader, e iPsmlLoaderEnv, cb Callback, app gowid.IApp) {
 	// Used to cancel the tickers below which update list widgets with the latest data and
 	// update the progress meter. Note that if ctx is cancelled, then this context is cancelled

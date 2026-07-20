@@ -351,11 +351,11 @@ func (m *MockMainRunner) RunPending(app gowid.IApp) {
 type MockCallbacks struct {
 	mu sync.Mutex
 
-	BeginCalls     []HandlerCode
-	EndCalls       []HandlerCode
-	ErrorCalls     []mockErrorCall
-	ClearCalls     []HandlerCode
-	NewSourceCalls []HandlerCode
+	BeginCalls      []HandlerCode
+	EndCalls        []HandlerCode
+	ErrorCalls      []mockErrorCall
+	ClearCalls      []HandlerCode
+	NewSourceCalls  []HandlerCode
 	PsmlHeaderCalls []HandlerCode
 }
 

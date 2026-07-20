@@ -34,19 +34,19 @@ func (s SourceType) String() string {
 
 // PacketSummary represents a single row in the packet list (PSML).
 type PacketSummary struct {
-	Number   int      `json:"num"`
-	Columns  []string `json:"columns"`
-	Marked   bool     `json:"marked,omitempty"`
-	Ignored  bool     `json:"ignored,omitempty"`
-	BGColor  string   `json:"bg,omitempty"`
-	FGColor  string   `json:"fg,omitempty"`
+	Number  int      `json:"num"`
+	Columns []string `json:"columns"`
+	Marked  bool     `json:"marked,omitempty"`
+	Ignored bool     `json:"ignored,omitempty"`
+	BGColor string   `json:"bg,omitempty"`
+	FGColor string   `json:"fg,omitempty"`
 }
 
 // PacketDetail represents the detailed view of a single packet (PDML + bytes).
 type PacketDetail struct {
-	Number int           `json:"num"`
+	Number int            `json:"num"`
 	Tree   []ProtocolNode `json:"tree"`
-	Bytes  []byte        `json:"bytes"`
+	Bytes  []byte         `json:"bytes"`
 }
 
 // ProtocolNode represents a node in the packet detail tree.

@@ -4,7 +4,6 @@
 
 package main
 
-
 import (
 	"fmt"
 	"os"
@@ -133,4 +132,3 @@ func handleHelpAndVersion(opts *cli.Termshark, tmFlags *flags.Parser) (exitCode 
 
 	return 0, true
 }
-

@@ -44,7 +44,6 @@ var convsPcapSize int64 // track size of source, if changes then recalculation c
 var vdiv string
 var frameRunes framed.FrameRunes
 
-
 //======================================================================
 
 type ManageConvsCache struct{}
@@ -56,7 +55,6 @@ func (t ManageConvsCache) OnNewSource(pcap.HandlerCode, gowid.IApp) {
 	convsView = nil // which then deletes all refs to loaded data
 	convsPcapSize = 0
 }
-
 
 //======================================================================
 
@@ -158,7 +156,6 @@ func closeConvsUi(app gowid.IApp) {
 }
 
 //======================================================================
-
 
 //======================================================================
 
@@ -527,7 +524,6 @@ func (w *ConvsUiWidget) doFilterMenuOp(dirOp FilterMask, app gowid.IApp) {
 	}
 }
 
-
 //======================================================================
 
 type oneConvWidget struct {
@@ -563,7 +559,6 @@ func newOneConv(ctype string) *oneConvWidget {
 }
 
 //======================================================================
-
 
 //======================================================================
 // Local Variables:

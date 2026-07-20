@@ -45,8 +45,8 @@ type PdmlLoader struct {
 	pcapPid atomic.Int32 // 0 if process not started
 
 	sync.Mutex
-	visible                  bool // true if this pdml load is needed right now by the UI
-	rowCurrentlyLoading      int  // set by the pdml loading stage - main goroutine only
+	visible                  bool         // true if this pdml load is needed right now by the UI
+	rowCurrentlyLoading      int          // set by the pdml loading stage - main goroutine only
 	highestCachedRow         atomic.Int32 // accessed from pdml and pcap goroutines
 	killAfterReadingThisMany atomic.Int32 // A shortcut - tell pcap/pdml to read one
 

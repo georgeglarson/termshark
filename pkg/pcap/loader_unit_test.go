@@ -1197,8 +1197,8 @@ func TestPsmlLoader_PacketNumberMap(t *testing.T) {
 	assert.Empty(t, loader.PsmlLoader.PacketNumberOrder)
 
 	// Add mappings
-	loader.PsmlLoader.PacketNumberMap[12] = 0  // Packet 12 is at position 0
-	loader.PsmlLoader.PacketNumberMap[44] = 1  // Packet 44 is at position 1
+	loader.PsmlLoader.PacketNumberMap[12] = 0    // Packet 12 is at position 0
+	loader.PsmlLoader.PacketNumberMap[44] = 1    // Packet 44 is at position 1
 	loader.PsmlLoader.PacketNumberOrder[12] = 44 // After 12 comes 44
 
 	assert.Equal(t, 0, loader.PsmlLoader.PacketNumberMap[12])
