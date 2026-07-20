@@ -34,15 +34,15 @@ func TestToChar(t *testing.T) {
 		input    byte
 		expected byte
 	}{
-		{0, '.'},    // control character
-		{31, '.'},   // control character (just before printable)
-		{32, ' '},   // first printable (space)
-		{'A', 'A'},  // regular letter
-		{'z', 'z'},  // regular letter
-		{'0', '0'},  // digit
-		{'~', '~'},  // 126 - last printable
-		{127, '.'},  // DEL - first non-printable after printable range
-		{255, '.'},  // high byte
+		{0, '.'},   // control character
+		{31, '.'},  // control character (just before printable)
+		{32, ' '},  // first printable (space)
+		{'A', 'A'}, // regular letter
+		{'z', 'z'}, // regular letter
+		{'0', '0'}, // digit
+		{'~', '~'}, // 126 - last printable
+		{127, '.'}, // DEL - first non-printable after printable range
+		{255, '.'}, // high byte
 	}
 
 	for _, tt := range tests {

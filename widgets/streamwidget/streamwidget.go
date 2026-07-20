@@ -904,7 +904,6 @@ func (w *Widget) AddChunkEntire(ch streams.IChunk, app gowid.IApp) {
 	w.data.currentChunk++
 }
 
-
 //======================================================================
 // Local Variables:
 // mode: Go

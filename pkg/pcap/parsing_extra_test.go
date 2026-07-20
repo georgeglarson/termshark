@@ -220,24 +220,24 @@ func TestParsePdmlPackets_ReaderError(t *testing.T) {
 
 func TestParsePcapHexDump_EdgeCases(t *testing.T) {
 	tests := []struct {
-		name          string
-		input         string
-		maxPackets    int
-		wantCount     int
-		wantFirstLen  int
-		wantErr       bool
+		name         string
+		input        string
+		maxPackets   int
+		wantCount    int
+		wantFirstLen int
+		wantErr      bool
 	}{
 		{
-			name:      "only blank lines",
-			input:     "\n\n\n\n",
+			name:       "only blank lines",
+			input:      "\n\n\n\n",
 			maxPackets: 0,
-			wantCount: 0,
+			wantCount:  0,
 		},
 		{
-			name:      "single hex line no trailing newline",
-			input:     "0000  aa bb cc dd ",
-			maxPackets: 0,
-			wantCount: 1,
+			name:         "single hex line no trailing newline",
+			input:        "0000  aa bb cc dd ",
+			maxPackets:   0,
+			wantCount:    1,
 			wantFirstLen: 4,
 		},
 		{
@@ -248,7 +248,7 @@ func TestParsePcapHexDump_EdgeCases(t *testing.T) {
 
 `,
 			maxPackets: 0,
-			wantCount: 2,
+			wantCount:  2,
 		},
 		{
 			// The hex regex requires a trailing space after each byte pair.
@@ -261,8 +261,8 @@ func TestParsePcapHexDump_EdgeCases(t *testing.T) {
 0020  21 22 23 24 25 26 27 28 29 2a 2b 2c 2d 2e 2f 30
 
 `,
-			maxPackets: 0,
-			wantCount: 1,
+			maxPackets:   0,
+			wantCount:    1,
 			wantFirstLen: 45,
 		},
 		{
@@ -275,7 +275,7 @@ func TestParsePcapHexDump_EdgeCases(t *testing.T) {
 
 `,
 			maxPackets: 1,
-			wantCount: 1,
+			wantCount:  1,
 		},
 		{
 			// "0000  ff ff ff ff" without trailing space on last byte:
@@ -286,8 +286,8 @@ func TestParsePcapHexDump_EdgeCases(t *testing.T) {
 0000  ff ff ff ff
 
 `,
-			maxPackets: 0,
-			wantCount: 1,
+			maxPackets:   0,
+			wantCount:    1,
 			wantFirstLen: 3,
 		},
 	}
@@ -432,10 +432,10 @@ func TestParsePsmlXML_MalformedInputs(t *testing.T) {
 
 func TestParsePsmlXML_PacketNumberExtraction(t *testing.T) {
 	tests := []struct {
-		name            string
-		packetNumbers   []string
-		wantNumbers     []int
-		wantErr         bool
+		name          string
+		packetNumbers []string
+		wantNumbers   []int
+		wantErr       bool
 	}{
 		{
 			name:          "sequential numbers",
@@ -580,9 +580,9 @@ func TestParsePsmlXML_MixedEmptyAndFilledSections(t *testing.T) {
 	// Fields skip the first section (packet number)
 	fields := result.Packets[0].Fields
 	assert.Len(t, fields, 3)
-	assert.Equal(t, "", fields[0])          // empty Time
+	assert.Equal(t, "", fields[0])            // empty Time
 	assert.Equal(t, "192.168.1.1", fields[1]) // Source
-	assert.Equal(t, "", fields[2])          // empty Dest
+	assert.Equal(t, "", fields[2])            // empty Dest
 }
 
 func TestParsePsmlXML_TruncatedInput(t *testing.T) {
@@ -665,11 +665,11 @@ func TestParsePsmlXML_LargePacketCount(t *testing.T) {
 
 func TestParsePsmlColors_TableDriven(t *testing.T) {
 	tests := []struct {
-		name       string
-		fg         string
-		bg         string
-		wantFGNil  bool
-		wantBGNil  bool
+		name      string
+		fg        string
+		bg        string
+		wantFGNil bool
+		wantBGNil bool
 	}{
 		{
 			name:      "valid hex colors",

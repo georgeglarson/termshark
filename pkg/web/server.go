@@ -25,9 +25,9 @@ var staticFiles embed.FS
 // Server represents the web server for termshark.
 type Server struct {
 	addr     string
-	sharkd   *SharkdClient         // Deprecated: use manager instead
-	manager  *state.Manager        // New unified state manager
-	registry *state.Registry       // Session registry for multi-session support
+	sharkd   *SharkdClient   // Deprecated: use manager instead
+	manager  *state.Manager  // New unified state manager
+	registry *state.Registry // Session registry for multi-session support
 	server   *http.Server
 	upgrader websocket.Upgrader
 	mu       sync.RWMutex

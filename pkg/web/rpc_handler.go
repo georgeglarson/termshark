@@ -386,8 +386,8 @@ func (s *Server) handleManagerRequestWithManager(req JSONRPCRequest, manager *st
 		for idx, names := range ifaces {
 			if len(names) > 0 {
 				ifaceList = append(ifaceList, map[string]interface{}{
-					"index": idx,
-					"name":  names[0],
+					"index":   idx,
+					"name":    names[0],
 					"aliases": names[1:],
 				})
 			}

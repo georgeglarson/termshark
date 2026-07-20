@@ -33,9 +33,9 @@ func buildTestTree() []*SimpleTreeNode {
 			Pos:  0,
 			Size: 14,
 			Children: []*SimpleTreeNode{
-				{Pos: 0, Size: 6, Children: nil},   // Dst MAC
-				{Pos: 6, Size: 6, Children: nil},   // Src MAC
-				{Pos: 12, Size: 2, Children: nil},  // EtherType
+				{Pos: 0, Size: 6, Children: nil},  // Dst MAC
+				{Pos: 6, Size: 6, Children: nil},  // Src MAC
+				{Pos: 12, Size: 2, Children: nil}, // EtherType
 			},
 		},
 
@@ -265,8 +265,8 @@ func TestFindPathToPosition_PartialMatch(t *testing.T) {
 			Pos:  0,
 			Size: 100,
 			Children: []*SimpleTreeNode{
-				{Pos: 0, Size: 10},   // 0-9
-				{Pos: 20, Size: 10},  // 20-29
+				{Pos: 0, Size: 10},  // 0-9
+				{Pos: 20, Size: 10}, // 20-29
 				// Gap at 10-19 and 30-99
 			},
 		},

@@ -182,12 +182,11 @@ var packetListView *psmlTableRowWidget
 // hex to struct to happen once. So this is a workaround to allow it in that case.
 //
 // This variable has two effects:
-// - when the hex widget is positioned programmatically, and focus is not on the hex widget,
-//   the struct widget is nevertheless updated accordingly
-// - but when the struct widget is updated, if the innermost layer does not capture the
-//   current hex location (the search destination), DON'T update the hex position to be
-//   inside the PDML's innermost layer, which maybe somewhere else in the packet.
-//
+//   - when the hex widget is positioned programmatically, and focus is not on the hex widget,
+//     the struct widget is nevertheless updated accordingly
+//   - but when the struct widget is updated, if the innermost layer does not capture the
+//     current hex location (the search destination), DON'T update the hex position to be
+//     inside the PDML's innermost layer, which maybe somewhere else in the packet.
 var allowHexToStructRepositioning bool
 
 var filterWithSearch gowid.IWidget
@@ -342,7 +341,7 @@ func setPacketColorsWithSync(enabled bool) {
 	AppController.State.SetPacketColors(enabled)
 }
 
-//======================================================================
+// ======================================================================
 // calculateAndSyncPrefetchRequests uses the Controller's prefetch algorithm and syncs
 // with the CacheRequests global for backward compatibility.
 func calculateAndSyncPrefetchRequests(currentRow, pktsPerLoad int) {
@@ -431,14 +430,12 @@ func (o *MultiMenuOpener) CloseMenu(mnu *menu.Widget, app gowid.IApp) {
 
 //======================================================================
 
-//
 // Handle examples like
 // .... ..1. .... .... .... .... = LG bit: Locally administered address (this is NOT the factory default)
 // Extract just
 // LG bit
 //
 // I'm trying to copy what Wireshark does, more or less
-//
 func columnNameFromShowname(showname string) string {
 	matches := shownameRe.FindStringSubmatch(showname)
 	if len(matches) >= 3 {
@@ -1236,7 +1233,6 @@ func lastLineMode(app gowid.IApp) {
 	minibuffer.Open(MiniBuffer, mbView, ratio(1.0), app)
 }
 
-
 func reallyClear(app gowid.IApp) {
 	confirmAction(
 		"Do you want to clear current capture?",
@@ -1287,7 +1283,6 @@ func confirmAction(msgt string, ok func(gowid.IApp), app gowid.IApp) {
 
 // don't claim the keypress
 //======================================================================
-
 
 func RequestLoadInterfaces(psrcs []pcap.IPacketSource, captureFilter string, displayFilter string, tmpfile string, app gowid.IApp) {
 	// Sync filter with Controller (interface captures don't have a fixed pcap path)

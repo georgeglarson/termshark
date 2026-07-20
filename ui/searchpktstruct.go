@@ -37,13 +37,13 @@ func (s StructResult) PacketNumber() int {
 // Search in the packet struct view:
 //
 // <proto name="ip" showname="Internet Protocol Version 4, Src: 10.215.173.1, Dst: 64.13.139.230" size="20" pos="0">
-//   <field name="ip.version" showname="0100 .... = Version: 4" size="1" pos="0" show="4" value="45"/>
-//   <field name="ip.hdr_len" showname=".... 0101 = Header Length: 20 bytes (5)" size="1" pos="0" show="20" value="45"/>
-//   <field name="ip.dsfield" showname="Differentiated Services Field: 0x00 (DSCP: CS0, ECN: Not-ECT)" size="1" pos="1" show="0x00000000" value="00">
-//     <field name="ip.dsfield.dscp" showname="0000 00.. = Differentiated Services Codepoint: Default (0)" size="1" pos="1" show="0" value="0" unmaskedvalue="00"/>
-//     <field name="ip.dsfield.ecn" showname=".... ..00 = Explicit Congestion Notification: Not ECN-Capable Transport (0)" size="1" pos="1" show="0" value="0" unmaskedvalue="00"/>
-//   </field>
 //
+//	<field name="ip.version" showname="0100 .... = Version: 4" size="1" pos="0" show="4" value="45"/>
+//	<field name="ip.hdr_len" showname=".... 0101 = Header Length: 20 bytes (5)" size="1" pos="0" show="20" value="45"/>
+//	<field name="ip.dsfield" showname="Differentiated Services Field: 0x00 (DSCP: CS0, ECN: Not-ECT)" size="1" pos="1" show="0x00000000" value="00">
+//	  <field name="ip.dsfield.dscp" showname="0000 00.. = Differentiated Services Codepoint: Default (0)" size="1" pos="1" show="0" value="0" unmaskedvalue="00"/>
+//	  <field name="ip.dsfield.ecn" showname=".... ..00 = Explicit Congestion Notification: Not ECN-Capable Transport (0)" size="1" pos="1" show="0" value="0" unmaskedvalue="00"/>
+//	</field>
 type StructSearchCallbacks struct {
 	*commonSearchCallbacks
 	*SearchStopper

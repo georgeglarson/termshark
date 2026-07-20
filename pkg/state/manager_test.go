@@ -14,17 +14,17 @@ import (
 
 // mockBackend implements Backend for testing.
 type mockBackend struct {
-	loadedFile      string
-	loadError       error
-	status          *Status
-	statusError     error
-	packets         []PacketSummary
-	packetsError    error
-	packetDetail    *PacketDetail
-	detailError     error
-	filterValid     bool
-	filterMessage   string
-	validateError   error
+	loadedFile    string
+	loadError     error
+	status        *Status
+	statusError   error
+	packets       []PacketSummary
+	packetsError  error
+	packetDetail  *PacketDetail
+	detailError   error
+	filterValid   bool
+	filterMessage string
+	validateError error
 }
 
 func (m *mockBackend) LoadFile(ctx context.Context, path string) error {

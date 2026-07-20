@@ -4,7 +4,6 @@
 
 package main
 
-
 import (
 	"fmt"
 	"os"
@@ -266,4 +265,3 @@ func resolveInterfaceNames(psrcs []pcap.IPacketSource) ([]pcap.IPacketSource, er
 	}
 	return psrcs, nil
 }
-

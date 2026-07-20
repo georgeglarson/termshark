@@ -313,19 +313,19 @@ func TestHandlerCode_BitwiseOperations(t *testing.T) {
 //======================================================================
 
 type multiHandler struct {
-	beginCalled    bool
-	endCalled      bool
-	errorCalled    bool
-	clearCalled    bool
-	newSourceCalled bool
+	beginCalled      bool
+	endCalled        bool
+	errorCalled      bool
+	clearCalled      bool
+	newSourceCalled  bool
 	psmlHeaderCalled bool
-	beginCode      HandlerCode
-	endCode        HandlerCode
-	errorCode      HandlerCode
-	clearCode      HandlerCode
-	newSourceCode  HandlerCode
-	psmlHeaderCode HandlerCode
-	lastErr        error
+	beginCode        HandlerCode
+	endCode          HandlerCode
+	errorCode        HandlerCode
+	clearCode        HandlerCode
+	newSourceCode    HandlerCode
+	psmlHeaderCode   HandlerCode
+	lastErr          error
 }
 
 func (m *multiHandler) BeforeBegin(code HandlerCode, app gowid.IApp) {

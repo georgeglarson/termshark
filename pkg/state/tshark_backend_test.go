@@ -22,13 +22,13 @@ type mockLoaderAdapter struct {
 	isLoading       bool
 }
 
-func (m *mockLoaderAdapter) PsmlData() [][]string        { return m.psmlData }
-func (m *mockLoaderAdapter) PsmlHeaders() []string       { return m.psmlHeaders }
-func (m *mockLoaderAdapter) PsmlColors() []PacketColor   { return m.psmlColors }
+func (m *mockLoaderAdapter) PsmlData() [][]string         { return m.psmlData }
+func (m *mockLoaderAdapter) PsmlHeaders() []string        { return m.psmlHeaders }
+func (m *mockLoaderAdapter) PsmlColors() []PacketColor    { return m.psmlColors }
 func (m *mockLoaderAdapter) PacketNumberMap() map[int]int { return m.packetNumberMap }
-func (m *mockLoaderAdapter) DisplayFilter() string       { return m.displayFilter }
-func (m *mockLoaderAdapter) Pcap() string                { return m.pcap }
-func (m *mockLoaderAdapter) IsLoading() bool             { return m.isLoading }
+func (m *mockLoaderAdapter) DisplayFilter() string        { return m.displayFilter }
+func (m *mockLoaderAdapter) Pcap() string                 { return m.pcap }
+func (m *mockLoaderAdapter) IsLoading() bool              { return m.isLoading }
 
 func TestNewTsharkBackend(t *testing.T) {
 	backend := NewTsharkBackend()

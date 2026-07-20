@@ -35,7 +35,6 @@ func init() {
 
 //======================================================================
 
-
 type LoaderState bool
 
 const (
@@ -556,7 +555,7 @@ Loop:
 					}
 				} else {
 					mloader.RenewPdmlLoader()
-										mloader.loadPcapSync(ev.Row, true, mloader, cb, app)
+					mloader.loadPcapSync(ev.Row, true, mloader, cb, app)
 					requests = requests[1:]
 				}
 				break Loop

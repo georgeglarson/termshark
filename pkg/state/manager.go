@@ -15,12 +15,12 @@ import (
 // Manager coordinates the session state and backend.
 // It provides the API that UI clients call via JSON-RPC.
 type Manager struct {
-	mu       sync.RWMutex
-	session  *Session
-	backend  Backend
-	capture  *CaptureCoordinator
-	ctx      context.Context
-	cancel   context.CancelFunc
+	mu      sync.RWMutex
+	session *Session
+	backend Backend
+	capture *CaptureCoordinator
+	ctx     context.Context
+	cancel  context.CancelFunc
 }
 
 // NewManager creates a new state manager with the given backend.

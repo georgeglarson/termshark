@@ -183,13 +183,13 @@ func (w *Widget) RenderSize(size gowid.IRenderSize, focus gowid.Selector, app go
 }
 
 // 1<-4><3><----------(8 * 3)-1---<2<-------(8 * 3)-1-----><3><---8-->1<---8-->
-//  0660   72 6f 72 73 2e 57 69 74  68 53 74 61 63 6b 28 67   rors.Wit hStack(g
-//  0670   6f 77 69 64 2e 57 69 74  68 4b 56 73 28 4f 70 65   owid.Wit hKVs(Ope
-//  0680   6e 45 72 72 6f 72 2c 20  6d 61 70 5b 73 74 72 69   nError,  map[stri
-//  0690   6e 67 5d 69 6e 74 65 72  66 61 63 65 7b 7d 7b 0a   ng]inter face{}{.
-//  06a0   09 09 09 09 22 64 65 73  63 72 69 70 74 6f 72 22   ...."des criptor"
-//  06b0   3a 20 6e 65 77 73 74 64  69 6e 2c 0a 09 09 09 09   : newstd in,.....
 //
+//	0660   72 6f 72 73 2e 57 69 74  68 53 74 61 63 6b 28 67   rors.Wit hStack(g
+//	0670   6f 77 69 64 2e 57 69 74  68 4b 56 73 28 4f 70 65   owid.Wit hKVs(Ope
+//	0680   6e 45 72 72 6f 72 2c 20  6d 61 70 5b 73 74 72 69   nError,  map[stri
+//	0690   6e 67 5d 69 6e 74 65 72  66 61 63 65 7b 7d 7b 0a   ng]inter face{}{.
+//	06a0   09 09 09 09 22 64 65 73  63 72 69 70 74 6f 72 22   ...."des criptor"
+//	06b0   3a 20 6e 65 77 73 74 64  69 6e 2c 0a 09 09 09 09   : newstd in,.....
 func (w *Widget) Render(size gowid.IRenderSize, focus gowid.Selector, app gowid.IApp) gowid.ICanvas {
 	var canvasRows int
 	if box, ok := size.(gowid.IRows); ok {

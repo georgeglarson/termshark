@@ -12,12 +12,12 @@ import (
 
 func TestCalculatePrefetchRequests(t *testing.T) {
 	tests := []struct {
-		name         string
-		currentRow   int
-		pktsPerLoad  int
-		wantLen      int
-		wantFirst    LoadRequest
-		wantSecond   LoadRequest
+		name        string
+		currentRow  int
+		pktsPerLoad int
+		wantLen     int
+		wantFirst   LoadRequest
+		wantSecond  LoadRequest
 	}{
 		{
 			name:        "row 0 with 1000 batch size",

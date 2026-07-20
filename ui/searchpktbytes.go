@@ -33,7 +33,6 @@ func (s BytesResult) PacketNumber() int {
 //======================================================================
 
 // Search in the packet hex view
-//
 type BytesSearchCallbacks struct {
 	*commonSearchCallbacks
 	*SearchStopper

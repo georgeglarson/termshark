@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"github.com/adam-hanna/arrayOperations"
+	"github.com/adrg/xdg"
 	"github.com/gcla/gowid"
 	"github.com/gcla/gowid/vim"
 	"github.com/gcla/termshark/v2/configs/profiles"
 	"github.com/gcla/termshark/v2/pkg/generic"
 	"github.com/gcla/termshark/v2/widgets/resizable"
-	"github.com/adrg/xdg"
 	log "github.com/sirupsen/logrus"
 )
 

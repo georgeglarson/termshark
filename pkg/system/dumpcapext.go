@@ -3,8 +3,7 @@
 // file.
 
 //go:build !windows && !darwin
-// +build !windows
-// +build !darwin
+// +build !windows,!darwin
 
 package system
 

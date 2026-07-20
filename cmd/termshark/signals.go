@@ -4,7 +4,6 @@
 
 package main
 
-
 import (
 	"fmt"
 	"os"
@@ -147,4 +146,3 @@ func activateUI(state *appState) error {
 
 	return nil
 }
-

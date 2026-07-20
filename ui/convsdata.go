@@ -289,4 +289,3 @@ func (w *ConvsUiWidget) OnData(data string, app gowid.IApp) {
 
 	saveConversation(cur)
 }
-
